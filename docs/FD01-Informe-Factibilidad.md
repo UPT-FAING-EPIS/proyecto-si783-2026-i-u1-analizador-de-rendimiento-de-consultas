@@ -306,19 +306,19 @@ La duración estimada del proyecto es de aproximadamente 4 meses (~16 semanas).
 
 #### 4.2.4. Costos de Personal
 
-El proyecto es desarrollado por un único estudiante en calidad de tesista. Se valoriza el tiempo invertido a una tarifa de practicante de desarrollo de software:
+El proyecto es desarrollado por un único estudiante. Se valoriza el tiempo invertido a una tarifa de practicante de desarrollo de software:
 
 | Rol | Fase | Días estimados | Horas estimadas | Valor hora (S/.) | Costo (S/.) |
 |---|---|:---:|:---:|:---:|:---:|
-| Desarrollador / Tesista | v0 — Setup | 4.0 d | 30 h | 15.00 | 450.00 |
-| Desarrollador / Tesista | v1 — Drivers SQL | 13.0 d | 97.5 h | 15.00 | 1,462.50 |
-| Desarrollador / Tesista | v2 — Drivers NoSQL + CLI | 15.5 d | 116.3 h | 15.00 | 1,744.50 |
-| Desarrollador / Tesista | v3 — TUI | 9.0 d | 67.5 h | 15.00 | 1,012.50 |
-| Desarrollador / Tesista | v4 — Testing + Release | 7.5 d | 56.3 h | 15.00 | 844.50 |
+| Desarrollador | v0 — Setup | 4.0 d | 30 h | 15.00 | 450.00 |
+| Desarrollador | v1 — Drivers SQL | 13.0 d | 97.5 h | 15.00 | 1,462.50 |
+| Desarrollador | v2 — Drivers NoSQL + CLI | 15.5 d | 116.3 h | 15.00 | 1,744.50 |
+| Desarrollador | v3 — TUI | 9.0 d | 67.5 h | 15.00 | 1,012.50 |
+| Desarrollador | v4 — Testing + Release | 7.5 d | 56.3 h | 15.00 | 844.50 |
 | Investigación / aprendizaje (20% adicional) | Todas | — | 73.5 h | 15.00 | 1,102.50 |
 | **Total costos de personal** | | **49 d** | **441 h** | | **6,616.50** |
 
-> Se incluye un 20% adicional por tiempo de investigación de internals de cada motor de base de datos, parte esencial e incorporada en el proceso de aprendizaje del proyecto de tesis.
+> Se incluye un 20% adicional por tiempo de investigación de internals de cada motor de base de datos, parte esencial e incorporada en el proceso de aprendizaje del proyecto.
 
 #### 4.2.5. Costos Totales del Desarrollo del Sistema
 
@@ -354,12 +354,12 @@ El proyecto es desarrollado por un único estudiante en calidad de tesista. Se v
 
 | Interesado | Rol en el proyecto | Interés principal |
 |---|---|---|
-| Estudiante desarrollador | Desarrollador / Tesista | Completar la tesis y adquirir conocimiento profundo en internals de bases de datos |
+| Estudiante desarrollador | Desarrollador | Completar el proyecto y adquirir conocimiento profundo en internals de bases de datos |
 | Docente asesor | Supervisor académico | Evaluar calidad técnica, originalidad y contribución al aprendizaje |
 | Desarrolladores de software | Usuarios finales primarios | Optimizar consultas sin herramientas especializadas ni consultores externos |
 | DBAs (Administradores de BD) | Usuarios finales avanzados | Identificar y priorizar las consultas más costosas en entornos de producción |
 | Comunidad open source | Usuarios y colaboradores potenciales | Disponer de una herramienta gratuita y extensible; contribuir nuevos drivers |
-| Universidad Privada de Tacna | Institución académica | Validar que el proyecto cumple los requisitos de tesis de pregrado |
+| Universidad Privada de Tacna | Institución académica | Validar que el proyecto cumple los requisitos académicos |
 
 ### 4.4. Factibilidad Legal
 
@@ -400,7 +400,7 @@ Esta arquitectura garantiza compatibilidad con la **Ley N° 29733 — Ley de Pro
 
 #### Propiedad intelectual
 
-El proyecto es un trabajo de tesis original desarrollado íntegramente por el estudiante. Todo el código producido es de autoría propia y será publicado bajo **licencia MIT**. No existe conflicto de propiedad intelectual con ninguna de las herramientas o librerías utilizadas como dependencias.
+El proyecto es un trabajo original desarrollado íntegramente por el estudiante. Todo el código producido es de autoría propia y será publicado bajo **licencia MIT**. No existe conflicto de propiedad intelectual con ninguna de las herramientas o librerías utilizadas como dependencias.
 
 ### 4.5. Factibilidad Social
 
@@ -408,7 +408,7 @@ El proyecto es un trabajo de tesis original desarrollado íntegramente por el es
 
 **Impacto educativo:** las recomendaciones en lenguaje natural con SQL concreto funcionan simultáneamente como herramienta de diagnóstico y como herramienta de aprendizaje. Un desarrollador que recibe `CREATE INDEX CONCURRENTLY ON orders(status)` con la explicación del Seq Scan detectado aprende un concepto de bases de datos que recordará y aplicará en proyectos futuros.
 
-**Extensibilidad comunitaria:** el diseño de adaptadores y la guía `docs/adding-a-driver.md` (issue #31) invitan activamente a la comunidad a agregar soporte para nuevos motores, enriqueciendo la herramienta más allá del alcance individual de la tesis.
+**Extensibilidad comunitaria:** el diseño de adaptadores y la guía `docs/adding-a-driver.md` (issue #31) invitan activamente a la comunidad a agregar soporte para nuevos motores, enriqueciendo la herramienta más allá del alcance individual del proyecto.
 
 **Ética del uso:** la herramienta opera en modo de solo lectura (ejecuta `EXPLAIN`, no modifica datos), requiere credenciales explícitamente proporcionadas por el usuario y funciona únicamente contra las bases de datos que el propio usuario autoriza. No presenta riesgos éticos significativos.
 
@@ -539,7 +539,7 @@ El análisis de factibilidad del proyecto **Query Performance Analyzer** arroja 
 El 100% de las tecnologías requeridas son de código abierto, gratuitas y ampliamente adoptadas en la industria. La arquitectura en cuatro capas con el patrón de adaptadores es la solución técnica más adecuada para gestionar la heterogeneidad de 13 motores de bases de datos. El plan de 5 milestones (v0–v4) con 33 issues distribuye progresivamente la complejidad técnica, comenzando con el motor más documentado (PostgreSQL en v1) y avanzando hacia los más especializados (NoSQL y series de tiempo en v2).
 
 **Factibilidad Económica — VIABLE**
-El costo total del proyecto es de S/. 7,106.50, compuesto en un 93% por el tiempo del desarrollador. Al no requerir ninguna licencia comercial, infraestructura cloud ni hardware especializado, el proyecto es completamente accesible en el contexto de una tesis de pregrado autofinanciada. El uso de `uv`, GitHub Actions y PyPI elimina cualquier costo de ambiente o distribución.
+El costo total del proyecto es de S/. 7,106.50, compuesto en un 93% por el tiempo del desarrollador. Al no requerir ninguna licencia comercial, infraestructura cloud ni hardware especializado, el proyecto es completamente accesible en el contexto de un proyecto académico autofinanciado. El uso de `uv`, GitHub Actions y PyPI elimina cualquier costo de ambiente o distribución.
 
 **Factibilidad Operativa — VIABLE**
 La herramienta aporta beneficios concretos y medibles: reducción del tiempo de análisis de 30–60 minutos a menos de 1 minuto por consulta. La arquitectura de adaptadores garantiza mantenibilidad a largo plazo. Los 33 issues con criterios de aceptación medibles aseguran la entrega de funcionalidad verificable en cada milestone.
