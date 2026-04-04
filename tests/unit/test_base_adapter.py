@@ -1,6 +1,7 @@
 """Tests unitarios para BaseAdapter y modelos asociados."""
 
 import pytest
+from typing import Any
 from pydantic import ValidationError
 
 from query_analyzer.adapters import (
@@ -46,14 +47,14 @@ class MockAdapter(BaseAdapter):
             metrics={"rows": 1000, "cost": 100.5},
         )
 
-    def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict]:
+    def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
         """Simula obtención de queries lentas."""
         return [
             {"query": "SELECT * FROM users WHERE...", "execution_time_ms": 5000},
             {"query": "SELECT * FROM orders WHERE...", "execution_time_ms": 3500},
         ]
 
-    def get_metrics(self) -> dict:
+    def get_metrics(self) -> dict[str, Any]:
         """Simula obtención de métricas."""
         return {
             "active_connections": 42,
@@ -61,7 +62,7 @@ class MockAdapter(BaseAdapter):
             "cache_hit_ratio": 0.95,
         }
 
-    def get_engine_info(self) -> dict:
+    def get_engine_info(self) -> dict[str, Any]:
         """Simula obtención de información del motor."""
         return {
             "version": "5.7.35" if self._config.engine == "mysql" else "14.2",
@@ -120,7 +121,7 @@ def test_incomplete_adapter_raises_typeerror() -> None:
     )
 
     with pytest.raises(TypeError, match="Can't instantiate abstract class"):
-        IncompleteAdapter(config)
+        IncompleteAdapter(config)  # type: ignore[abstract]
 
 
 # ============================================================================
