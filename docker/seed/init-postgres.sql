@@ -33,8 +33,8 @@ CREATE TABLE customers (
 CREATE INDEX idx_customers_email ON customers(email);
 CREATE INDEX idx_customers_country ON customers(country);
 
-INSERT INTO customers (name, email, country) 
-SELECT 
+INSERT INTO customers (name, email, country)
+SELECT
     'Customer ' || i,
     'customer' || i || '@example.com',
     CASE (i % 5)
@@ -62,7 +62,7 @@ CREATE INDEX idx_orders_order_date ON orders(order_date);
 CREATE INDEX idx_orders_status ON orders(status);
 
 INSERT INTO orders (customer_id, order_date, total_amount, status)
-SELECT 
+SELECT
     (i % 100) + 1,
     CURRENT_DATE - (i % 30 || ' days')::INTERVAL,
     ROUND((RANDOM() * 9990 + 10)::NUMERIC, 2),
@@ -89,7 +89,7 @@ CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 -- Intentionally NO index on product_id to force sequential scans
 
 INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-SELECT 
+SELECT
     (i % 100) + 1,
     FLOOR(RANDOM() * 1000)::INT,
     FLOOR(RANDOM() * 10 + 1)::INT,
@@ -111,7 +111,7 @@ CREATE TABLE large_table (
 CREATE INDEX idx_large_table_category ON large_table(category);
 
 INSERT INTO large_table (data_value, numeric_value, category)
-SELECT 
+SELECT
     'value_' || i || '_' || MD5(i::TEXT),
     (i * 7 + FLOOR(RANDOM() * 1000)::INT) % 50000,
     CASE (i % 10)
@@ -143,7 +143,7 @@ CREATE TABLE slow_queries_log (
 CREATE INDEX idx_slow_queries_log_execution_time ON slow_queries_log(execution_time_ms);
 
 INSERT INTO slow_queries_log (query_text, execution_time_ms, rows_affected, query_type)
-SELECT 
+SELECT
     'SELECT * FROM large_table WHERE category = ''' || CHR(65 + (i % 10)) || ''' AND numeric_value > ' || (i % 40000),
     FLOOR(RANDOM() * 5000 + 100)::INT,
     FLOOR(RANDOM() * 5000)::INT,
@@ -170,9 +170,9 @@ FROM generate_series(1, 1000) AS t(i);
 
 -- Query 3: NESTED LOOP (JOIN without proper indexes)
 -- Expected: Can produce nested loops
--- SELECT o.id, oi.product_id 
--- FROM orders o 
--- JOIN order_items oi ON o.id = oi.order_id 
+-- SELECT o.id, oi.product_id
+-- FROM orders o
+-- JOIN order_items oi ON o.id = oi.order_id
 -- WHERE o.customer_id = 5;
 
 -- Query 4: AGGREGATE with GROUP BY

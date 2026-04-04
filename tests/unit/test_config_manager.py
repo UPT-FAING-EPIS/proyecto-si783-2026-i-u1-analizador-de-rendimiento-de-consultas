@@ -10,14 +10,12 @@ from pydantic import ValidationError
 
 from query_analyzer.config import (
     AppConfig,
-    AppDefaults,
     ConfigManager,
     ConfigValidationError,
     EnvVarNotFoundError,
     ProfileConfig,
     ProfileNotFoundError,
 )
-from query_analyzer.config.crypto import CryptoManager
 
 
 @pytest.fixture

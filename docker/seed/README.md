@@ -35,9 +35,9 @@ Items dentro de órdenes, para demostrar nested loops.
 
 ```sql
 -- NESTED LOOP JOIN (puede ser ineficiente sin índice en product_id)
-SELECT o.id, oi.product_id 
-FROM orders o 
-JOIN order_items oi ON o.id = oi.order_id 
+SELECT o.id, oi.product_id
+FROM orders o
+JOIN order_items oi ON o.id = oi.order_id
 WHERE o.customer_id = 5;
 ```
 
@@ -192,10 +192,10 @@ db.orders.find({ country: "USA" })
 db.orders.aggregate([
   { $match: { country: "USA" } },
   { $unwind: "$orders" },
-  { $group: { 
-    _id: "$_id", 
+  { $group: {
+    _id: "$_id",
     customer_name: { $first: "$customer_name" },
-    total_spent: { $sum: "$orders.total_amount" } 
+    total_spent: { $sum: "$orders.total_amount" }
   }},
   { $sort: { total_spent: -1 } }
 ])

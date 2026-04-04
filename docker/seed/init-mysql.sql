@@ -208,9 +208,9 @@ DELIMITER ;
 -- SELECT * FROM large_table WHERE numeric_value > 30000;
 
 -- Query 3: NESTED LOOP JOIN (JOIN without proper optimization)
--- SELECT o.id, oi.product_id 
--- FROM orders o 
--- JOIN order_items oi ON o.id = oi.order_id 
+-- SELECT o.id, oi.product_id
+-- FROM orders o
+-- JOIN order_items oi ON o.id = oi.order_id
 -- WHERE o.customer_id = 5;
 
 -- Query 4: AGGREGATE with GROUP BY

@@ -13,7 +13,6 @@ from query_analyzer.config import (
 )
 from query_analyzer.adapters import (
     BaseAdapter,
-    ConnectionError as AdapterConnectionError,
 )
 from query_analyzer.cli.utils import OutputFormatter
 
