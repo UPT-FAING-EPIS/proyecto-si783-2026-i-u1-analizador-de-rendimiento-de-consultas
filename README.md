@@ -73,16 +73,100 @@ source .venv/bin/activate  # Linux/Mac
 ### Opción 2: Con Docker Compose
 
 ```bash
-cd query-analyzer
-
 # Copiar configuración de entorno
 cp .env.example .env
 
-# Levantar servicios (PostgreSQL, MongoDB, InfluxDB + app)
-docker-compose -f docker/docker-compose.yml up -d
+# Levantar todos los servicios
+make up
 
 # Ver logs
-docker-compose -f docker/docker-compose.yml logs -f query-analyzer
+make logs
+
+# Detener servicios
+make down
+```
+
+## 🐳 Entorno Docker
+
+El proyecto incluye un entorno Docker completo con múltiples motores de bases de datos para testing y desarrollo.
+
+### Servicios Disponibles
+
+| Servicio | Puerto | Credenciales por Defecto |
+|----------|--------|-------------------------|
+| PostgreSQL | 5432 | `postgres` / `postgres123` |
+| MySQL | 3306 | `analyst` / `mysql123` |
+| MongoDB | 27017 | `admin` / `mongodb123` |
+| Redis | 6379 | (sin contraseña) |
+| InfluxDB | 8086 | `admin` / `influxdb123` |
+| Neo4j | 7687/7474 | `neo4j` / `neo4j123` |
+| CockroachDB | 26257/8080 | (sin contraseña) |
+
+### Comandos de Make
+
+```bash
+# Iniciar todos los servicios
+make up
+
+# Verificar estado de salud de servicios
+make health
+
+# Cargar datos de prueba en PostgreSQL y MySQL
+make seed
+
+# Ver logs en tiempo real
+make logs
+
+# Ver logs de un servicio específico
+make logs-postgres
+make logs-mysql
+make logs-mongodb
+
+# Mostrar contenedores activos
+make ps
+
+# Detener servicios (preserva datos)
+make down
+
+# Limpiar: elimina contenedores y volúmenes
+make reset
+
+# Limpiar imágenes Docker no usadas
+make clean
+
+# Ver todos los comandos disponibles
+make help
+```
+
+### Datos de Prueba
+
+El comando `make seed` popula las bases de datos SQL con tablas de prueba diseñadas para demostrar diferentes patrones de rendimiento:
+
+- **customers** (100 filas) - Tabla pequeña con índices para JOINs
+- **orders** (100 filas) - Tabla con índices en customer_id y status
+- **order_items** (500 filas) - Para demostrar nested loops (sin índice en product_id)
+- **large_table** (10,000 filas) - Para demostrar full table scans
+- **slow_queries_log** (1,000 filas) - Registro de queries lentes
+
+Ver `docker/seed/README.md` para detalles completos sobre los datos.
+
+### Ejemplo: Testing Local
+
+```bash
+# 1. Levantar todo
+make up
+
+# 2. Esperar a que los servicios estén listos
+make health
+
+# 3. Cargar datos de prueba
+make seed
+
+# 4. Verificar que PostgreSQL está disponible
+psql -h localhost -U postgres -d query_analyzer -c "SELECT COUNT(*) FROM customers;"
+
+# 5. Cuando termines
+make down
 ```
 
 ## 🛠️ Desarrollo
@@ -147,31 +231,38 @@ Copiar `.env.example` a `.env` y ajustar según necesidad:
 cp .env.example .env
 ```
 
-**Variables SQL (PostgreSQL):**
+Ver `.env.example` para la lista completa de variables. Principales:
+
+**Variables PostgreSQL:**
 ```env
-DB_SQL_HOST=localhost
-DB_SQL_PORT=5432
-DB_SQL_USER=admin
-DB_SQL_PASSWORD=password123
-DB_SQL_NAME=query_analyzer
+DB_POSTGRES_USER=postgres
+DB_POSTGRES_PASSWORD=postgres123
+DB_POSTGRES_NAME=query_analyzer
+DB_POSTGRES_PORT=5432
 ```
 
-**Variables NoSQL (MongoDB):**
+**Variables MySQL:**
 ```env
-DB_NOSQL_HOST=localhost
-DB_NOSQL_PORT=27017
-DB_NOSQL_USER=admin
-DB_NOSQL_PASSWORD=password123
-DB_NOSQL_NAME=query_analyzer
+DB_MYSQL_USER=analyst
+DB_MYSQL_PASSWORD=mysql123
+DB_MYSQL_NAME=query_analyzer
+DB_MYSQL_PORT=3306
 ```
 
-**Variables TimeSeries (InfluxDB):**
+**Variables MongoDB:**
 ```env
-DB_TIMESERIES_HOST=localhost
-DB_TIMESERIES_PORT=8086
-DB_TIMESERIES_USER=admin
-DB_TIMESERIES_PASSWORD=password123
-DB_TIMESERIES_NAME=query_analyzer
+DB_MONGODB_USER=admin
+DB_MONGODB_PASSWORD=mongodb123
+DB_MONGODB_NAME=query_analyzer
+DB_MONGODB_PORT=27017
+```
+
+**Variables InfluxDB:**
+```env
+DB_INFLUXDB_USER=admin
+DB_INFLUXDB_PASSWORD=influxdb123
+DB_INFLUXDB_NAME=query_analyzer
+DB_INFLUXDB_PORT=8086
 ```
 
 ## 📚 Dependencias Principales
@@ -180,15 +271,23 @@ DB_TIMESERIES_NAME=query_analyzer
 - **textual** - TUI framework moderno
 - **rich** - Formatting y colores en terminal
 - **psycopg2-binary** - Driver PostgreSQL
+- **mysql-connector-python** - Driver MySQL (cuando se implemente)
+- **pymongo** - Driver MongoDB (cuando se implemente)
 - **pydantic** - Validación de datos con tipos
 - **pyyaml** - Parseo de YAML
 - **typer** - CLI framework
+- **cryptography** - Cifrado de credenciales
 
 ### Desarrollo
 - **ruff** - Linter/formatter ultra-rápido
 - **mypy** - Type checking estricto
 - **pytest** - Framework de testing
 - **pre-commit** - Git hooks
+
+### DevOps
+- **Docker** - Contenedores
+- **Docker Compose** - Orquestación multi-contenedor
+- **Make** - Automatización de comandos
 
 ## 🔄 Flujo de Desarrollo
 

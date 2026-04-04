@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.mypy_cache
+.dmypy.json
+dmypy.json
+.hypothesis/
+
+# Project specific
+docs/
+tests/
+Makefile
+.pre-commit-config.yaml
+.python-version
+.ruff_cache
+pyproject.toml
+uv.lock
+README.md
+.env
+.env.example
+.agents-instructions.md
+
+# Docker
+docker-compose.yml
+.dockerignore

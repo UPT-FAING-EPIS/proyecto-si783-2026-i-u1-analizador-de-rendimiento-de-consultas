@@ -1,91 +1,169 @@
 version: '3.9'
 
 services:
+  # ============================================================================
+  # SQL DATABASES
+  # ============================================================================
+
   postgres:
     image: postgres:16-alpine
     container_name: query-analyzer-postgres
     environment:
-      POSTGRES_USER: ${DB_SQL_USER:-admin}
-      POSTGRES_PASSWORD: ${DB_SQL_PASSWORD:-password123}
-      POSTGRES_DB: ${DB_SQL_NAME:-query_analyzer}
+      POSTGRES_USER: ${DB_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_DB: ${DB_POSTGRES_NAME:-query_analyzer}
     ports:
-      - "${DB_SQL_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "${DB_POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_SQL_USER:-admin}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - query-analyzer-net
+
+  mysql:
+    image: mysql:8
+    container_name: query-analyzer-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_MYSQL_PASSWORD:-mysql123}
+      MYSQL_DATABASE: ${DB_MYSQL_NAME:-query_analyzer}
+      MYSQL_USER: ${DB_MYSQL_USER:-analyst}
+      MYSQL_PASSWORD: ${DB_MYSQL_PASSWORD:-mysql123}
+    ports:
+      - "${DB_MYSQL_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - query-analyzer-net
+
+  # ============================================================================
+  # NoSQL / CACHE
+  # ============================================================================
 
   mongodb:
     image: mongo:7
     container_name: query-analyzer-mongodb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${DB_NOSQL_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${DB_NOSQL_PASSWORD:-password123}
-      MONGO_INITDB_DATABASE: ${DB_NOSQL_NAME:-query_analyzer}
+      MONGO_INITDB_ROOT_USERNAME: ${DB_MONGODB_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_MONGODB_PASSWORD:-mongodb123}
+      MONGO_INITDB_DATABASE: ${DB_MONGODB_NAME:-query_analyzer}
     ports:
-      - "${DB_NOSQL_PORT:-27017}:27017"
-    volumes:
-      - mongodb_data:/data/db
+      - "${DB_MONGODB_PORT:-27017}:27017"
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - query-analyzer-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: query-analyzer-redis
+    ports:
+      - "${DB_REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - query-analyzer-net
+
+  # ============================================================================
+  # TIME-SERIES / GRAPH
+  # ============================================================================
 
   influxdb:
     image: influxdb:2-alpine
     container_name: query-analyzer-influxdb
     environment:
-      INFLUXDB_DB: ${DB_TIMESERIES_NAME:-query_analyzer}
-      INFLUXDB_ADMIN_USER: ${DB_TIMESERIES_USER:-admin}
-      INFLUXDB_ADMIN_PASSWORD: ${DB_TIMESERIES_PASSWORD:-password123}
+      INFLUXDB_DB: ${DB_INFLUXDB_NAME:-query_analyzer}
+      INFLUXDB_ADMIN_USER: ${DB_INFLUXDB_USER:-admin}
+      INFLUXDB_ADMIN_PASSWORD: ${DB_INFLUXDB_PASSWORD:-influxdb123}
     ports:
-      - "${DB_TIMESERIES_PORT:-8086}:8086"
-    volumes:
-      - influxdb_data:/var/lib/influxdb2
+      - "${DB_INFLUXDB_PORT:-8086}:8086"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - query-analyzer-net
 
-  query-analyzer:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    container_name: query-analyzer-app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
-      influxdb:
-        condition: service_healthy
+  neo4j:
+    image: neo4j:5
+    container_name: query-analyzer-neo4j
     environment:
-      DB_SQL_HOST: postgres
-      DB_SQL_PORT: 5432
-      DB_SQL_USER: ${DB_SQL_USER:-admin}
-      DB_SQL_PASSWORD: ${DB_SQL_PASSWORD:-password123}
-      DB_SQL_NAME: ${DB_SQL_NAME:-query_analyzer}
-      DB_NOSQL_HOST: mongodb
-      DB_NOSQL_PORT: 27017
-      DB_NOSQL_USER: ${DB_NOSQL_USER:-admin}
-      DB_NOSQL_PASSWORD: ${DB_NOSQL_PASSWORD:-password123}
-      DB_NOSQL_NAME: ${DB_NOSQL_NAME:-query_analyzer}
-      DB_TIMESERIES_HOST: influxdb
-      DB_TIMESERIES_PORT: 8086
-      DB_TIMESERIES_USER: ${DB_TIMESERIES_USER:-admin}
-      DB_TIMESERIES_PASSWORD: ${DB_TIMESERIES_PASSWORD:-password123}
-      DB_TIMESERIES_NAME: ${DB_TIMESERIES_NAME:-query_analyzer}
+      NEO4J_AUTH: ${DB_NEO4J_USER:-neo4j}/${DB_NEO4J_PASSWORD:-neo4j123}
+      NEO4J_dbms_memory_heap_initial__size: 256M
+      NEO4J_dbms_memory_heap_max__size: 256M
     ports:
-      - "8000:8000"
-    stdin_open: true
-    tty: true
+      - "${DB_NEO4J_BOLT_PORT:-7687}:7687"
+      - "${DB_NEO4J_HTTP_PORT:-7474}:7474"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474/db/neo4j/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - query-analyzer-net
 
-volumes:
-  postgres_data:
-  mongodb_data:
-  influxdb_data:
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    container_name: query-analyzer-cockroachdb
+    ports:
+      - "${DB_COCKROACH_PORT:-26257}:26257"
+      - "${DB_COCKROACH_HTTP_PORT:-8080}:8080"
+    command: start-single-node --insecure --sql-addr=0.0.0.0:26257
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - query-analyzer-net
+
+networks:
+  query-analyzer-net:
+    driver: bridge
