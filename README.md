@@ -13,11 +13,7 @@ Analizador de rendimiento de consultas para **SQL**, **NoSQL** y **TimeSeries** 
 - 🎯 Análisis profundo de consultas SQL y NoSQL
 - 📊 Soporte para múltiples motores de bases de datos
 - 🖥️ Interfaz de terminal moderna (TUI) con Textual
-- ⚡ Instalación ultra-rápida con `uv`
-- 🔒 Reproducibilidad exacta mediante `uv.lock`
-- 🧪 Tests unitarios e integración
 - 🐳 Orquestación con Docker Compose
-- ✅ Pre-commit hooks configurados (ruff + mypy)
 
 ## 📋 Requisitos Previos
 
