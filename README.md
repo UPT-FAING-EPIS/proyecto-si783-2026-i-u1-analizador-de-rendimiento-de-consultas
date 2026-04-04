@@ -62,8 +62,8 @@ query-analyzer/
 
 ```bash
 # Clonar repositorio
-git clone https://github.com/usuario/query-analyzer.git
-cd query-analyzer/query-analyzer
+git clone https://github.com/UPT-FAING-EPIS/proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas.git
+cd proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas
 
 # Sincronizar entorno (instala dependencias automáticamente)
 uv sync
@@ -231,15 +231,3 @@ Las contribuciones son bienvenidas. Por favor:
 2. Ejecuta `uv run pre-commit run --all-files` antes de hacer commit
 3. Escribe tests para nuevas funcionalidades
 4. Usa type hints en todo el código
-
-## 📝 Licencia
-
-[Especificar licencia según corresponda]
-
-## 📧 Contacto
-
-Para reportar bugs o sugerencias, abrir un issue en el repositorio.
-
----
-
-**Desarrollado con ❤️ usando uv - El gestor de paquetes Python del futuro**
