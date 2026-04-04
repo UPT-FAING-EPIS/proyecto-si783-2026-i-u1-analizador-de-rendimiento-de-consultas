@@ -11,6 +11,7 @@ from .exceptions import (
 )
 from .models import ConnectionConfig, QueryAnalysisReport
 from .registry import AdapterRegistry
+from .sql import PostgreSQLAdapter, PostgreSQLExplainParser, PostgreSQLMetricsHelper
 
 __all__ = [
     # Models
@@ -20,6 +21,10 @@ __all__ = [
     "BaseAdapter",
     # Registry
     "AdapterRegistry",
+    # SQL Adapters
+    "PostgreSQLAdapter",
+    "PostgreSQLExplainParser",
+    "PostgreSQLMetricsHelper",
     # Exceptions
     "AdapterException",
     "ConnectionError",
