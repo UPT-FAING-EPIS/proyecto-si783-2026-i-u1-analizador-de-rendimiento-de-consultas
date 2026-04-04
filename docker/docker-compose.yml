@@ -1,0 +1,91 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: query-analyzer-postgres
+    environment:
+      POSTGRES_USER: ${DB_SQL_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_SQL_PASSWORD:-password123}
+      POSTGRES_DB: ${DB_SQL_NAME:-query_analyzer}
+    ports:
+      - "${DB_SQL_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_SQL_USER:-admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: query-analyzer-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${DB_NOSQL_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_NOSQL_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: ${DB_NOSQL_NAME:-query_analyzer}
+    ports:
+      - "${DB_NOSQL_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  influxdb:
+    image: influxdb:2-alpine
+    container_name: query-analyzer-influxdb
+    environment:
+      INFLUXDB_DB: ${DB_TIMESERIES_NAME:-query_analyzer}
+      INFLUXDB_ADMIN_USER: ${DB_TIMESERIES_USER:-admin}
+      INFLUXDB_ADMIN_PASSWORD: ${DB_TIMESERIES_PASSWORD:-password123}
+    ports:
+      - "${DB_TIMESERIES_PORT:-8086}:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  query-analyzer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: query-analyzer-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    environment:
+      DB_SQL_HOST: postgres
+      DB_SQL_PORT: 5432
+      DB_SQL_USER: ${DB_SQL_USER:-admin}
+      DB_SQL_PASSWORD: ${DB_SQL_PASSWORD:-password123}
+      DB_SQL_NAME: ${DB_SQL_NAME:-query_analyzer}
+      DB_NOSQL_HOST: mongodb
+      DB_NOSQL_PORT: 27017
+      DB_NOSQL_USER: ${DB_NOSQL_USER:-admin}
+      DB_NOSQL_PASSWORD: ${DB_NOSQL_PASSWORD:-password123}
+      DB_NOSQL_NAME: ${DB_NOSQL_NAME:-query_analyzer}
+      DB_TIMESERIES_HOST: influxdb
+      DB_TIMESERIES_PORT: 8086
+      DB_TIMESERIES_USER: ${DB_TIMESERIES_USER:-admin}
+      DB_TIMESERIES_PASSWORD: ${DB_TIMESERIES_PASSWORD:-password123}
+      DB_TIMESERIES_NAME: ${DB_TIMESERIES_NAME:-query_analyzer}
+    ports:
+      - "8000:8000"
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  influxdb_data:

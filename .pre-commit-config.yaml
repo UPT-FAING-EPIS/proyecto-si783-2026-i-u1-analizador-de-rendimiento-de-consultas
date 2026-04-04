@@ -1,0 +1,29 @@
+repos:
+  # Ruff - Linter y Formatter ultra-rápido
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-zero]
+      - id: ruff-format
+
+  # MyPy - Type checking estricto
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.20.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - "types-pyyaml"
+          - "types-psycopg2"
+        args: [--strict, --ignore-missing-imports]
+
+  # Pre-commit - Validaciones básicas
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict

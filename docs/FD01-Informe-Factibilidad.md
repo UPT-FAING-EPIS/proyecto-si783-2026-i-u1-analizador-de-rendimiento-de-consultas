@@ -16,7 +16,7 @@ Docente: *Mag. Patrick Cuadros Quiroga*
 
 Integrantes:
 
-***Carbajal Vargas, Andre Alejandro (2023077287)*** 
+***Carbajal Vargas, Andre Alejandro (2023077287)***
 
 ***Yupa Gómez, Fátima Sofía (2023076618)***
 
