@@ -126,13 +126,14 @@ services:
     container_name: query-analyzer-neo4j
     environment:
       NEO4J_AUTH: ${DB_NEO4J_USER:-neo4j}/${DB_NEO4J_PASSWORD:-neo4j123}
-      NEO4J_dbms_memory_heap_initial__size: 256M
-      NEO4J_dbms_memory_heap_max__size: 256M
+      NEO4J_server_memory_heap_initial__size: 128M
+      NEO4J_server_memory_heap_max__size: 128M
+      NEO4J_server_memory_pagecache_size: 128M
     ports:
       - "${DB_NEO4J_BOLT_PORT:-7687}:7687"
       - "${DB_NEO4J_HTTP_PORT:-7474}:7474"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7474/db/neo4j/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:7474/"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -150,17 +151,17 @@ services:
     ports:
       - "${DB_COCKROACH_PORT:-26257}:26257"
       - "${DB_COCKROACH_HTTP_PORT:-8080}:8080"
-    command: start-single-node --insecure --sql-addr=0.0.0.0:26257
+    command: start-single-node --insecure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
-      interval: 10s
-      timeout: 5s
+      interval: 15s
+      timeout: 10s
       retries: 5
     deploy:
       resources:
         limits:
           cpus: '0.5'
-          memory: 512M
+          memory: 1024M
     networks:
       - query-analyzer-net
 
