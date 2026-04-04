@@ -7,8 +7,10 @@ from .exceptions import (
     ConnectionError,
     DisconnectionError,
     QueryAnalysisError,
+    UnsupportedEngineError,
 )
 from .models import ConnectionConfig, QueryAnalysisReport
+from .registry import AdapterRegistry
 
 __all__ = [
     # Models
@@ -16,10 +18,13 @@ __all__ = [
     "QueryAnalysisReport",
     # Base
     "BaseAdapter",
+    # Registry
+    "AdapterRegistry",
     # Exceptions
     "AdapterException",
     "ConnectionError",
     "ConnectionConfigError",
     "QueryAnalysisError",
     "DisconnectionError",
+    "UnsupportedEngineError",
 ]
