@@ -1,27 +1,10 @@
--- ============================================================================
--- Query Analyzer - MySQL Test Data
--- ============================================================================
--- This script creates test tables and data for demonstrating query performance
--- patterns: index usage, full table scans, nested loops, etc.
---
--- Tables:
---   - customers (100 rows) - Small table for JOINs
---   - orders (100 rows) - Small table with some indexes
---   - order_items (500 rows) - Medium table for nested loops
---   - large_table (10000 rows) - Large table for full table scans
---   - slow_queries_log (1000 rows) - Sample slow query logs
--- ============================================================================
 
--- Drop existing tables if they exist
 DROP TABLE IF EXISTS slow_queries_log;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS large_table;
 
--- ============================================================================
--- Customers Table (100 rows)
--- ============================================================================
 CREATE TABLE customers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -33,10 +16,11 @@ CREATE TABLE customers (
 CREATE INDEX idx_customers_email ON customers(email);
 CREATE INDEX idx_customers_country ON customers(country);
 
--- Insert 100 customers
 DELIMITER $$
-BEGIN NOT ATOMIC
+CREATE PROCEDURE InsertCustomers()
+BEGIN
   DECLARE i INT DEFAULT 1;
+  START TRANSACTION;
   WHILE i <= 100 DO
     INSERT INTO customers (name, email, country) VALUES (
       CONCAT('Customer ', i),
@@ -51,16 +35,17 @@ BEGIN NOT ATOMIC
     );
     SET i = i + 1;
   END WHILE;
+  COMMIT;
 END$$
 DELIMITER ;
+CALL InsertCustomers();
+DROP PROCEDURE InsertCustomers;
 
--- ============================================================================
--- Orders Table (100 rows) - WITH indexes
--- ============================================================================
+
 CREATE TABLE orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
-    order_date DATE DEFAULT CURDATE(),
+    order_date DATE,
     total_amount DECIMAL(10, 2),
     status VARCHAR(50),
     FOREIGN KEY (customer_id) REFERENCES customers(id)
@@ -70,10 +55,11 @@ CREATE INDEX idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX idx_orders_order_date ON orders(order_date);
 CREATE INDEX idx_orders_status ON orders(status);
 
--- Insert 100 orders
 DELIMITER $$
-BEGIN NOT ATOMIC
+CREATE PROCEDURE InsertOrders()
+BEGIN
   DECLARE i INT DEFAULT 1;
+  START TRANSACTION;
   WHILE i <= 100 DO
     INSERT INTO orders (customer_id, order_date, total_amount, status) VALUES (
       (MOD(i - 1, 100) + 1),
@@ -88,12 +74,13 @@ BEGIN NOT ATOMIC
     );
     SET i = i + 1;
   END WHILE;
+  COMMIT;
 END$$
 DELIMITER ;
+CALL InsertOrders();
+DROP PROCEDURE InsertOrders;
 
--- ============================================================================
--- Order Items Table (500 rows) - For nested loops demonstrations
--- ============================================================================
+
 CREATE TABLE order_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
@@ -104,12 +91,13 @@ CREATE TABLE order_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
--- Intentionally NO index on product_id to force full table scans
 
--- Insert 500 order items
+
 DELIMITER $$
-BEGIN NOT ATOMIC
+CREATE PROCEDURE InsertOrderItems()
+BEGIN
   DECLARE i INT DEFAULT 1;
+  START TRANSACTION;
   WHILE i <= 500 DO
     INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (
       MOD(i - 1, 100) + 1,
@@ -119,12 +107,13 @@ BEGIN NOT ATOMIC
     );
     SET i = i + 1;
   END WHILE;
+  COMMIT;
 END$$
 DELIMITER ;
+CALL InsertOrderItems();
+DROP PROCEDURE InsertOrderItems;
 
--- ============================================================================
--- Large Table (10,000 rows) - For full table scan demonstrations
--- ============================================================================
+
 CREATE TABLE large_table (
     id INT AUTO_INCREMENT PRIMARY KEY,
     data_value VARCHAR(100),
@@ -135,10 +124,12 @@ CREATE TABLE large_table (
 
 CREATE INDEX idx_large_table_category ON large_table(category);
 
--- Insert 10,000 rows
+
 DELIMITER $$
-BEGIN NOT ATOMIC
+CREATE PROCEDURE InsertLargeTable()
+BEGIN
   DECLARE i INT DEFAULT 1;
+  START TRANSACTION;
   WHILE i <= 10000 DO
     INSERT INTO large_table (data_value, numeric_value, category) VALUES (
       CONCAT('value_', i, '_', MD5(CAST(i AS CHAR))),
@@ -158,12 +149,13 @@ BEGIN NOT ATOMIC
     );
     SET i = i + 1;
   END WHILE;
+  COMMIT;
 END$$
 DELIMITER ;
+CALL InsertLargeTable();
+DROP PROCEDURE InsertLargeTable;
 
--- ============================================================================
--- Slow Queries Log Table (1000 rows) - Sample data for analysis
--- ============================================================================
+
 CREATE TABLE slow_queries_log (
     id INT AUTO_INCREMENT PRIMARY KEY,
     query_text TEXT,
@@ -175,10 +167,12 @@ CREATE TABLE slow_queries_log (
 
 CREATE INDEX idx_slow_queries_log_execution_time ON slow_queries_log(execution_time_ms);
 
--- Insert 1000 slow query records
+
 DELIMITER $$
-BEGIN NOT ATOMIC
+CREATE PROCEDURE InsertSlowQueries()
+BEGIN
   DECLARE i INT DEFAULT 1;
+  START TRANSACTION;
   WHILE i <= 1000 DO
     INSERT INTO slow_queries_log (query_text, execution_time_ms, rows_affected, query_type) VALUES (
       CONCAT('SELECT * FROM large_table WHERE category = ''', CHAR(65 + MOD(i, 10)), ''' AND numeric_value > ', MOD(i, 40000)),
@@ -194,43 +188,16 @@ BEGIN NOT ATOMIC
     );
     SET i = i + 1;
   END WHILE;
+  COMMIT;
 END$$
 DELIMITER ;
+CALL InsertSlowQueries();
+DROP PROCEDURE InsertSlowQueries;
 
--- ============================================================================
--- Sample Queries for Testing
--- ============================================================================
-
--- Query 1: INDEX SCAN (uses idx_customers_email)
--- SELECT * FROM customers WHERE email = 'customer1@example.com';
-
--- Query 2: FULL TABLE SCAN (no index on numeric_value)
--- SELECT * FROM large_table WHERE numeric_value > 30000;
-
--- Query 3: NESTED LOOP JOIN (JOIN without proper optimization)
--- SELECT o.id, oi.product_id
--- FROM orders o
--- JOIN order_items oi ON o.id = oi.order_id
--- WHERE o.customer_id = 5;
-
--- Query 4: AGGREGATE with GROUP BY
--- SELECT category, COUNT(*) FROM large_table GROUP BY category;
-
--- Query 5: Complex JOIN (multiple tables)
--- SELECT c.name, o.total_amount, oi.product_id, oi.quantity
--- FROM customers c
--- JOIN orders o ON c.id = o.customer_id
--- JOIN order_items oi ON o.id = oi.order_id
--- WHERE o.status = 'delivered'
--- ORDER BY o.order_date DESC;
-
--- ============================================================================
--- Optimize tables for statistics
--- ============================================================================
 ANALYZE TABLE customers;
 ANALYZE TABLE orders;
 ANALYZE TABLE order_items;
 ANALYZE TABLE large_table;
 ANALYZE TABLE slow_queries_log;
 
--- Done!
+
