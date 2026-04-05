@@ -49,8 +49,7 @@ Integrantes:
    - 1.1 Propósito
    - 1.2 Alcance
    - 1.3 Definiciones, Siglas y Abreviaturas
-   - 1.4 Referencias
-   - 1.5 Visión General
+   - 1.4 Visión General
 
 2. [Posicionamiento](#2-posicionamiento)
    - 2.1 Oportunidad de negocio
@@ -125,14 +124,7 @@ El proyecto abarca el desarrollo de una herramienta unificada que:
 | **DBA** | Database Administrator — Administrador de base de datos |
 | **Scoring (0–100)** | Métrica de calidad de la query donde 100 es óptimo |
 
-### 1.4 Referencias
-
-- **BACKLOG.md:** Roadmap detallado con 33 issues, milestones v0–v4 y criterios de aceptación medibles.
-- **FD01-Informe-Factibilidad.md:** Análisis técnico, económico, legal, social y ambiental del proyecto.
-- **Documentación oficial de motores:** PostgreSQL EXPLAIN, MySQL EXPLAIN FORMAT=JSON, MongoDB executionStats, etc.
-- **Stack tecnológico:** Documentación de Textual, Rich, Typer, Pydantic, pytest, Docker.
-
-### 1.5 Visión General
+### 1.4 Visión General
 
 **Declaración de visión:** *"Query Performance Analyzer es una herramienta unificada, gratuita y de código abierto que automatiza el análisis de rendimiento de consultas en múltiples motores de bases de datos, eliminando la fragmentación actual de herramientas especializadas y proporcionando recomendaciones concretas y accionables en menos de 1 minuto por consulta."*
 
@@ -278,11 +270,11 @@ El **Query Performance Analyzer** es una aplicación de escritorio/terminal que 
 ```
 ┌─────────────────────────────────────────────────┐
 │  CAPA DE PRESENTACIÓN (v2, v3)                  │
-│  CLI: qa analyze --profile local-postgres "..."│
-│  TUI: Editor interactivo + Visualizador de plan│
+│  CLI: qa analyze --profile local-postgres "..." │
+│  TUI: Editor interactivo + Visualizador de plan │
 ├─────────────────────────────────────────────────┤
 │  CAPA CORE (v1, v2)                             │
-│  AntiPatternDetector + RecommendationEngine    │
+│  AntiPatternDetector + RecommendationEngine     │
 │  QueryAnalysisReport (normalización)            │
 ├─────────────────────────────────────────────────┤
 │  CAPA ABSTRACCIÓN (v0)                          │
@@ -588,11 +580,3 @@ El **Query Performance Analyzer** es un proyecto **viable, factible y de alto va
 6. **Integración CI/CD temprana:** Configurar GitHub Actions en v0 para que tests se ejecuten automáticamente. Detecta problemas rápidamente.
 
 7. **Comunicación con docente:** Reportes biweekly de progreso, validación de decisiones arquitectónicas, identificación temprana de riesgos.
-
----
-
-**Documento de Visión elaborado y validado.**
-
-Firma del Docente Asesor: ___________________________
-
-Fecha: ___________________________
