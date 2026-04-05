@@ -232,12 +232,12 @@ db.orders.find({ country: "USA" }).explain("executionStats")
 
 ## Nota sobre Volúmenes Persistentes
 
-Por defecto, el `docker-compose.yml` está configurado **SIN volúmenes persistentes** (`docker down -v` elimina datos). Esto es intencional para:
+Por defecto, el `compose.yml` está configurado **SIN volúmenes persistentes** (`docker down -v` elimina datos). Esto es intencional para:
 - Ambiente de testing limpio
 - Evitar conflictos de datos entre ejecuciones
 - Facilitar reproducibilidad
 
-Para persistencia, editar `docker-compose.yml` y agregar volúmenes con nombre.
+Para persistencia, editar `compose.yml` y agregar volúmenes con nombre.
 
 ## Troubleshooting
 
@@ -245,7 +245,7 @@ Para persistencia, editar `docker-compose.yml` y agregar volúmenes con nombre.
 - Instalar PostgreSQL client: `brew install postgresql` (macOS) o `apt install postgresql-client` (Linux)
 
 **"MySQL Access Denied"**
-- Verificar contraseña en `.env.example` y `docker-compose.yml`
+- Verificar contraseña en `.env.example` y `compose.yml`
 - Asegurar que MySQL está en estado `healthy`: `make health`
 
 **"MongoDB connection refused"**

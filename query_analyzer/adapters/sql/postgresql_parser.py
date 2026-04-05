@@ -219,7 +219,7 @@ class PostgreSQLExplainParser:
             if node.get("Node Type") == "Seq Scan":
                 # Try to get table row estimate from Plan Rows
                 plan_rows = int(node.get("Plan Rows", 0))
-                if plan_rows > self.seq_scan_threshold:
+                if plan_rows >= self.seq_scan_threshold:
                     relation = node.get("Relation Name", "unknown")
                     warnings.append(
                         f"Búsqueda secuencial en tabla {relation} "
@@ -337,12 +337,12 @@ class PostgreSQLExplainParser:
         for node in all_nodes:
             if node.get("Node Type") == "Seq Scan":
                 plan_rows = int(node.get("Plan Rows", 0))
-                if plan_rows > self.seq_scan_threshold:
+                if plan_rows >= self.seq_scan_threshold:
                     seq_scans_large += 1
                 elif plan_rows > 1000:
                     deductions += 5
 
-        deductions += min(25, seq_scans_large * 10)
+        deductions += min(25, seq_scans_large * 20)
 
         # NESTED LOOP PENALTY (max -15)
         for node in all_nodes:

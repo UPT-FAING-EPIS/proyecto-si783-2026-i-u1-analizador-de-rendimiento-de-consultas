@@ -66,5 +66,5 @@ README.md
 .agents-instructions.md
 
 # Docker
-docker-compose.yml
+compose.yml
 .dockerignore

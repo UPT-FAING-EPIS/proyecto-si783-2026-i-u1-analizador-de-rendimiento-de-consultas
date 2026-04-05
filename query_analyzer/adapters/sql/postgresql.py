@@ -135,8 +135,15 @@ class PostgreSQLAdapter(BaseAdapter):
                 if not result:
                     raise QueryAnalysisError("EXPLAIN returned no results")
 
-                # Parse JSON result (it's an array with one element)
-                explain_json = json.loads(result[0])[0]
+                # Parse JSON result
+                # psycopg2 with FORMAT JSON returns result[0] as a Python list (already parsed)
+                # Extract the first element which contains the plan
+                if isinstance(result[0], str):
+                    # If it's a string, parse it
+                    explain_json = json.loads(result[0])[0]
+                else:
+                    # If it's already a list (psycopg2 parsed it), just use first element
+                    explain_json = result[0][0]
 
                 # Parse plan and extract metrics
                 metrics = self.parser.parse(explain_json)

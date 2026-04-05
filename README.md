@@ -43,7 +43,7 @@ query-analyzer/
 │   └── integration/
 ├── docker/                      # Configuración Docker
 │   ├── Dockerfile
-│   └── docker-compose.yml
+│   └── compose.yml
 ├── docs/                        # Documentación
 ├── pyproject.toml              # Config de uv
 ├── uv.lock                     # Bloqueo de dependencias
