@@ -118,9 +118,7 @@ class SQLiteMetricsHelper:
             cursor.execute("PRAGMA page_size")
             page_size = cursor.fetchone()[0]
 
-            cache_bytes = (
-                abs(cache_size) * page_size if cache_size > 0 else abs(cache_size)
-            )
+            cache_bytes = abs(cache_size) * page_size if cache_size > 0 else abs(cache_size)
 
             return {
                 "cache_size_pages": cache_size,

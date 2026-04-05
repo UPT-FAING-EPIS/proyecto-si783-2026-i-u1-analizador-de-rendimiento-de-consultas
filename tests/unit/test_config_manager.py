@@ -2,8 +2,8 @@
 
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from pydantic import ValidationError
@@ -19,7 +19,7 @@ from query_analyzer.config import (
 
 
 @pytest.fixture
-def temp_config_dir() -> Generator[Path, None, None]:
+def temp_config_dir() -> Generator[Path]:
     """Crea directorio temporal para config."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
@@ -63,9 +63,7 @@ def test_config_file_created_if_not_exists(temp_config_dir: Path) -> None:
     assert not config_path.exists()  # Solo se crea al guardar
 
 
-def test_config_saved_creates_file(
-    temp_config_dir: Path, sample_profile: ProfileConfig
-) -> None:
+def test_config_saved_creates_file(temp_config_dir: Path, sample_profile: ProfileConfig) -> None:
     """Verifica que guardar config crea el archivo."""
     config_path = temp_config_dir / "config.yaml"
     assert not config_path.exists()
@@ -100,9 +98,7 @@ def test_load_empty_config(config_manager: ConfigManager) -> None:
     assert config.default_profile is None
 
 
-def test_add_profile_valid(
-    config_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_add_profile_valid(config_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica agregación de perfil válido."""
     config_manager.add_profile("local", sample_profile)
 
@@ -143,9 +139,7 @@ def test_get_profile_not_found(config_manager: ConfigManager) -> None:
         config_manager.get_profile("nonexistent")
 
 
-def test_list_profiles(
-    config_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_list_profiles(config_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica listado de perfiles."""
     config_manager.add_profile("local", sample_profile)
     config_manager.add_profile("prod", sample_profile)
@@ -157,9 +151,7 @@ def test_list_profiles(
     assert "prod" in profiles
 
 
-def test_delete_profile(
-    config_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_delete_profile(config_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica eliminación de perfil."""
     config_manager.add_profile("test", sample_profile)
     assert "test" in config_manager.list_profiles()
@@ -264,9 +256,7 @@ profiles:
 # ============================================================================
 
 
-def test_password_encrypted_on_save(
-    temp_config_dir: Path, sample_profile: ProfileConfig
-) -> None:
+def test_password_encrypted_on_save(temp_config_dir: Path, sample_profile: ProfileConfig) -> None:
     """Verifica que password se cifra al guardar."""
     config_path = temp_config_dir / "config.yaml"
     manager = ConfigManager(str(config_path))
@@ -281,9 +271,7 @@ def test_password_encrypted_on_save(
     assert "enc:" in content
 
 
-def test_password_decrypted_on_load(
-    temp_config_dir: Path, sample_profile: ProfileConfig
-) -> None:
+def test_password_decrypted_on_load(temp_config_dir: Path, sample_profile: ProfileConfig) -> None:
     """Verifica que password se descifra al cargar."""
     config_path = temp_config_dir / "config.yaml"
 
@@ -318,9 +306,7 @@ def test_password_in_memory_is_plain(
 # ============================================================================
 
 
-def test_set_default_profile(
-    config_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_set_default_profile(config_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica establecimiento de perfil default."""
     config_manager.add_profile("local", sample_profile)
     config_manager.set_default_profile("local")
@@ -335,9 +321,7 @@ def test_set_default_nonexistent_profile(config_manager: ConfigManager) -> None:
         config_manager.set_default_profile("nonexistent")
 
 
-def test_get_default_profile(
-    config_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_get_default_profile(config_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica obtención de perfil default."""
     config_manager.add_profile("prod", sample_profile)
     config_manager.set_default_profile("prod")
@@ -408,9 +392,7 @@ def test_app_defaults_values(config_manager: ConfigManager) -> None:
     assert defaults.output_format == "rich"
 
 
-def test_custom_config_path_via_env(
-    temp_config_dir: Path, sample_profile: ProfileConfig
-) -> None:
+def test_custom_config_path_via_env(temp_config_dir: Path, sample_profile: ProfileConfig) -> None:
     """Verifica override de ruta con variable de entorno."""
     config_path = temp_config_dir / "custom.yaml"
 

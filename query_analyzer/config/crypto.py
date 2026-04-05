@@ -9,8 +9,7 @@ from .exceptions import EncryptionError
 
 
 class CryptoManager:
-    """
-    Gestiona cifrado/descifrado de credenciales usando Fernet (AES-128).
+    """Gestiona cifrado/descifrado de credenciales usando Fernet (AES-128).
 
     La llave se almacena en ~/.query-analyzer/.key con permisos restrictivos (0o600).
     Si la llave no existe, se genera automáticamente.
@@ -21,8 +20,7 @@ class CryptoManager:
 
     @classmethod
     def _get_or_create_key(cls) -> bytes:
-        """
-        Obtiene la llave de cifrado o la crea si no existe.
+        """Obtiene la llave de cifrado o la crea si no existe.
 
         Returns:
             Llave de Fernet en bytes
@@ -54,8 +52,7 @@ class CryptoManager:
 
     @classmethod
     def encrypt(cls, plaintext: str) -> str:
-        """
-        Cifra un texto plano.
+        """Cifra un texto plano.
 
         Args:
             plaintext: Texto a cifrar
@@ -78,8 +75,7 @@ class CryptoManager:
 
     @classmethod
     def decrypt(cls, ciphertext: str) -> str:
-        """
-        Descifra un texto cifrado.
+        """Descifra un texto cifrado.
 
         Args:
             ciphertext: Texto cifrado (con prefijo 'enc:')

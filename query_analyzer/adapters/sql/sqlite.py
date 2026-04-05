@@ -11,6 +11,8 @@ from typing import Any
 from query_analyzer.adapters.base import BaseAdapter
 from query_analyzer.adapters.exceptions import (
     ConnectionError as AdapterConnectionError,
+)
+from query_analyzer.adapters.exceptions import (
     DisconnectionError,
     QueryAnalysisError,
 )

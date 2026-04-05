@@ -128,9 +128,7 @@ class TestSQLiteExplainParser:
 
         assert len(warnings) == 0
 
-    def test_warnings_mixed_scans_searches(
-        self, parser, explain_join_with_scan_and_search
-    ):
+    def test_warnings_mixed_scans_searches(self, parser, explain_join_with_scan_and_search):
         """Test that mixed scans/searches generates warning."""
         parsed = parser.parse(explain_join_with_scan_and_search)
         warnings = parser.identify_warnings(parsed)
@@ -161,9 +159,7 @@ class TestSQLiteExplainParser:
         assert len(recommendations) > 0
         assert any("index" in r.lower() for r in recommendations)
 
-    def test_recommendations_mixed_optimization(
-        self, parser, explain_join_with_scan_and_search
-    ):
+    def test_recommendations_mixed_optimization(self, parser, explain_join_with_scan_and_search):
         """Test recommendations for mixed optimization."""
         parsed = parser.parse(explain_join_with_scan_and_search)
         warnings = parser.identify_warnings(parsed)
@@ -197,9 +193,7 @@ class TestSQLiteExplainParser:
 
         assert score < 60
 
-    def test_score_mixed_scans_searches(
-        self, parser, explain_join_with_scan_and_search
-    ):
+    def test_score_mixed_scans_searches(self, parser, explain_join_with_scan_and_search):
         """Test that mixed scans/searches gets medium score."""
         parsed = parser.parse(explain_join_with_scan_and_search)
         warnings = parser.identify_warnings(parsed)

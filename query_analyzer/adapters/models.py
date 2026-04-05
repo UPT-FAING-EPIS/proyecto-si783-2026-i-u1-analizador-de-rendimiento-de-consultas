@@ -6,8 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ConnectionConfig(BaseModel):
-    """
-    Configuración para establecer conexión con una base de datos.
+    """Configuración para establecer conexión con una base de datos.
 
     Attributes:
         engine: Motor de base de datos (mysql, postgresql, sqlite)
@@ -68,8 +67,7 @@ class ConnectionConfig(BaseModel):
 
 
 class QueryAnalysisReport(BaseModel):
-    """
-    Reporte de análisis de una consulta SQL.
+    """Reporte de análisis de una consulta SQL.
 
     Attributes:
         engine: Motor que ejecutó el análisis

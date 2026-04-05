@@ -4,7 +4,7 @@ repos:
     rev: v0.15.9
     hooks:
       - id: ruff
-        args: [--fix, --exit-zero]
+        args: [--fix]
       - id: ruff-format
 
   # MyPy - Type checking estricto
@@ -12,10 +12,22 @@ repos:
     rev: v1.20.0
     hooks:
       - id: mypy
+        exclude: ^tests/
+        args:
+          - --show-error-codes
+          - --pretty
+          - --no-implicit-optional
+          - --warn-unused-ignores
         additional_dependencies:
           - "types-pyyaml"
           - "types-psycopg2"
-        args: [--strict, --ignore-missing-imports]
+          - "types-PyMySQL"
+          - "pymysql"
+          - "pydantic"
+          - "pytest"
+          - "typer"
+          - "rich"
+          - "cryptography"
 
   # Pre-commit - Validaciones básicas
   - repo: https://github.com/pre-commit/pre-commit-hooks

@@ -35,8 +35,7 @@ class UnsupportedEngineError(AdapterException):
     """Motor de base de datos no registrado o no soportado."""
 
     def __init__(self, engine_name: str, available_engines: list[str]) -> None:
-        """
-        Inicializa el error con nombre del motor y lista de disponibles.
+        """Inicializa el error con nombre del motor y lista de disponibles.
 
         Args:
             engine_name: Nombre del motor solicitado

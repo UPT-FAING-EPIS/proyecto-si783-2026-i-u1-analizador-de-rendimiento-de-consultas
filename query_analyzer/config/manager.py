@@ -3,7 +3,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -20,8 +20,7 @@ from .models import AppConfig, AppDefaults, ProfileConfig
 
 
 class ConfigManager:
-    """
-    Gestor central de configuración de Query Analyzer.
+    """Gestor central de configuración de Query Analyzer.
 
     Responsabilidades:
     - Leer/escribir YAML
@@ -31,9 +30,8 @@ class ConfigManager:
     - Gestionar perfil default
     """
 
-    def __init__(self, config_path: Optional[str] = None) -> None:
-        """
-        Inicializa el ConfigManager.
+    def __init__(self, config_path: str | None = None) -> None:
+        """Inicializa el ConfigManager.
 
         Args:
             config_path: Ruta al config.yaml
@@ -56,8 +54,7 @@ class ConfigManager:
         self._config = self._load_from_disk()
 
     def _load_from_disk(self) -> AppConfig:
-        """
-        Carga configuración desde disco.
+        """Carga configuración desde disco.
 
         Si el archivo no existe, retorna una configuración vacía
         (el archivo se crea cuando se guarda).
@@ -69,7 +66,7 @@ class ConfigManager:
             return AppConfig()
 
         try:
-            with open(self.config_path, "r") as f:
+            with open(self.config_path) as f:
                 raw_data = yaml.safe_load(f)
 
             if raw_data is None:
@@ -88,8 +85,7 @@ class ConfigManager:
             raise ConfigValidationError(f"Error al parsear {self.config_path}: {e}")
 
     def _interpolate_env_vars(self, data: Any) -> Any:
-        """
-        Interpola variables de entorno en forma ${VAR} o ${VAR:-default}.
+        """Interpola variables de entorno en forma ${VAR} o ${VAR:-default}.
 
         Args:
             data: Datos a interpolar (dict, list, str, etc)
@@ -110,8 +106,7 @@ class ConfigManager:
             return data
 
     def _interpolate_string(self, value: str) -> str:
-        """
-        Interpola una cadena individual.
+        """Interpola una cadena individual.
 
         Soporta:
         - ${VAR}: Variable obligatoria
@@ -137,15 +132,12 @@ class ConfigManager:
             elif default_value is not None:
                 return default_value
             else:
-                raise EnvVarNotFoundError(
-                    f"Variable de entorno no encontrada: {var_name}"
-                )
+                raise EnvVarNotFoundError(f"Variable de entorno no encontrada: {var_name}")
 
         return re.sub(pattern, replacer, value)
 
     def _decrypt_passwords(self, data: Any) -> Any:
-        """
-        Descifra passwords en datos cargados.
+        """Descifra passwords en datos cargados.
 
         Args:
             data: Datos del YAML
@@ -179,8 +171,7 @@ class ConfigManager:
         return profile_data
 
     def _encrypt_passwords(self, data: Any) -> Any:
-        """
-        Cifra passwords antes de guardar.
+        """Cifra passwords antes de guardar.
 
         Args:
             data: Datos a guardar
@@ -215,8 +206,7 @@ class ConfigManager:
         return profile_data
 
     def save_config(self) -> None:
-        """
-        Guarda la configuración actual a disco.
+        """Guarda la configuración actual a disco.
 
         Cifra passwords antes de guardar.
         """
@@ -253,8 +243,7 @@ class ConfigManager:
         return self._config
 
     def add_profile(self, name: str, profile: ProfileConfig) -> None:
-        """
-        Agrega un nuevo perfil a la configuración.
+        """Agrega un nuevo perfil a la configuración.
 
         Args:
             name: Nombre del perfil
@@ -270,8 +259,7 @@ class ConfigManager:
         self.save_config()
 
     def get_profile(self, name: str) -> ProfileConfig:
-        """
-        Obtiene un perfil por nombre.
+        """Obtiene un perfil por nombre.
 
         Args:
             name: Nombre del perfil
@@ -288,8 +276,7 @@ class ConfigManager:
         return self._config.profiles[name]
 
     def list_profiles(self) -> dict[str, ProfileConfig]:
-        """
-        Lista todos los perfiles.
+        """Lista todos los perfiles.
 
         Returns:
             Diccionario de perfiles
@@ -297,8 +284,7 @@ class ConfigManager:
         return self._config.profiles.copy()
 
     def delete_profile(self, name: str) -> None:
-        """
-        Elimina un perfil.
+        """Elimina un perfil.
 
         Args:
             name: Nombre del perfil
@@ -318,8 +304,7 @@ class ConfigManager:
         self.save_config()
 
     def set_default_profile(self, name: str) -> None:
-        """
-        Establece el perfil por defecto.
+        """Establece el perfil por defecto.
 
         Args:
             name: Nombre del perfil
@@ -333,9 +318,8 @@ class ConfigManager:
         self._config.default_profile = name
         self.save_config()
 
-    def get_default_profile(self) -> Optional[ProfileConfig]:
-        """
-        Obtiene el perfil por defecto actual.
+    def get_default_profile(self) -> ProfileConfig | None:
+        """Obtiene el perfil por defecto actual.
 
         Returns:
             ProfileConfig del default o None si no hay
@@ -352,8 +336,7 @@ class ConfigManager:
             return None
 
     def get_connection_config(self, profile_name: str) -> ConnectionConfig:
-        """
-        Convierte un ProfileConfig a ConnectionConfig.
+        """Convierte un ProfileConfig a ConnectionConfig.
 
         Args:
             profile_name: Nombre del perfil

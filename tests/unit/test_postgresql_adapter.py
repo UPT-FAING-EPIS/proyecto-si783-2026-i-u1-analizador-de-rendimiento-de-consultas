@@ -1,14 +1,14 @@
 """Unit tests for PostgreSQL adapter."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from query_analyzer.adapters import (
     AdapterRegistry,
     ConnectionConfig,
     PostgreSQLAdapter,  # This import triggers @AdapterRegistry.register decorator
 )
-
 
 # ============================================================================
 # FIXTURES
@@ -48,9 +48,7 @@ class TestPostgreSQLAdapterInstantiation:
         assert hasattr(adapter, "parser")
         assert hasattr(adapter, "metrics_helper")
 
-    def test_registry_can_create_postgresql_adapter(
-        self, pg_config: ConnectionConfig
-    ) -> None:
+    def test_registry_can_create_postgresql_adapter(self, pg_config: ConnectionConfig) -> None:
         """Registry factory creates PostgreSQL adapter."""
         # The decorator in postgresql.py registers it
         adapter = AdapterRegistry.create("postgresql", pg_config)
@@ -68,9 +66,7 @@ class TestPostgreSQLAdapterInstantiation:
         assert isinstance(adapter2, PostgreSQLAdapter)
         assert isinstance(adapter3, PostgreSQLAdapter)
 
-    def test_adapter_inherits_seq_scan_threshold(
-        self, pg_config: ConnectionConfig
-    ) -> None:
+    def test_adapter_inherits_seq_scan_threshold(self, pg_config: ConnectionConfig) -> None:
         """Adapter uses configurable seq_scan_threshold."""
         config_custom = ConnectionConfig(
             engine="postgresql",
@@ -96,9 +92,7 @@ class TestPostgreSQLAdapterConnection:
     """Connection lifecycle tests."""
 
     @patch("query_analyzer.adapters.sql.postgresql.psycopg2.connect")
-    def test_connect_success(
-        self, mock_connect: MagicMock, pg_config: ConnectionConfig
-    ) -> None:
+    def test_connect_success(self, mock_connect: MagicMock, pg_config: ConnectionConfig) -> None:
         """Successful connection sets _is_connected=True."""
         mock_connection = MagicMock()
         mock_connect.return_value = mock_connection
@@ -111,9 +105,7 @@ class TestPostgreSQLAdapterConnection:
         mock_connect.assert_called_once()
 
     @patch("query_analyzer.adapters.sql.postgresql.psycopg2.connect")
-    def test_connect_failure(
-        self, mock_connect: MagicMock, pg_config: ConnectionConfig
-    ) -> None:
+    def test_connect_failure(self, mock_connect: MagicMock, pg_config: ConnectionConfig) -> None:
         """Connection failure raises ConnectionError."""
         import psycopg2
 
@@ -128,9 +120,7 @@ class TestPostgreSQLAdapterConnection:
         assert adapter._connection is None
 
     @patch("query_analyzer.adapters.sql.postgresql.psycopg2.connect")
-    def test_disconnect_cleanup(
-        self, mock_connect: MagicMock, pg_config: ConnectionConfig
-    ) -> None:
+    def test_disconnect_cleanup(self, mock_connect: MagicMock, pg_config: ConnectionConfig) -> None:
         """Disconnection closes connection and sets state."""
         mock_connection = MagicMock()
         mock_connect.return_value = mock_connection
@@ -146,9 +136,7 @@ class TestPostgreSQLAdapterConnection:
         mock_connection.close.assert_called_once()
 
     @patch("query_analyzer.adapters.sql.postgresql.psycopg2.connect")
-    def test_context_manager(
-        self, mock_connect: MagicMock, pg_config: ConnectionConfig
-    ) -> None:
+    def test_context_manager(self, mock_connect: MagicMock, pg_config: ConnectionConfig) -> None:
         """Context manager connects and disconnects."""
         mock_connection = MagicMock()
         mock_connect.return_value = mock_connection

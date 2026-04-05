@@ -64,9 +64,7 @@ class PostgreSQLExplainParser:
         # Categorize nodes by type
         scan_nodes = [n for n in all_nodes if "Scan" in n.get("Node Type", "")]
         join_nodes = [
-            n
-            for n in all_nodes
-            if any(j in n.get("Node Type", "") for j in ["Join", "Hash"])
+            n for n in all_nodes if any(j in n.get("Node Type", "") for j in ["Join", "Hash"])
         ]
 
         return {
@@ -232,8 +230,7 @@ class PostgreSQLExplainParser:
                 actual_rows = int(node.get("Actual Rows", 0))
                 if actual_rows > 1000:
                     warnings.append(
-                        f"Nested Loop con {actual_rows} iteraciones - "
-                        f"puede ser muy costoso"
+                        f"Nested Loop con {actual_rows} iteraciones - puede ser muy costoso"
                     )
 
         # Warning 4: Poor cache hit rate
@@ -247,9 +244,7 @@ class PostgreSQLExplainParser:
 
         return warnings
 
-    def generate_recommendations(
-        self, metrics: dict[str, Any], warnings: list[str]
-    ) -> list[str]:
+    def generate_recommendations(self, metrics: dict[str, Any], warnings: list[str]) -> list[str]:
         """Generate optimization recommendations based on analysis.
 
         Returns:
@@ -280,9 +275,7 @@ class PostgreSQLExplainParser:
         # Recommendation for planning time
         planning_time = metrics.get("planning_time_ms", 0.0)
         if planning_time > 5.0:
-            recommendations.append(
-                "Simplificar la consulta o actualizar estadísticas con ANALYZE"
-            )
+            recommendations.append("Simplificar la consulta o actualizar estadísticas con ANALYZE")
 
         return recommendations
 

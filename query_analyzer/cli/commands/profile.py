@@ -1,28 +1,26 @@
 """Comandos CLI para gestionar perfiles."""
 
 import typer
-from typing import Optional
 from rich.console import Console
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm, Prompt
 
-from query_analyzer.config import (
-    ConfigManager,
-    ProfileConfig,
-    ProfileNotFoundError,
-    ConfigValidationError,
-)
 from query_analyzer.adapters import (
     BaseAdapter,
 )
 from query_analyzer.cli.utils import OutputFormatter
+from query_analyzer.config import (
+    ConfigManager,
+    ConfigValidationError,
+    ProfileConfig,
+    ProfileNotFoundError,
+)
 
 app = typer.Typer(help="Gestionar perfiles de conexión")
 console = Console()
 
 
 def _get_adapter(engine: str) -> type[BaseAdapter]:
-    """
-    Obtiene la clase del adapter para un engine.
+    """Obtiene la clase del adapter para un engine.
 
     Nota: Por ahora retornamos un mock. En producción,
     cargaríamos dinámicamente desde query_analyzer.adapters.sql, etc.
@@ -37,21 +35,16 @@ def _get_adapter(engine: str) -> type[BaseAdapter]:
 @app.command()
 def add(
     name: str = typer.Argument(..., help="Nombre del nuevo perfil"),
-    engine: Optional[str] = typer.Option(
-        None, "--engine", "-e", help="postgresql | mysql"
-    ),
-    host: Optional[str] = typer.Option(None, "--host", "-h", help="Host de la BD"),
-    port: Optional[int] = typer.Option(None, "--port", "-p", help="Puerto"),
-    database: Optional[str] = typer.Option(
-        None, "--database", "-d", help="Nombre de DB"
-    ),
-    username: Optional[str] = typer.Option(None, "--username", "-u", help="Usuario"),
-    password: Optional[str] = typer.Option(
+    engine: str | None = typer.Option(None, "--engine", "-e", help="postgresql | mysql"),
+    host: str | None = typer.Option(None, "--host", "-h", help="Host de la BD"),
+    port: int | None = typer.Option(None, "--port", "-p", help="Puerto"),
+    database: str | None = typer.Option(None, "--database", "-d", help="Nombre de DB"),
+    username: str | None = typer.Option(None, "--username", "-u", help="Usuario"),
+    password: str | None = typer.Option(
         None, "--password", "-pw", help="Password (interactivo si omitido)"
     ),
 ) -> None:
-    """
-    Agregar nuevo perfil de conexión.
+    """Agregar nuevo perfil de conexión.
 
     Modo interactivo si se omiten parámetros:
 
@@ -69,17 +62,13 @@ def add(
 
         # Modo interactivo: pedir datos faltantes
         if engine is None:
-            engine = Prompt.ask(
-                "Engine", choices=["postgresql", "mysql"], default="postgresql"
-            )
+            engine = Prompt.ask("Engine", choices=["postgresql", "mysql"], default="postgresql")
 
         if host is None:
             host = Prompt.ask("Host", default="localhost")
 
         if port is None:
-            port = int(
-                Prompt.ask("Port", default="5432" if engine == "postgresql" else "3306")
-            )
+            port = int(Prompt.ask("Port", default="5432" if engine == "postgresql" else "3306"))
 
         if database is None:
             database = Prompt.ask("Database")
@@ -121,8 +110,7 @@ def list(
         False, "--show-passwords", help="Mostrar passwords sin enmascarar"
     ),
 ) -> None:
-    """
-    Listar todos los perfiles.
+    """Listar todos los perfiles.
 
     Muestra el perfil default con ✓.
     """
@@ -149,8 +137,7 @@ def list(
 def test(
     name: str = typer.Argument(..., help="Nombre del perfil a probar"),
 ) -> None:
-    """
-    Probar conexión a un perfil.
+    """Probar conexión a un perfil.
 
     Ejecuta:
     1. test_connection() del adapter
@@ -168,7 +155,7 @@ def test(
         profile = config_mgr.get_profile(name)
 
         # Convertir a ConnectionConfig
-        conn_config = config_mgr.get_connection_config(name)
+        config_mgr.get_connection_config(name)
 
         console.print(f"Testing connection to '[bold]{name}[/bold]'...")
 
@@ -177,9 +164,7 @@ def test(
         # 2. Llamar test_connection()
         # 3. Ejecutar query diagnóstica
 
-        OutputFormatter.print_warning(
-            "Adapters aún no implementados, saltando prueba de conexión"
-        )
+        OutputFormatter.print_warning("Adapters aún no implementados, saltando prueba de conexión")
         OutputFormatter.print_info(
             f"Profile {name}: {profile.engine}@{profile.host}:{profile.port}"
         )
@@ -242,9 +227,7 @@ def show(
         False, "--show-password", help="Mostrar password sin enmascarar"
     ),
 ) -> None:
-    """
-    Mostrar detalles de un perfil (sin password por defecto).
-    """
+    """Mostrar detalles de un perfil (sin password por defecto)."""
     try:
         config_mgr = ConfigManager()
         config = config_mgr.load_config()
@@ -253,9 +236,7 @@ def show(
         is_default = name == config.default_profile
         console.print()
         console.print(
-            OutputFormatter.format_profile(
-                name, profile, is_default, mask_pwd=not show_password
-            )
+            OutputFormatter.format_profile(name, profile, is_default, mask_pwd=not show_password)
         )
         console.print()
 

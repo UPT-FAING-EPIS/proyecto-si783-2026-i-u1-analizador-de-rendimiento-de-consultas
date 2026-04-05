@@ -8,8 +8,7 @@ from .models import ConnectionConfig, QueryAnalysisReport
 
 
 class BaseAdapter(ABC):
-    """
-    Contrato abstracto para adapters de bases de datos.
+    """Contrato abstracto para adapters de bases de datos.
 
     Define la interfaz que todos los drivers deben implementar.
     El motor de análisis usa este contrato sin importar la BD específica.
@@ -24,8 +23,7 @@ class BaseAdapter(ABC):
     """
 
     def __init__(self, config: ConnectionConfig) -> None:
-        """
-        Inicializa el adapter con la configuración de conexión.
+        """Inicializa el adapter con la configuración de conexión.
 
         Args:
             config: Configuración con detalles de conexión
@@ -37,9 +35,8 @@ class BaseAdapter(ABC):
         self._is_connected = False
         self._connection: Any = None
 
-    def __enter__(self) -> "BaseAdapter":
-        """
-        Contexto manager: conecta al entrar.
+    def __enter__(self) -> BaseAdapter:
+        """Contexto manager: conecta al entrar.
 
         Returns:
             Retorna self para permitir uso en with
@@ -51,8 +48,7 @@ class BaseAdapter(ABC):
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """
-        Contexto manager: desconecta al salir.
+        """Contexto manager: desconecta al salir.
 
         Asegura que la conexión se cierre correctamente aunque
         ocurra una excepción dentro del bloque with.
@@ -65,8 +61,7 @@ class BaseAdapter(ABC):
         self.disconnect()
 
     def is_connected(self) -> bool:
-        """
-        Verifica si el adapter está conectado.
+        """Verifica si el adapter está conectado.
 
         Returns:
             True si hay conexión activa, False en caso contrario
@@ -74,8 +69,7 @@ class BaseAdapter(ABC):
         return self._is_connected
 
     def get_connection(self) -> Any:
-        """
-        Obtiene el objeto de conexión nativa.
+        """Obtiene el objeto de conexión nativa.
 
         Retorna el objeto específico del motor (psycopg2 connection,
         mysql.connector.MySQLConnection, etc.).
@@ -92,8 +86,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     def connect(self) -> None:
-        """
-        Establece la conexión a la base de datos.
+        """Establece la conexión a la base de datos.
 
         Debe ser implementado por cada adapter específico.
         Al completar, debe asignar _is_connected = True y _connection a
@@ -106,8 +99,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     def disconnect(self) -> None:
-        """
-        Cierra la conexión a la base de datos.
+        """Cierra la conexión a la base de datos.
 
         Debe ser implementado por cada adapter específico.
         Debe asignar _is_connected = False y _connection = None.
@@ -119,8 +111,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     def test_connection(self) -> bool:
-        """
-        Prueba la conexión sin ejecutar cambios.
+        """Prueba la conexión sin ejecutar cambios.
 
         Intenta una operación simple (como SELECT 1 o PING) para
         verificar que la conexión sea válida.
@@ -132,8 +123,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     def execute_explain(self, query: str) -> QueryAnalysisReport:
-        """
-        Ejecuta EXPLAIN PLAN en la query y retorna un análisis detallado.
+        """Ejecuta EXPLAIN PLAN en la query y retorna un análisis detallado.
 
         Debe:
         1. Validar que la query sea SQL válida
@@ -157,8 +147,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
-        """
-        Obtiene queries que superan el threshold de tiempo de ejecución.
+        """Obtiene queries que superan el threshold de tiempo de ejecución.
 
         Accede a los logs de slow queries del motor (si está disponible)
         y retorna aquellas que tomaron más de threshold_ms milisegundos.
@@ -181,8 +170,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     def get_metrics(self) -> dict[str, Any]:
-        """
-        Obtiene métricas generales del motor.
+        """Obtiene métricas generales del motor.
 
         Métricas típicas por motor:
         - PostgreSQL: active connections, tps, cache hit ratio
@@ -200,8 +188,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     def get_engine_info(self) -> dict[str, Any]:
-        """
-        Obtiene información del motor (versión, configuración, etc.).
+        """Obtiene información del motor (versión, configuración, etc.).
 
         Retorna información estática sobre el motor:
         - version: Versión del servidor

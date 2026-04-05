@@ -193,9 +193,7 @@ class TestSQLiteAdapterConnection:
 
     def test_execute_explain_insert_statement(self, connected_adapter):
         """Test EXPLAIN works with INSERT."""
-        query = (
-            "INSERT INTO customers (name, email) VALUES ('John', 'john@example.com')"
-        )
+        query = "INSERT INTO customers (name, email) VALUES ('John', 'john@example.com')"
         report = connected_adapter.execute_explain(query)
 
         assert report is not None
@@ -309,7 +307,7 @@ class TestSQLiteAdapterConnection:
             username="",
             password="",
         )
-        adapter = SQLiteAdapter(config)
+        SQLiteAdapter(config)
 
     def test_full_workflow(self, in_memory_adapter):
         """Test complete workflow: connect -> analyze -> metrics -> disconnect."""

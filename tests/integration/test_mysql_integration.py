@@ -73,9 +73,7 @@ class TestMySQLIntegration:
 
         assert engine_info["engine"] == "mysql"
         assert "version" in engine_info
-        assert engine_info["version"].startswith("8") or engine_info[
-            "version"
-        ].startswith("5")
+        assert engine_info["version"].startswith("8") or engine_info["version"].startswith("5")
 
     def test_explain_simple_select(self, mysql_adapter):
         report = mysql_adapter.execute_explain("SELECT * FROM customers LIMIT 10")
@@ -120,8 +118,7 @@ class TestMySQLIntegration:
     def test_explain_with_join(self, mysql_adapter):
         try:
             report = mysql_adapter.execute_explain(
-                "SELECT c.id, o.id FROM customers c "
-                "JOIN orders o ON c.id = o.customer_id LIMIT 10"
+                "SELECT c.id, o.id FROM customers c JOIN orders o ON c.id = o.customer_id LIMIT 10"
             )
 
             assert report.engine == "mysql"

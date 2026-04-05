@@ -1,13 +1,12 @@
 """Modelos de configuración para perfiles y valores por defecto."""
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ProfileConfig(BaseModel):  # type: ignore[misc]
-    """
-    Configuración de un perfil de conexión.
+    """Configuración de un perfil de conexión.
 
     Attributes:
         engine: Motor de base de datos (postgresql, mysql)
@@ -36,9 +35,7 @@ class ProfileConfig(BaseModel):  # type: ignore[misc]
         valid_engines = {"postgresql", "mysql"}
         engine_lower = v.lower()
         if engine_lower not in valid_engines:
-            raise ValueError(
-                f"Engine no soportado: {v}. Válidos: {', '.join(valid_engines)}"
-            )
+            raise ValueError(f"Engine no soportado: {v}. Válidos: {', '.join(valid_engines)}")
         return engine_lower
 
     @field_validator("port")  # type: ignore[untyped-decorator]
@@ -51,8 +48,7 @@ class ProfileConfig(BaseModel):  # type: ignore[misc]
 
 
 class AppDefaults(BaseModel):  # type: ignore[misc]
-    """
-    Configuraciones por defecto de la aplicación.
+    """Configuraciones por defecto de la aplicación.
 
     Attributes:
         slow_query_threshold_ms: Umbral para considerar query lenta
@@ -94,8 +90,7 @@ class AppDefaults(BaseModel):  # type: ignore[misc]
 
 
 class AppConfig(BaseModel):  # type: ignore[misc]
-    """
-    Configuración completa de la aplicación.
+    """Configuración completa de la aplicación.
 
     Attributes:
         profiles: Diccionario de perfiles de conexión
@@ -105,13 +100,13 @@ class AppConfig(BaseModel):  # type: ignore[misc]
 
     profiles: dict[str, ProfileConfig] = Field(default_factory=dict)
     defaults: AppDefaults = Field(default_factory=AppDefaults)
-    default_profile: Optional[str] = None
+    default_profile: str | None = None
 
     model_config = ConfigDict(validate_assignment=True)
 
     @field_validator("default_profile")  # type: ignore[untyped-decorator]
     @classmethod
-    def validate_default_profile(cls, v: Optional[str], info: Any) -> Optional[str]:
+    def validate_default_profile(cls, v: str | None, info: Any) -> str | None:
         """Valida que el default_profile exista si se especifica."""
         if v is None:
             return v

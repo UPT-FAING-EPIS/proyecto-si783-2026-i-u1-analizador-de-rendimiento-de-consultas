@@ -1,6 +1,6 @@
 """Registro y factory para instanciar adapters por motor."""
 
-from typing import Callable, Type
+from collections.abc import Callable
 
 from .base import BaseAdapter
 from .exceptions import UnsupportedEngineError
@@ -14,12 +14,10 @@ class AdapterRegistry:
     sin imports directos. Soporta lazy-loading de adapters.
     """
 
-    _registry: dict[str, Type[BaseAdapter]] = {}
+    _registry: dict[str, type[BaseAdapter]] = {}
 
     @classmethod
-    def register(
-        cls, engine_name: str
-    ) -> "Callable[[Type[BaseAdapter]], Type[BaseAdapter]]":  # type: ignore[return]
+    def register(cls, engine_name: str) -> Callable[[type[BaseAdapter]], type[BaseAdapter]]:  # type: ignore[return]
         """Registra un adapter para un motor específico.
 
         Args:
@@ -37,11 +35,9 @@ class AdapterRegistry:
                 pass
         """
 
-        def decorator(adapter_class: Type[BaseAdapter]) -> Type[BaseAdapter]:
+        def decorator(adapter_class: type[BaseAdapter]) -> type[BaseAdapter]:
             if not issubclass(adapter_class, BaseAdapter):
-                raise TypeError(
-                    f"Adapter '{adapter_class.__name__}' debe heredar de BaseAdapter"
-                )
+                raise TypeError(f"Adapter '{adapter_class.__name__}' debe heredar de BaseAdapter")
             cls._registry[engine_name.lower()] = adapter_class
             return adapter_class
 

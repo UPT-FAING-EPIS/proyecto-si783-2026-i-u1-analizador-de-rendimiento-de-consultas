@@ -98,9 +98,7 @@ class MySQLExplainParser:
         warnings = []
 
         full_scan_tables = [
-            t["table_name"]
-            for t in parsed_plan.get("tables_accessed", [])
-            if t.get("is_full_scan")
+            t["table_name"] for t in parsed_plan.get("tables_accessed", []) if t.get("is_full_scan")
         ]
         if full_scan_tables:
             for table in full_scan_tables:
@@ -140,9 +138,7 @@ class MySQLExplainParser:
                     )
 
             elif "Using filesort" in warning:
-                recommendations.append(
-                    "Create index on ORDER BY columns to avoid external sort"
-                )
+                recommendations.append("Create index on ORDER BY columns to avoid external sort")
 
             elif "Using temporary" in warning:
                 recommendations.append(

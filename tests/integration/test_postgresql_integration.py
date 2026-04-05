@@ -1,13 +1,14 @@
 """Integration tests for PostgreSQL adapter with Docker."""
 
-import pytest
-import time
 import logging
-from typing import Generator
+import time
+from collections.abc import Generator
+
+import pytest
 
 from query_analyzer.adapters import (
-    PostgreSQLAdapter,
     ConnectionConfig,
+    PostgreSQLAdapter,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ def docker_postgres_config() -> ConnectionConfig:
 @pytest.fixture
 def pg_adapter(
     docker_postgres_config: ConnectionConfig,
-) -> Generator[PostgreSQLAdapter, None, None]:
+) -> Generator[PostgreSQLAdapter]:
     """Connect to Docker PostgreSQL, yield adapter, cleanup."""
     adapter = PostgreSQLAdapter(docker_postgres_config)
 
@@ -67,9 +68,7 @@ def pg_adapter(
 class TestPostgreSQLIntegrationConnection:
     """Real database connectivity tests."""
 
-    def test_connect_and_disconnect(
-        self, docker_postgres_config: ConnectionConfig
-    ) -> None:
+    def test_connect_and_disconnect(self, docker_postgres_config: ConnectionConfig) -> None:
         """Connect to and disconnect from Docker PostgreSQL."""
         adapter = PostgreSQLAdapter(docker_postgres_config)
 
@@ -83,9 +82,7 @@ class TestPostgreSQLIntegrationConnection:
         except Exception as e:
             pytest.skip(f"Docker PostgreSQL not available: {e}")
 
-    def test_context_manager_real_database(
-        self, docker_postgres_config: ConnectionConfig
-    ) -> None:
+    def test_context_manager_real_database(self, docker_postgres_config: ConnectionConfig) -> None:
         """Context manager works with real database."""
         adapter = PostgreSQLAdapter(docker_postgres_config)
 
@@ -123,9 +120,7 @@ class TestPostgreSQLIntegrationExplain:
         except Exception as e:
             pytest.skip(f"EXPLAIN analysis failed: {e}")
 
-    def test_explain_detects_seq_scan_on_large_table(
-        self, pg_adapter: PostgreSQLAdapter
-    ) -> None:
+    def test_explain_detects_seq_scan_on_large_table(self, pg_adapter: PostgreSQLAdapter) -> None:
         """Analyze SELECT on large_table (10K rows) - should detect Seq Scan."""
         query = "SELECT * FROM large_table WHERE created_at > now() - interval '1 day'"
 
@@ -133,9 +128,7 @@ class TestPostgreSQLIntegrationExplain:
             report = pg_adapter.execute_explain(query)
 
             # Should detect sequential scan
-            assert report.score < 85, (
-                "Score should be lower for Seq Scan on large table"
-            )
+            assert report.score < 85, "Score should be lower for Seq Scan on large table"
             assert any("Búsqueda secuencial" in w for w in report.warnings), (
                 "Should warn about sequential scan"
             )
@@ -145,9 +138,7 @@ class TestPostgreSQLIntegrationExplain:
         except Exception as e:
             pytest.skip(f"Large table EXPLAIN failed: {e}")
 
-    def test_explain_index_scan_has_good_score(
-        self, pg_adapter: PostgreSQLAdapter
-    ) -> None:
+    def test_explain_index_scan_has_good_score(self, pg_adapter: PostgreSQLAdapter) -> None:
         """Analyze query with index scan - should have good score."""
         # orders table has index on id
         query = "SELECT * FROM orders WHERE id = 1"
@@ -224,9 +215,7 @@ class TestPostgreSQLIntegrationMetrics:
 class TestPostgreSQLIntegrationSlowQueries:
     """Real slow query detection."""
 
-    def test_get_slow_queries_graceful_fallback(
-        self, pg_adapter: PostgreSQLAdapter
-    ) -> None:
+    def test_get_slow_queries_graceful_fallback(self, pg_adapter: PostgreSQLAdapter) -> None:
         """get_slow_queries handles missing pg_stat_statements gracefully."""
         try:
             slow_queries = pg_adapter.get_slow_queries(threshold_ms=100)
@@ -269,13 +258,11 @@ class TestPostgreSQLIntegrationValidation:
             with pytest.raises(Exception) as exc_info:
                 pg_adapter.execute_explain(query)
 
-            assert "DDL" in str(exc_info.value) or "not supported" in str(
-                exc_info.value
-            ), f"Should reject DDL: {query}"
+            assert "DDL" in str(exc_info.value) or "not supported" in str(exc_info.value), (
+                f"Should reject DDL: {query}"
+            )
 
-    def test_accept_select_insert_update_delete(
-        self, pg_adapter: PostgreSQLAdapter
-    ) -> None:
+    def test_accept_select_insert_update_delete(self, pg_adapter: PostgreSQLAdapter) -> None:
         """EXPLAIN accepts SELECT, INSERT, UPDATE, DELETE."""
         try:
             # SELECT - should work

@@ -65,7 +65,7 @@ class SQLiteExplainParser:
             if len(parts) < 4:
                 continue
 
-            node_id, parent, notused, detail = parts[0], parts[1], parts[2], parts[3]
+            node_id, parent, _, detail = parts[0], parts[1], parts[2], parts[3]
 
             op_info = self._extract_operation_info(detail)
 
@@ -110,12 +110,9 @@ class SQLiteExplainParser:
         """
         detail = detail.strip()
 
-        scan_match = re.match(
-            r"SCAN\s+(?:TABLE\s+)?(\w+)(?:\s+(.*))?", detail, re.IGNORECASE
-        )
+        scan_match = re.match(r"SCAN\s+(?:TABLE\s+)?(\w+)(?:\s+(.*))?", detail, re.IGNORECASE)
         if scan_match:
             table = scan_match.group(1)
-            where_clause = scan_match.group(2) or ""
             is_full_scan = True
             return {
                 "operation": "SCAN_TABLE",
@@ -173,18 +170,14 @@ class SQLiteExplainParser:
 
         if parsed_plan["full_scan_tables"]:
             for table in parsed_plan["full_scan_tables"]:
-                warnings.append(
-                    f"Full table scan on '{table}' - Consider adding an index"
-                )
+                warnings.append(f"Full table scan on '{table}' - Consider adding an index")
 
         if (
             parsed_plan["scan_count"] > 0
             and parsed_plan["search_count"] == 0
             and parsed_plan["total_nodes"] > 1
         ):
-            warnings.append(
-                "Query uses only full table scans without index optimization"
-            )
+            warnings.append("Query uses only full table scans without index optimization")
 
         if parsed_plan["scan_count"] > 0 and parsed_plan["search_count"] > 0:
             warnings.append(

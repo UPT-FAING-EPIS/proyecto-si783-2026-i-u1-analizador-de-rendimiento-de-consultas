@@ -60,9 +60,7 @@ class PostgreSQLAdapter(BaseAdapter):
                 connect_timeout=self._config.extra.get("connection_timeout", 10),
             )
             self._is_connected = True
-            logger.info(
-                f"Connected to PostgreSQL {self._config.host}:{self._config.port}"
-            )
+            logger.info(f"Connected to PostgreSQL {self._config.host}:{self._config.port}")
         except OperationalError as e:
             self._is_connected = False
             self._connection = None
@@ -114,21 +112,15 @@ class PostgreSQLAdapter(BaseAdapter):
 
         # Validate query is not DDL
         query_upper = query.strip().upper()
-        if any(
-            query_upper.startswith(ddl)
-            for ddl in ["CREATE", "ALTER", "DROP", "TRUNCATE"]
-        ):
+        if any(query_upper.startswith(ddl) for ddl in ["CREATE", "ALTER", "DROP", "TRUNCATE"]):
             raise QueryAnalysisError(
-                "Cannot analyze DDL statements. "
-                "Only SELECT, INSERT, UPDATE, DELETE are supported."
+                "Cannot analyze DDL statements. Only SELECT, INSERT, UPDATE, DELETE are supported."
             )
 
         try:
             with self._connection.cursor() as cursor:
                 # Execute EXPLAIN with ANALYZE, BUFFERS, VERBOSE, FORMAT JSON
-                explain_query = (
-                    f"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT JSON) {query}"
-                )
+                explain_query = f"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT JSON) {query}"
                 cursor.execute(explain_query)
                 result = cursor.fetchone()
 
@@ -151,9 +143,7 @@ class PostgreSQLAdapter(BaseAdapter):
 
                 # Generate warnings and recommendations
                 warnings = self.parser.identify_warnings(metrics, metrics["all_nodes"])
-                recommendations = self.parser.generate_recommendations(
-                    metrics, warnings
-                )
+                recommendations = self.parser.generate_recommendations(metrics, warnings)
 
                 # Calculate optimization score
                 score = self.parser.calculate_score(metrics, warnings)
@@ -173,9 +163,7 @@ class PostgreSQLAdapter(BaseAdapter):
         except QueryAnalysisError:
             raise
         except Exception as e:
-            raise QueryAnalysisError(
-                f"Failed to analyze query with EXPLAIN: {e}"
-            ) from e
+            raise QueryAnalysisError(f"Failed to analyze query with EXPLAIN: {e}") from e
 
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
         """Get slow queries from pg_stat_statements.
@@ -194,9 +182,7 @@ class PostgreSQLAdapter(BaseAdapter):
 
         try:
             # Check if pg_stat_statements is available
-            if not self.metrics_helper.check_pg_stat_statements_available(
-                self._connection
-            ):
+            if not self.metrics_helper.check_pg_stat_statements_available(self._connection):
                 logger.warning(
                     "pg_stat_statements extension not installed. "
                     "Install with: CREATE EXTENSION pg_stat_statements"

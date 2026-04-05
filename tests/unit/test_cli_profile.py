@@ -1,8 +1,8 @@
 """Tests para comandos CLI de perfiles."""
 
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from typer.testing import CliRunner
@@ -14,7 +14,7 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def temp_config_dir() -> Generator[Path, None, None]:
+def temp_config_dir() -> Generator[Path]:
     """Crea directorio temporal para config."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
@@ -88,9 +88,7 @@ def test_profile_list_marks_default(
 # ============================================================================
 
 
-def test_profile_show(
-    cli_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_profile_show(cli_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica que show muestra detalles del perfil."""
     cli_manager.add_profile("local", sample_profile)
 
@@ -156,9 +154,7 @@ def test_profile_show_marks_default(
 # ============================================================================
 
 
-def test_profile_set_default(
-    cli_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_profile_set_default(cli_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica que set-default funciona."""
     cli_manager.add_profile("test", sample_profile)
 
@@ -206,9 +202,7 @@ def test_profile_delete_with_force(
     assert "eliminado" in result.stdout
 
 
-def test_profile_delete_cancel(
-    cli_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_profile_delete_cancel(cli_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica que delete no elimina si se cancela."""
     cli_manager.add_profile("test", sample_profile)
 
@@ -243,9 +237,7 @@ def test_profile_test_not_found(cli_manager: ConfigManager) -> None:
     assert "no encontrado" in result.stdout
 
 
-def test_profile_test_shows_info(
-    cli_manager: ConfigManager, sample_profile: ProfileConfig
-) -> None:
+def test_profile_test_shows_info(cli_manager: ConfigManager, sample_profile: ProfileConfig) -> None:
     """Verifica que test muestra información del perfil."""
     cli_manager.add_profile("test", sample_profile)
 

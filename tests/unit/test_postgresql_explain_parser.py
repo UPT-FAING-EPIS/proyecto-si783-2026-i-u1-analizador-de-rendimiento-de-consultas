@@ -4,7 +4,6 @@ import pytest
 
 from query_analyzer.adapters.sql import PostgreSQLExplainParser
 
-
 # ============================================================================
 # FIXTURES - Sample EXPLAIN plans
 # ============================================================================
@@ -191,9 +190,7 @@ class TestPostgreSQLExplainParserBasic:
         assert metrics["node_count"] == 1
         assert metrics["most_expensive_node"]["type"] == "Seq Scan"
 
-    def test_parse_join_multiple_nodes(
-        self, join_plan_with_multiple_nodes: dict
-    ) -> None:
+    def test_parse_join_multiple_nodes(self, join_plan_with_multiple_nodes: dict) -> None:
         """Parse JOIN query with multiple nested nodes."""
         parser = PostgreSQLExplainParser()
         metrics = parser.parse(join_plan_with_multiple_nodes)
@@ -203,9 +200,7 @@ class TestPostgreSQLExplainParserBasic:
         assert metrics["most_expensive_node"]["type"] == "Hash Join"
         assert metrics["most_expensive_node"]["cost"] == 500.0
 
-    def test_extract_buffer_statistics(
-        self, join_plan_with_multiple_nodes: dict
-    ) -> None:
+    def test_extract_buffer_statistics(self, join_plan_with_multiple_nodes: dict) -> None:
         """Extract and aggregate buffer statistics."""
         parser = PostgreSQLExplainParser()
         metrics = parser.parse(join_plan_with_multiple_nodes)
@@ -327,9 +322,7 @@ class TestScoreCalculation:
         # Should be >= 85 for optimal query
         assert score >= 85, f"Expected score >= 85, got {score}"
 
-    def test_score_with_execution_time_penalty(
-        self, large_table_seq_scan: dict
-    ) -> None:
+    def test_score_with_execution_time_penalty(self, large_table_seq_scan: dict) -> None:
         """Score decreases with high execution time."""
         parser = PostgreSQLExplainParser()
         metrics = parser.parse(large_table_seq_scan)

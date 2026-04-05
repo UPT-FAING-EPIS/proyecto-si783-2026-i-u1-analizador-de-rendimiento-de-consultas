@@ -138,7 +138,9 @@ def create_test_database(db_path: str | Path = "tests/fixtures/test_database.db"
 
     query_types = ["SELECT", "JOIN", "AGGREGATE", "UPDATE", "DELETE"]
     for i in range(1, 1001):
-        query = f"SELECT * FROM products WHERE category = 'Electronics' AND price > {100 + (i % 500)}"
+        query = (
+            f"SELECT * FROM products WHERE category = 'Electronics' AND price > {100 + (i % 500)}"
+        )
         execution_time = 100 + (i % 5000)
         query_type = query_types[i % len(query_types)]
         cursor.execute(

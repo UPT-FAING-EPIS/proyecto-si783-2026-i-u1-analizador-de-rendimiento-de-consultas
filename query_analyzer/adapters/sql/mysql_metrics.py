@@ -7,8 +7,7 @@ class MySQLMetricsHelper:
         try:
             cursor = connection.cursor()
             cursor.execute(
-                "SELECT COUNT(*) FROM information_schema.tables "
-                "WHERE table_schema = DATABASE()"
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()"
             )
             result = cursor.fetchone()
             cursor.close()
@@ -74,8 +73,7 @@ class MySQLMetricsHelper:
         try:
             cursor = connection.cursor()
             cursor.execute(
-                "SELECT TABLE_NAME FROM information_schema.tables "
-                "WHERE table_schema = DATABASE()"
+                "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE()"
             )
             results = cursor.fetchall()
             cursor.close()
@@ -124,9 +122,7 @@ class MySQLMetricsHelper:
             return {}
 
     @staticmethod
-    def get_slow_queries(
-        connection: Any, threshold_ms: int = 1000
-    ) -> list[dict[str, Any]]:
+    def get_slow_queries(connection: Any, threshold_ms: int = 1000) -> list[dict[str, Any]]:
         try:
             cursor = connection.cursor()
             cursor.execute(

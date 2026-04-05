@@ -13,8 +13,7 @@ class OutputFormatter:
 
     @staticmethod
     def mask_password(password: str, visible_chars: int = 2) -> str:
-        """
-        Enmascara un password en output.
+        """Enmascara un password en output.
 
         Args:
             password: Password a enmascarar
@@ -40,17 +39,14 @@ class OutputFormatter:
         is_default: bool = False,
         mask_pwd: bool = True,
     ) -> str:
-        """
-        Formatea un perfil para mostrar.
+        """Formatea un perfil para mostrar.
 
         Returns:
             Cadena formateada del perfil
         """
         default_marker = " [bold green]✓ (default)[/bold green]" if is_default else ""
         password_display = (
-            OutputFormatter.mask_password(profile.password)
-            if mask_pwd
-            else profile.password
+            OutputFormatter.mask_password(profile.password) if mask_pwd else profile.password
         )
 
         return (
@@ -86,8 +82,7 @@ class OutputFormatter:
     def create_profiles_table(
         profiles: dict[str, ProfileConfig], default_profile: str | None = None
     ) -> Table:
-        """
-        Crea una tabla para mostrar perfiles.
+        """Crea una tabla para mostrar perfiles.
 
         Args:
             profiles: Diccionario de perfiles
@@ -96,9 +91,7 @@ class OutputFormatter:
         Returns:
             Tabla de rich
         """
-        table = Table(
-            title="Perfiles de Conexión", show_header=True, header_style="bold"
-        )
+        table = Table(title="Perfiles de Conexión", show_header=True, header_style="bold")
         table.add_column("Nombre", style="cyan")
         table.add_column("Engine", style="magenta")
         table.add_column("Host", style="green")

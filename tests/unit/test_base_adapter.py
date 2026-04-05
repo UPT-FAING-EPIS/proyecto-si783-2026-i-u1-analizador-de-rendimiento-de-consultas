@@ -1,7 +1,8 @@
 """Tests unitarios para BaseAdapter y modelos asociados."""
 
-import pytest
 from typing import Any
+
+import pytest
 from pydantic import ValidationError
 
 from query_analyzer.adapters import (
@@ -10,7 +11,6 @@ from query_analyzer.adapters import (
     ConnectionError,
     QueryAnalysisReport,
 )
-
 
 # ============================================================================
 # MOCK ADAPTER

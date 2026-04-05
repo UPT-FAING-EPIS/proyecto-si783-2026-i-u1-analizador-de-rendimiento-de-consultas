@@ -1,7 +1,8 @@
 """Tests unitarios para AdapterRegistry."""
 
-import pytest
 from typing import Any
+
+import pytest
 
 from query_analyzer.adapters import (
     AdapterRegistry,
@@ -10,7 +11,6 @@ from query_analyzer.adapters import (
     QueryAnalysisReport,
     UnsupportedEngineError,
 )
-
 
 # ============================================================================
 # MOCK ADAPTERS PARA TESTING
@@ -138,9 +138,7 @@ class TestAdapterRegistryRegister:
             def execute_explain(self, query: str) -> QueryAnalysisReport:
                 return QueryAnalysisReport(engine="postgresql", query=query, score=0)
 
-            def get_slow_queries(
-                self, threshold_ms: int = 1000
-            ) -> list[dict[str, Any]]:
+            def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
                 return []
 
             def get_metrics(self) -> dict[str, Any]:
@@ -186,9 +184,7 @@ class TestAdapterRegistryRegister:
             def execute_explain(self, query: str) -> QueryAnalysisReport:
                 return QueryAnalysisReport(engine="test", query=query, score=0)
 
-            def get_slow_queries(
-                self, threshold_ms: int = 1000
-            ) -> list[dict[str, Any]]:
+            def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
                 return []
 
             def get_metrics(self) -> dict[str, Any]:
@@ -274,9 +270,7 @@ class TestAdapterRegistryCreate:
 class TestAdapterRegistryErrors:
     """Tests para manejo de errores."""
 
-    def test_unsupported_engine_error_includes_available(
-        self, clean_registry, sample_config
-    ):
+    def test_unsupported_engine_error_includes_available(self, clean_registry, sample_config):
         """UnsupportedEngineError incluye lista de motores disponibles."""
         AdapterRegistry._registry["postgresql"] = MockPostgreSQLAdapter
         AdapterRegistry._registry["mysql"] = MockMySQLAdapter
@@ -290,9 +284,7 @@ class TestAdapterRegistryErrors:
         assert "postgresql" in error.available_engines
         assert "oracle" not in error.available_engines
 
-    def test_unsupported_engine_error_message_format(
-        self, clean_registry, sample_config
-    ):
+    def test_unsupported_engine_error_message_format(self, clean_registry, sample_config):
         """Mensaje de error es descriptivo."""
         AdapterRegistry._registry["postgresql"] = MockPostgreSQLAdapter
 
@@ -304,9 +296,7 @@ class TestAdapterRegistryErrors:
         assert "no soportado" in error_msg or "not supported" in error_msg
         assert "postgresql" in error_msg
 
-    def test_unsupported_engine_error_empty_available(
-        self, clean_registry, sample_config
-    ):
+    def test_unsupported_engine_error_empty_available(self, clean_registry, sample_config):
         """Error con lista vacía de disponibles."""
         with pytest.raises(UnsupportedEngineError) as exc_info:
             AdapterRegistry.create("any", sample_config)
@@ -405,9 +395,7 @@ class TestAdapterRegistryIntegration:
             def execute_explain(self, query: str) -> QueryAnalysisReport:
                 return QueryAnalysisReport(engine="postgresql", query=query, score=0)
 
-            def get_slow_queries(
-                self, threshold_ms: int = 1000
-            ) -> list[dict[str, Any]]:
+            def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
                 return []
 
             def get_metrics(self) -> dict[str, Any]:

@@ -159,12 +159,8 @@ class MySQLAdapter(BaseAdapter):
             return {
                 "tables": MySQLMetricsHelper.get_table_count(self.connection),
                 "indexes": MySQLMetricsHelper.get_index_count(self.connection),
-                "database_size_bytes": MySQLMetricsHelper.get_database_size(
-                    self.connection
-                ),
-                "slow_queries_count": len(
-                    MySQLMetricsHelper.get_slow_queries(self.connection)
-                ),
+                "database_size_bytes": MySQLMetricsHelper.get_database_size(self.connection),
+                "slow_queries_count": len(MySQLMetricsHelper.get_slow_queries(self.connection)),
             }
         except Exception:
             return {}

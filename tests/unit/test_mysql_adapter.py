@@ -88,9 +88,7 @@ class TestMySQLAdapterConnection:
     def test_is_ddl_with_leading_comment(self, mysql_config):
         adapter = MySQLAdapter(mysql_config)
 
-        assert adapter._is_ddl_statement(
-            "-- This is a comment\nCREATE TABLE t (id INT)"
-        )
+        assert adapter._is_ddl_statement("-- This is a comment\nCREATE TABLE t (id INT)")
 
     def test_is_not_connected_initially(self, mysql_config):
         adapter = MySQLAdapter(mysql_config)
@@ -307,9 +305,7 @@ class TestMySQLAdapterDML:
         mock_conn.cursor.return_value = mock_cursor
         adapter.connection = mock_conn
 
-        report = adapter.execute_explain(
-            "UPDATE customers SET name = 'Jane' WHERE id = 1"
-        )
+        report = adapter.execute_explain("UPDATE customers SET name = 'Jane' WHERE id = 1")
 
         assert report is not None
 
