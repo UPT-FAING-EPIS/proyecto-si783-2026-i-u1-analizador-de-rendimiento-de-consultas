@@ -52,6 +52,7 @@ seed:
 	@echo "✅ MySQL seeded!"
 	@echo ""
 	@echo "🍃 MongoDB..."
+	docker compose -f docker/compose.yml exec -T mongodb mongosh --authenticationDatabase admin -u admin -p mongodb123 query_analyzer --eval "db.orders.deleteMany({});" 2>/dev/null || true
 	docker compose -f docker/compose.yml exec -T mongodb mongoimport --authenticationDatabase admin -u admin -p mongodb123 --db query_analyzer --collection orders --type json --file /tmp/init-mongodb.json 2>/dev/null || \
 	cat docker/seed/init-mongodb.json | docker compose -f docker/compose.yml exec -T mongodb mongosh --authenticationDatabase admin -u admin -p mongodb123 query_analyzer --eval "db.orders.insertMany(JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8')))"
 	@echo "✅ MongoDB seeded!"
