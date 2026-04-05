@@ -4,12 +4,13 @@ help:
 	@echo "🔍 Query Analyzer - Docker Management"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make up              - Start all database services"
+	@echo "  make up              - Start all database services (non-blocking)"
 	@echo "  make down            - Stop all services (keep volumes)"
 	@echo "  make restart         - Restart all services"
 	@echo "  make reset           - Remove all containers and volumes (clean slate)"
 	@echo "  make seed            - Populate databases with test data"
 	@echo "  make health          - Check health status of all services"
+	@echo "  make wait-healthy    - Wait for all services to be healthy (max 120s)"
 	@echo "  make ps              - Show running containers"
 	@echo "  make logs            - View logs from all services (follow)"
 	@echo "  make logs-[service]  - View logs for specific service"
@@ -21,8 +22,6 @@ help:
 up:
 	@echo "🚀 Starting all services..."
 	docker compose -f docker/compose.yml up -d
-	@echo ""
-	@make wait-healthy
 
 wait-healthy:
 	@scripts/wait-for-services.sh
