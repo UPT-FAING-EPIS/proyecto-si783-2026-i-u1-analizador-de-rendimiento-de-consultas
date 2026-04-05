@@ -110,7 +110,9 @@ class SQLiteExplainParser:
         """
         detail = detail.strip()
 
-        scan_match = re.match(r"SCAN\s+(?:TABLE\s+)?(\w+)(?:\s+(.*))?", detail, re.IGNORECASE)
+        scan_match = re.match(
+            r"SCAN\s+(?:TABLE\s+)?(\w+)(?:\s+(.*))?", detail, re.IGNORECASE
+        )
         if scan_match:
             table = scan_match.group(1)
             where_clause = scan_match.group(2) or ""
@@ -227,9 +229,7 @@ class SQLiteExplainParser:
 
         return recommendations
 
-    def calculate_score(
-        self, parsed_plan: dict[str, Any], warnings: list[str]
-    ) -> int:
+    def calculate_score(self, parsed_plan: dict[str, Any], warnings: list[str]) -> int:
         """Calculate optimization score (0-100).
 
         Scoring logic:

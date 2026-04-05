@@ -199,5 +199,3 @@ ANALYZE TABLE orders;
 ANALYZE TABLE order_items;
 ANALYZE TABLE large_table;
 ANALYZE TABLE slow_queries_log;
-
-

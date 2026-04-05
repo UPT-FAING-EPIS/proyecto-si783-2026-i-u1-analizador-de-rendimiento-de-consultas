@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ConnectionConfig(BaseModel):

@@ -13,8 +13,6 @@ class TestSQLiteExplainParser:
         """Create parser instance."""
         return SQLiteExplainParser(table_row_threshold=1000)
 
-
-
     @pytest.fixture
     def explain_full_scan(self):
         """EXPLAIN output for full table scan."""
@@ -44,8 +42,6 @@ class TestSQLiteExplainParser:
     def explain_empty(self):
         """Empty EXPLAIN output."""
         return ""
-
-
 
     def test_parse_full_scan(self, parser, explain_full_scan):
         """Test parsing full table scan."""
@@ -116,8 +112,6 @@ class TestSQLiteExplainParser:
         assert node["uses_index"] is True
         assert node["is_full_scan"] is False
 
-
-
     def test_warnings_full_scan(self, parser, explain_full_scan):
         """Test that full scan generates warning."""
         parsed = parser.parse(explain_full_scan)
@@ -134,7 +128,9 @@ class TestSQLiteExplainParser:
 
         assert len(warnings) == 0
 
-    def test_warnings_mixed_scans_searches(self, parser, explain_join_with_scan_and_search):
+    def test_warnings_mixed_scans_searches(
+        self, parser, explain_join_with_scan_and_search
+    ):
         """Test that mixed scans/searches generates warning."""
         parsed = parser.parse(explain_join_with_scan_and_search)
         warnings = parser.identify_warnings(parsed)
@@ -148,8 +144,6 @@ class TestSQLiteExplainParser:
         warnings = parser.identify_warnings(parsed)
 
         assert len(warnings) >= 2
-
-
 
     def test_recommendations_no_warnings(self, parser):
         """Test that no warnings = positive recommendation."""
@@ -167,15 +161,15 @@ class TestSQLiteExplainParser:
         assert len(recommendations) > 0
         assert any("index" in r.lower() for r in recommendations)
 
-    def test_recommendations_mixed_optimization(self, parser, explain_join_with_scan_and_search):
+    def test_recommendations_mixed_optimization(
+        self, parser, explain_join_with_scan_and_search
+    ):
         """Test recommendations for mixed optimization."""
         parsed = parser.parse(explain_join_with_scan_and_search)
         warnings = parser.identify_warnings(parsed)
         recommendations = parser.generate_recommendations(warnings)
 
         assert len(recommendations) > 0
-
-
 
     def test_score_perfect_indexed(self, parser, explain_indexed_search):
         """Test that all-indexed query gets high score."""
@@ -203,7 +197,9 @@ class TestSQLiteExplainParser:
 
         assert score < 60
 
-    def test_score_mixed_scans_searches(self, parser, explain_join_with_scan_and_search):
+    def test_score_mixed_scans_searches(
+        self, parser, explain_join_with_scan_and_search
+    ):
         """Test that mixed scans/searches gets medium score."""
         parsed = parser.parse(explain_join_with_scan_and_search)
         warnings = parser.identify_warnings(parsed)
@@ -224,8 +220,6 @@ class TestSQLiteExplainParser:
             score = parser.calculate_score(parsed, warnings)
 
             assert 0 <= score <= 100
-
-
 
     def test_extract_scan_table(self, parser):
         """Test extracting SCAN TABLE operation."""
@@ -272,8 +266,6 @@ class TestSQLiteExplainParser:
         info = parser._extract_operation_info("UNKNOWN OPERATION")
 
         assert info["operation"] == "UNKNOWN"
-
-
 
     def test_parse_with_extra_whitespace(self, parser):
         """Test parsing with extra whitespace."""

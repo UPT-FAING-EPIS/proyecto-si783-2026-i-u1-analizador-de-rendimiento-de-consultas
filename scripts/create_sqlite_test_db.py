@@ -150,11 +150,11 @@ def create_test_database(db_path: str | Path = "tests/fixtures/test_database.db"
     conn.close()
 
     print(f"[OK] Test database created at {db_path}")
-    print(f"     - Customers: 100 rows (indexed on email, country)")
-    print(f"     - Products: 50 rows (indexed on category)")
-    print(f"     - Orders: 100 rows (indexed on customer_id, status)")
-    print(f"     - Order Items: 500 rows (indexed on order_id, NO index on product_id)")
-    print(f"     - Slow Queries Log: 1000 rows (indexed on execution_time)")
+    print("     - Customers: 100 rows (indexed on email, country)")
+    print("     - Products: 50 rows (indexed on category)")
+    print("     - Orders: 100 rows (indexed on customer_id, status)")
+    print("     - Order Items: 500 rows (indexed on order_id, NO index on product_id)")
+    print("     - Slow Queries Log: 1000 rows (indexed on execution_time)")
 
 
 if __name__ == "__main__":

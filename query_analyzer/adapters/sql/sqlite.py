@@ -4,7 +4,6 @@ Provides query analysis for SQLite databases using EXPLAIN QUERY PLAN.
 Supports both in-memory and file-based databases.
 """
 
-import re
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -80,9 +79,7 @@ class SQLiteAdapter(BaseAdapter):
                 f"Failed to connect to SQLite database '{self._config.database}': {e}"
             )
         except Exception as e:
-            raise AdapterConnectionError(
-                f"Unexpected error connecting to SQLite: {e}"
-            )
+            raise AdapterConnectionError(f"Unexpected error connecting to SQLite: {e}")
 
     def disconnect(self) -> None:
         """Close database connection.
@@ -212,9 +209,9 @@ class SQLiteAdapter(BaseAdapter):
                 "indexes": index_count,
                 "page_size_bytes": page_stats.get("page_size", 0),
                 "page_count": page_stats.get("page_count", 0),
-                "total_size_bytes": file_size if file_size > 0 else page_stats.get(
-                    "total_size_bytes", 0
-                ),
+                "total_size_bytes": file_size
+                if file_size > 0
+                else page_stats.get("total_size_bytes", 0),
                 "cache_size_pages": cache_settings.get("cache_size_pages", 0),
                 "cache_size_bytes": cache_settings.get("cache_size_bytes", 0),
             }

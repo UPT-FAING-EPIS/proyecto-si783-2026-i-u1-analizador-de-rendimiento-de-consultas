@@ -1,12 +1,8 @@
 """Tests for SQLiteAdapter."""
 
-import sqlite3
-from pathlib import Path
-
 import pytest
 
 from query_analyzer.adapters.exceptions import (
-    ConnectionError as AdapterConnectionError,
     QueryAnalysisError,
 )
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
@@ -50,8 +46,6 @@ class TestSQLiteAdapterConnection:
     def file_adapter(self, file_db_config):
         """Create adapter for file-based database."""
         return SQLiteAdapter(file_db_config)
-
-
 
     def test_adapter_initialization(self, in_memory_adapter):
         """Test adapter can be initialized."""
@@ -116,9 +110,6 @@ class TestSQLiteAdapterConnection:
             assert in_memory_adapter.is_connected()
 
         assert not in_memory_adapter.is_connected()
-
-
-
 
     @pytest.fixture
     def connected_adapter(self, in_memory_adapter):
@@ -202,7 +193,9 @@ class TestSQLiteAdapterConnection:
 
     def test_execute_explain_insert_statement(self, connected_adapter):
         """Test EXPLAIN works with INSERT."""
-        query = "INSERT INTO customers (name, email) VALUES ('John', 'john@example.com')"
+        query = (
+            "INSERT INTO customers (name, email) VALUES ('John', 'john@example.com')"
+        )
         report = connected_adapter.execute_explain(query)
 
         assert report is not None
@@ -220,8 +213,6 @@ class TestSQLiteAdapterConnection:
         report = connected_adapter.execute_explain(query)
 
         assert report is not None
-
-
 
     def test_reject_create_table(self, connected_adapter):
         """Test that CREATE TABLE is rejected."""
@@ -256,8 +247,6 @@ class TestSQLiteAdapterConnection:
 
         with pytest.raises(QueryAnalysisError):
             connected_adapter.execute_explain(query)
-
-
 
     def test_get_metrics_structure(self, connected_adapter):
         """Test get_metrics returns proper structure."""
@@ -296,18 +285,12 @@ class TestSQLiteAdapterConnection:
         assert info["version"]
         assert "." in info["version"]
 
-
-
-
     def test_get_slow_queries_returns_empty(self, connected_adapter):
         """Test that get_slow_queries returns empty list (not supported)."""
         result = connected_adapter.get_slow_queries(threshold_ms=1000)
 
         assert isinstance(result, list)
         assert len(result) == 0
-
-
-
 
     def test_execute_explain_without_connection(self, in_memory_adapter):
         """Test execute_explain fails without connection."""
@@ -327,9 +310,6 @@ class TestSQLiteAdapterConnection:
             password="",
         )
         adapter = SQLiteAdapter(config)
-
-
-
 
     def test_full_workflow(self, in_memory_adapter):
         """Test complete workflow: connect -> analyze -> metrics -> disconnect."""
