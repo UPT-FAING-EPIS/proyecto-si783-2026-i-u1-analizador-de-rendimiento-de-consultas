@@ -1,0 +1,27 @@
+{
+  "name": "sqlite_select_star",
+  "description": "SQLite: SELECT * con muchas columnas",
+  "raw_explain_lines": [
+    "0|0|0 SEARCH TABLE products USING AUTOINDEX"
+  ],
+  "normalized_plan": {
+    "node_type": "Index Scan",
+    "table_name": "products",
+    "actual_rows": 1000,
+    "estimated_rows": 1000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": "AUTOINDEX",
+    "filter_condition": null,
+    "extra_info": ["AUTOINDEX"],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM products LIMIT 1000",
+  "expected": {
+    "anti_patterns_detected": ["select_star"],
+    "min_score": 95,
+    "max_score": 100,
+    "should_have_recommendation": true
+  }
+}

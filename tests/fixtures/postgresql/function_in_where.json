@@ -1,0 +1,39 @@
+{
+  "name": "function_in_where_lower_email",
+  "description": "Función LOWER aplicada a columna indexada en WHERE",
+  "raw_explain": {
+    "Plan": {
+      "Node Type": "Seq Scan",
+      "Relation Name": "users",
+      "Actual Rows": 5000,
+      "Actual Loops": 1,
+      "Plan Rows": 5000,
+      "Plan Width": 128,
+      "Actual Total Time": 50.0,
+      "Total Cost": 200.0,
+      "Filter": "LOWER(email) = 'john@example.com'"
+    },
+    "Planning Time": 0.4,
+    "Execution Time": 50.0
+  },
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "users",
+    "actual_rows": 5000,
+    "estimated_rows": 5000,
+    "actual_time_ms": 50.0,
+    "estimated_cost": 200.0,
+    "index_used": null,
+    "filter_condition": "LOWER(email) = 'john@example.com'",
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT id, name, email FROM users WHERE LOWER(email) = 'john@example.com'",
+  "expected": {
+    "anti_patterns_detected": ["function_in_where"],
+    "min_score": 75,
+    "max_score": 85,
+    "should_have_recommendation": true
+  }
+}

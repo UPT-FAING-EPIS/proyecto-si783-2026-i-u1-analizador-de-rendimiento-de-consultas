@@ -1,0 +1,46 @@
+{
+  "raw_explain_json": {
+    "Plan": {
+      "Node Type": "Nested Loop Join",
+      "Startup Cost": 0.0,
+      "Total Cost": 1000000000.0,
+      "Plan Rows": 1000000000,
+      "Actual Rows": 500000,
+      "Estimated Row Count": "1000000000",
+      "Plans": [
+        {
+          "Node Type": "Seq Scan",
+          "Table": "regions",
+          "Startup Cost": 0.0,
+          "Total Cost": 100.0,
+          "Actual Rows": 10,
+          "Plan Rows": 10,
+          "Estimated Row Count": "10",
+          "Full Scan": true,
+          "Region": "us-east-1"
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Table": "products",
+          "Startup Cost": 0.0,
+          "Total Cost": 100000000.0,
+          "Actual Rows": 100000,
+          "Plan Rows": 100000,
+          "Estimated Row Count": "100000 (100% of table)",
+          "Full Scan": true,
+          "Region": "us-west-1"
+        }
+      ]
+    },
+    "Planning Time": 1.0,
+    "Execution Time": 8000.0
+  },
+  "raw_explain_text": "  Nested Loop Join\n    -> Seq Scan on regions (full scan across regions)\n      full scan on regions in us-east-1\n    -> Seq Scan on products (full scan across regions)\n      full scan on products in us-west-1\n    cross-region distributed execution\n    estimated rows: 1000000000 (10 × 100000)\n    actual rows: 500000\n",
+  "query": "SELECT * FROM regions CROSS JOIN products",
+  "expected_anti_patterns": [
+    "nested_loop_cost"
+  ],
+  "expected_score_range": [10, 35],
+  "expected_warnings": 3,
+  "notes": "Critical performance issue: cross-regional nested loop join with 10 × 100k = 1 billion row cartesian product. Full scans on both tables across different regions. Expected warnings: nested_loop_cost (high) + cross_region_full_scan (CRITICAL) + result_without_limit. Recommendation: Add join condition or rethink query logic."
+}

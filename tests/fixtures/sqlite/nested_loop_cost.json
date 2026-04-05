@@ -1,0 +1,28 @@
+{
+  "name": "sqlite_nested_loop",
+  "description": "SQLite: JOIN con múltiples SEARCH operations",
+  "raw_explain_lines": [
+    "0|0|0 SCAN TABLE orders (~1500 rows)",
+    "1|1|1 SEARCH TABLE items USING AUTOINDEX ON (order_id=?)"
+  ],
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "orders",
+    "actual_rows": 1500,
+    "estimated_rows": 1500,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT o.id, i.name FROM orders o JOIN items i ON o.id = i.order_id",
+  "expected": {
+    "anti_patterns_detected": [],
+    "min_score": 100,
+    "max_score": 100,
+    "should_have_recommendation": false
+  }
+}

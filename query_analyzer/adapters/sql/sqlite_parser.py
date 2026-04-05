@@ -263,3 +263,88 @@ class SQLiteExplainParser:
             "search_count": 0,
             "total_nodes": 0,
         }
+
+    def normalize_plan(self, plan_line: str) -> dict[str, Any]:
+        """Convert SQLite EXPLAIN QUERY PLAN text to normalized format (engine-agnostic).
+
+        Converts SQLite text-based EXPLAIN QUERY PLAN output to a normalized format that can be
+        used by the AntiPatternDetector, which is independent of the SQL engine.
+
+        SQLite EXPLAIN format example:
+        "0|0|0 SCAN TABLE customers (~100 rows)"
+        "0|1|1 SEARCH TABLE orders USING AUTOINDEX ON (customer_id=?)"
+
+        Args:
+            plan_line: A single line from EXPLAIN QUERY PLAN output
+
+        Returns:
+            Normalized plan node with keys:
+                - node_type: str ("Seq Scan" for SCAN, "Index Scan" for SEARCH)
+                - table_name: str | None (extracted from SCAN/SEARCH TABLE <name>)
+                - actual_rows: int | None (extracted from (~rows) annotation)
+                - estimated_rows: int | None (same as actual_rows in SQLite)
+                - actual_time_ms: None (not available in SQLite)
+                - estimated_cost: None (not available in SQLite)
+                - index_used: str | None (extracted from USING clause)
+                - filter_condition: None (not available in SQLite EXPLAIN)
+                - extra_info: list[str] (any additional info like AUTOINDEX)
+                - buffers: None (not available in SQLite)
+                - children: list[dict] (empty, SQLite doesn't provide hierarchical plans in text format)
+        """
+        if not plan_line:
+            return {}
+
+        # Parse SQLite EXPLAIN QUERY PLAN format: "id|parent|notused OPERATION"
+        # Example: "0|0|0 SCAN TABLE customers (~100 rows)"
+
+        # Extract operation part (after the "id|parent|notused" prefix)
+        match = re.match(r"^[\d\|]+\s+(.*)$", plan_line.strip())
+        if not match:
+            return {}
+
+        operation = match.group(1)
+
+        # Determine node type and extract details
+        if "SCAN TABLE" in operation:
+            node_type = "Seq Scan"
+            table_match = re.search(r"SCAN TABLE (\w+)", operation)
+            table_name = table_match.group(1) if table_match else None
+            index_used = None
+
+        elif "SEARCH TABLE" in operation:
+            node_type = "Index Scan"
+            table_match = re.search(r"SEARCH TABLE (\w+)", operation)
+            table_name = table_match.group(1) if table_match else None
+
+            # Extract index name from USING clause
+            index_match = re.search(r"USING (\w+)", operation)
+            index_used = index_match.group(1) if index_match else None
+
+        else:
+            # Other operations (COMPOUND, MATERIALIZE, etc.)
+            node_type = operation.split()[0] if operation else "Unknown"
+            table_name = None
+            index_used = None
+
+        # Extract row count estimate (SQLite format: ~100 rows)
+        rows_match = re.search(r"\(~(\d+) rows?\)", operation)
+        rows = int(rows_match.group(1)) if rows_match else None
+
+        # Extract extra info (e.g., AUTOINDEX, condition info)
+        extra_info = []
+        if "AUTOINDEX" in operation:
+            extra_info.append("AUTOINDEX")
+
+        return {
+            "node_type": node_type,
+            "table_name": table_name,
+            "actual_rows": rows,
+            "estimated_rows": rows,  # SQLite provides same estimate
+            "actual_time_ms": None,  # Not available in SQLite
+            "estimated_cost": None,  # Not available in SQLite
+            "index_used": index_used,
+            "filter_condition": None,  # Not provided in text format
+            "extra_info": extra_info,
+            "buffers": None,  # Not available in SQLite
+            "children": [],  # SQLite EXPLAIN doesn't provide hierarchical plans
+        }

@@ -11,7 +11,13 @@ from .exceptions import (
 )
 from .models import ConnectionConfig, QueryAnalysisReport
 from .registry import AdapterRegistry
-from .sql import PostgreSQLAdapter, PostgreSQLExplainParser, PostgreSQLMetricsHelper
+from .sql import (
+    CockroachDBAdapter,
+    CockroachDBMetricsHelper,
+    PostgreSQLAdapter,
+    PostgreSQLExplainParser,
+    PostgreSQLMetricsHelper,
+)
 
 __all__ = [
     # Models
@@ -22,6 +28,8 @@ __all__ = [
     # Registry
     "AdapterRegistry",
     # SQL Adapters
+    "CockroachDBAdapter",
+    "CockroachDBMetricsHelper",
     "PostgreSQLAdapter",
     "PostgreSQLExplainParser",
     "PostgreSQLMetricsHelper",

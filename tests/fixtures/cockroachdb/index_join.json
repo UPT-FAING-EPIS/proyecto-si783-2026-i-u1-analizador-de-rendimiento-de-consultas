@@ -1,0 +1,40 @@
+{
+  "raw_explain_json": {
+    "Plan": {
+      "Node Type": "Hash Join",
+      "Startup Cost": 100.0,
+      "Total Cost": 500.0,
+      "Plan Rows": 1000,
+      "Actual Rows": 950,
+      "Estimated Row Count": "1000 (predicted)",
+      "Plans": [
+        {
+          "Node Type": "Index Scan",
+          "Index Name": "users_idx",
+          "Table": "users",
+          "Startup Cost": 50.0,
+          "Total Cost": 200.0,
+          "Actual Rows": 100,
+          "Plan Rows": 105,
+          "Estimated Row Count": "105"
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Table": "orders",
+          "Startup Cost": 0.0,
+          "Total Cost": 250.0,
+          "Actual Rows": 950,
+          "Plan Rows": 1000,
+          "Estimated Row Count": "1000"
+        }
+      ]
+    },
+    "Planning Time": 1.5,
+    "Execution Time": 45.3
+  },
+  "query": "SELECT u.id, COUNT(*) as order_count FROM users u JOIN orders o ON u.id = o.user_id WHERE u.active = true GROUP BY u.id LIMIT 100",
+  "expected_anti_patterns": [],
+  "expected_score_range": [75, 90],
+  "expected_warnings": 0,
+  "notes": "Efficient index-based join with proper row estimation. Hash join + index scan = good execution plan. No warnings expected."
+}

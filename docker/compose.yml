@@ -146,12 +146,14 @@ services:
       - query-analyzer-net
 
   cockroachdb:
-    image: cockroachdb/cockroach:latest
+    image: cockroachdb/cockroach:v23.2.0
     container_name: query-analyzer-cockroachdb
     ports:
       - "${DB_COCKROACH_PORT:-26257}:26257"
       - "${DB_COCKROACH_HTTP_PORT:-8080}:8080"
     command: start-single-node --insecure
+    environment:
+      COCKROACH_SKIP_ENABLING_DIAGNOSTIC_REPORTING: "true"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
       interval: 15s

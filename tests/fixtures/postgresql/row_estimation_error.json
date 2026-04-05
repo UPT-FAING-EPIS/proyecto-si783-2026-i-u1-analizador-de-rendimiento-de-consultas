@@ -1,0 +1,39 @@
+{
+  "name": "row_estimation_error_large_divergence",
+  "description": "Divergencia > 50% entre filas reales y estimadas (100% divergence)",
+  "raw_explain": {
+    "Plan": {
+      "Node Type": "Index Scan",
+      "Relation Name": "orders",
+      "Index Name": "idx_orders_customer_id",
+      "Actual Rows": 45000,
+      "Actual Loops": 1,
+      "Plan Rows": 20000,
+      "Plan Width": 80,
+      "Actual Total Time": 95.5,
+      "Total Cost": 300.0
+    },
+    "Planning Time": 0.3,
+    "Execution Time": 95.5
+  },
+  "normalized_plan": {
+    "node_type": "Index Scan",
+    "table_name": "orders",
+    "actual_rows": 45000,
+    "estimated_rows": 20000,
+    "actual_time_ms": 95.5,
+    "estimated_cost": 300.0,
+    "index_used": "idx_orders_customer_id",
+    "filter_condition": null,
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM orders WHERE customer_id = 123",
+  "expected": {
+    "anti_patterns_detected": ["row_estimation_error"],
+    "min_score": 85,
+    "max_score": 100,
+    "should_have_recommendation": true
+  }
+}

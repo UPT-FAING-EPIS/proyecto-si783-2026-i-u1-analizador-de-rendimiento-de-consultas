@@ -228,3 +228,85 @@ class MySQLExplainParser:
             score -= 15
 
         return max(0, min(100, score))
+
+    def normalize_plan(self, plan: dict) -> dict:
+        """Convert MySQL EXPLAIN plan to normalized format (engine-agnostic).
+
+        Converts MySQL EXPLAIN FORMAT=JSON plan structure to a normalized format that can be
+        used by the AntiPatternDetector, which is independent of the SQL engine.
+
+        Args:
+            plan: EXPLAIN output dictionary from MySQL
+
+        Returns:
+            Normalized plan node with keys:
+                - node_type: str (mapped from access_type: ALL -> "Seq Scan", etc.)
+                - table_name: str | None
+                - actual_rows: int | None (mapped from rows_examined)
+                - estimated_rows: int | None (mapped from rows)
+                - actual_time_ms: float | None (not available in MySQL)
+                - estimated_cost: float | None (not available in MySQL)
+                - index_used: str | None (mapped from 'key' field)
+                - filter_condition: str | None (extracted from 'filtered')
+                - extra_info: list[str] (from 'extra' field, e.g., "Using filesort")
+                - buffers: None (not available in MySQL)
+                - children: list[dict] (normalized child nodes from 'nested_loop')
+        """
+        if not plan:
+            return {}
+
+        # Extract table info
+        table_data = plan.get("table", {})
+        table_name = table_data.get("table_name")
+
+        # Map MySQL access_type to standard node_type
+        access_type = table_data.get("access_type", "UNKNOWN")
+        node_type_map = {
+            "ALL": "Seq Scan",
+            "const": "Index Scan",
+            "eq_ref": "Index Scan",
+            "ref": "Index Scan",
+            "range": "Index Scan",
+            "index": "Index Scan",
+            "index_merge": "Index Scan",
+            "system": "Index Scan",
+        }
+        node_type = node_type_map.get(access_type, f"Scan({access_type})")
+
+        # Extract row counts (MySQL uses "rows" for estimated, "rows_examined" for actual)
+        rows_examined = table_data.get("rows_examined")
+        estimated_rows = table_data.get("rows")
+
+        # Extract index information
+        index_used = table_data.get("key")
+
+        # Extract extra information
+        extra_info = []
+        extra_list = table_data.get("extra", [])
+        if extra_list:
+            for extra in extra_list:
+                if "extra_info" in extra:
+                    extra_info.append(extra["extra_info"])
+
+        # Filter condition (MySQL doesn't provide this directly in the plan,
+        # but we can infer from the query structure if needed)
+        filter_condition = None
+
+        # Recursively normalize nested loops (MySQL sub-queries/joins)
+        children = []
+        for nested_loop in plan.get("nested_loop", []):
+            children.append(self.normalize_plan({"table": nested_loop}))
+
+        return {
+            "node_type": node_type,
+            "table_name": table_name,
+            "actual_rows": rows_examined,
+            "estimated_rows": estimated_rows,
+            "actual_time_ms": None,  # Not available in MySQL EXPLAIN
+            "estimated_cost": None,  # Not available in MySQL EXPLAIN
+            "index_used": index_used,
+            "filter_condition": filter_condition,
+            "extra_info": extra_info,
+            "buffers": None,  # Not available in MySQL
+            "children": children,
+        }

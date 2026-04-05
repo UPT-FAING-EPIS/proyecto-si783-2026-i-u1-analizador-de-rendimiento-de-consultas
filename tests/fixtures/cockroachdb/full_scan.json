@@ -1,0 +1,25 @@
+{
+  "raw_explain_json": {
+    "Plan": {
+      "Node Type": "Seq Scan",
+      "Table": "large_table",
+      "Startup Cost": 0.0,
+      "Total Cost": 50000.0,
+      "Plan Rows": 500000,
+      "Actual Rows": 450000,
+      "Estimated Row Count": "500000 (100% of table)",
+      "Filter": "status = 'active'",
+      "Full Scan": true
+    },
+    "Planning Time": 2.0,
+    "Execution Time": 5000.0
+  },
+  "raw_explain_text": "  Seq Scan on large_table\n    -> Full scan\n    -> Filter: (status = 'active')\n    estimated rows: 500000 (100% of table)\n    actual rows: 450000\n",
+  "query": "SELECT * FROM large_table WHERE status = 'active'",
+  "expected_anti_patterns": [
+    "full_table_scan"
+  ],
+  "expected_score_range": [35, 55],
+  "expected_warnings": 2,
+  "notes": "Full sequential scan on 500k row table without index. Scanning 100% of table. Expected warnings: full_table_scan + result_without_limit (SELECT *). Recommendation: CREATE INDEX on status column."
+}

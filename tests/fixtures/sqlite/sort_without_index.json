@@ -1,0 +1,27 @@
+{
+  "name": "sqlite_sort_without_index",
+  "description": "SQLite: ORDER BY sin índice (SQLite no proporciona indicador de filesort explícito)",
+  "raw_explain_lines": [
+    "0|0|0 SCAN TABLE customers (~10000 rows)"
+  ],
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "customers",
+    "actual_rows": 10000,
+    "estimated_rows": 10000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT id, name FROM customers ORDER BY created_at DESC",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan"],
+    "min_score": 75,
+    "max_score": 85,
+    "should_have_recommendation": true
+  }
+}

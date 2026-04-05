@@ -1,0 +1,41 @@
+{
+  "name": "mysql_sort_without_index",
+  "description": "MySQL: ORDER BY sin índice usando filesort",
+  "raw_explain": {
+    "query_block": {
+      "select_id": 1,
+      "table": {
+        "table_name": "customers",
+        "access_type": "ALL",
+        "rows_examined": 10000,
+        "rows": 10000,
+        "filtered": 100.0,
+        "extra": [
+          {
+            "extra_info": "Using filesort"
+          }
+        ]
+      }
+    }
+  },
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "customers",
+    "actual_rows": 10000,
+    "estimated_rows": 10000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": ["Using filesort"],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT id, name FROM customers ORDER BY created_at DESC",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan", "sort_without_index"],
+    "min_score": 65,
+    "max_score": 80,
+    "should_have_recommendation": true
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "mysql_result_without_limit",
+  "description": "MySQL: Retorna > 10k filas sin LIMIT",
+  "raw_explain": {
+    "query_block": {
+      "select_id": 1,
+      "table": {
+        "table_name": "logs",
+        "access_type": "ALL",
+        "rows_examined": 100000,
+        "rows": 100000,
+        "filtered": 100.0,
+        "extra": [
+          {
+            "extra_info": "Using where"
+          }
+        ]
+      }
+    }
+  },
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "logs",
+    "actual_rows": 100000,
+    "estimated_rows": 100000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": "status = 'error'",
+    "extra_info": ["Using where"],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM logs WHERE status = 'error'",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan", "result_without_limit", "select_star"],
+    "min_score": 55,
+    "max_score": 75,
+    "should_have_recommendation": true
+  }
+}

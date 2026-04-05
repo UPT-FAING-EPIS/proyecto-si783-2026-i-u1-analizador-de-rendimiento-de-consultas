@@ -1,0 +1,41 @@
+{
+  "name": "mysql_full_table_scan_all_access",
+  "description": "MySQL: Acceso tipo ALL (full table scan) sin índice",
+  "raw_explain": {
+    "query_block": {
+      "select_id": 1,
+      "table": {
+        "table_name": "customers",
+        "access_type": "ALL",
+        "rows_examined": 50000,
+        "rows": 20000,
+        "filtered": 40.0,
+        "extra": [
+          {
+            "extra_info": "Using where"
+          }
+        ]
+      }
+    }
+  },
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "customers",
+    "actual_rows": 50000,
+    "estimated_rows": 20000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": ["Using where"],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM customers WHERE age > 30",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan", "row_estimation_error"],
+    "min_score": 60,
+    "max_score": 75,
+    "should_have_recommendation": true
+  }
+}

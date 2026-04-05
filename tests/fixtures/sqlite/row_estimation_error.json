@@ -1,0 +1,27 @@
+{
+  "name": "sqlite_row_estimation_error",
+  "description": "SQLite: Estimación incorrecta (SQLite no proporciona comparación real/estimada)",
+  "raw_explain_lines": [
+    "0|0|0 SEARCH TABLE orders USING AUTOINDEX ON (customer_id=?)"
+  ],
+  "normalized_plan": {
+    "node_type": "Index Scan",
+    "table_name": "orders",
+    "actual_rows": null,
+    "estimated_rows": null,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": "AUTOINDEX",
+    "filter_condition": null,
+    "extra_info": ["AUTOINDEX"],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM orders WHERE customer_id = 123",
+  "expected": {
+    "anti_patterns_detected": [],
+    "min_score": 100,
+    "max_score": 100,
+    "should_have_recommendation": false
+  }
+}

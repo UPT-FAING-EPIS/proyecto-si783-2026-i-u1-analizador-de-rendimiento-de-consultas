@@ -367,3 +367,79 @@ class PostgreSQLExplainParser:
         # Calculate final score
         final_score = max(0, min(100, base_score - deductions))
         return int(final_score)
+
+    def normalize_plan(self, plan: dict[str, Any]) -> dict[str, Any]:
+        """Convert PostgreSQL EXPLAIN plan to normalized format (engine-agnostic).
+
+        Converts PostgreSQL-specific plan structure to a normalized format that can be
+        used by the AntiPatternDetector, which is independent of the SQL engine.
+
+        Args:
+            plan: Single node from EXPLAIN (ANALYZE, FORMAT JSON) output
+
+        Returns:
+            Normalized plan node with keys:
+                - node_type: str (e.g., "Seq Scan", "Index Scan", "Nested Loop")
+                - table_name: str | None
+                - actual_rows: int | None
+                - estimated_rows: int | None
+                - actual_time_ms: float | None
+                - estimated_cost: float | None
+                - index_used: str | None
+                - filter_condition: str | None
+                - extra_info: list[str]
+                - buffers: dict | None
+                - children: list[dict] (normalized child nodes)
+        """
+        if not plan:
+            return {}
+
+        # Extract node type
+        node_type = plan.get("Node Type", "Unknown")
+
+        # Extract table/index information
+        table_name = plan.get("Relation Name")
+        index_name = plan.get("Index Name")
+
+        # Extract row counts
+        actual_rows = plan.get("Actual Rows")
+        estimated_rows = plan.get("Plan Rows")
+
+        # Extract timing
+        actual_time_ms = plan.get("Actual Total Time")
+        estimated_cost = plan.get("Total Cost")
+
+        # Extract filter condition (if present)
+        filter_condition = plan.get("Filter")
+
+        # Index info: either Index Name or None
+        index_used = index_name
+
+        # Extra info (PostgreSQL-specific details)
+        extra_info = []
+        if plan.get("Rows Removed by Filter"):
+            extra_info.append(f"Rows Removed: {plan['Rows Removed by Filter']}")
+        if plan.get("Rows Removed by Index Recheck"):
+            extra_info.append("Index Recheck")
+
+        # Buffer statistics
+        buffers = plan.get("Buffers")
+
+        # Recursively normalize child nodes
+        children = []
+        for child_plan in plan.get("Plans", []):
+            children.append(self.normalize_plan(child_plan))
+
+        return {
+            "node_type": node_type,
+            "table_name": table_name,
+            "actual_rows": actual_rows,
+            "estimated_rows": estimated_rows,
+            "actual_time_ms": actual_time_ms,
+            "estimated_cost": estimated_cost,
+            "index_used": index_used,
+            "filter_condition": filter_condition,
+            "extra_info": extra_info,
+            "buffers": buffers,
+            "children": children,
+        }
