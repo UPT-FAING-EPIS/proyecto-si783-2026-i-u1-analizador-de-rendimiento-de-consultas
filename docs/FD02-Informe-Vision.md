@@ -31,7 +31,7 @@ Integrantes:
 | CONTROL DE VERSIONES | | | | | |
 |:---:|:---|:---|:---|:---|:---|
 | Versión | Hecha por | Revisada por | Aprobada por | Fecha | Motivo |
-| 1.0 | Andre Carbajal Vargas | Patrick Cuadros Quiroga | Patrick Cuadros Quiroga | 2026-04 | Versión Original |
+| 1.0 | Andre Carbajal Vargas, Fátima Yupa Gómez | Patrick Cuadros Quiroga | Patrick Cuadros Quiroga | 2026-04 | Versión Original |
 
 ---
 
