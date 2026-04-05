@@ -78,7 +78,7 @@ class PostgreSQLMetricsHelper:
                 if total == 0:
                     return 1.0
 
-                return hit / total
+                return float(hit / total)
         except Exception:
             return -1.0
 

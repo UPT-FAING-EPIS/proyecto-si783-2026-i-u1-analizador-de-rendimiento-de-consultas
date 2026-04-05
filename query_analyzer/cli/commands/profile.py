@@ -44,7 +44,7 @@ def add(
         None, "--password", "-pw", help="Password (interactivo si omitido)"
     ),
 ) -> None:
-    """Agregar nuevo perfil de conexión.
+    r"""Agregar nuevo perfil de conexión.
 
     Modo interactivo si se omiten parámetros:
 
@@ -98,46 +98,17 @@ def add(
 
     except ConfigValidationError as e:
         OutputFormatter.print_error(f"Error de validación: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as e:
         OutputFormatter.print_error(f"Error: {e}")
-        raise typer.Exit(code=1)
-
-
-@app.command()
-def list(
-    show_passwords: bool = typer.Option(
-        False, "--show-passwords", help="Mostrar passwords sin enmascarar"
-    ),
-) -> None:
-    """Listar todos los perfiles.
-
-    Muestra el perfil default con ✓.
-    """
-    try:
-        config_mgr = ConfigManager()
-        config = config_mgr.load_config()
-        profiles = config_mgr.list_profiles()
-
-        if not profiles:
-            OutputFormatter.print_info("No hay perfiles configurados")
-            return
-
-        console.print()
-        table = OutputFormatter.create_profiles_table(profiles, config.default_profile)
-        console.print(table)
-        console.print()
-
-    except Exception as e:
-        OutputFormatter.print_error(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
 def test(
     name: str = typer.Argument(..., help="Nombre del perfil a probar"),
 ) -> None:
-    """Probar conexión a un perfil.
+    r"""Probar conexión a un perfil.
 
     Ejecuta:
     1. test_connection() del adapter
@@ -171,10 +142,10 @@ def test(
 
     except ProfileNotFoundError:
         OutputFormatter.print_error(f"Perfil '{name}' no encontrado")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as e:
         OutputFormatter.print_error(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
@@ -189,10 +160,10 @@ def set_default(
 
     except ProfileNotFoundError:
         OutputFormatter.print_error(f"Perfil '{name}' no encontrado")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as e:
         OutputFormatter.print_error(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
@@ -214,10 +185,10 @@ def delete(
 
     except ProfileNotFoundError:
         OutputFormatter.print_error(f"Perfil '{name}' no encontrado")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as e:
         OutputFormatter.print_error(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
@@ -242,7 +213,7 @@ def show(
 
     except ProfileNotFoundError:
         OutputFormatter.print_error(f"Perfil '{name}' no encontrado")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as e:
         OutputFormatter.print_error(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None

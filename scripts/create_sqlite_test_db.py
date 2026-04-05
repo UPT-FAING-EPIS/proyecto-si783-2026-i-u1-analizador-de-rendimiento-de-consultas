@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 
-def create_test_database(db_path: str | Path = "tests/fixtures/test_database.db"):
+def create_test_database(db_path: str | Path = "tests/fixtures/test_database.db") -> None:
     """Create test SQLite database with sample data.
 
     Creates tables:

@@ -56,7 +56,7 @@ class ConnectionConfig(BaseModel):
 
     @field_validator("host", "database", "username", "password")
     @classmethod
-    def validate_non_empty(cls, v: str, info) -> str:
+    def validate_non_empty(cls, v: str, info: Any) -> str:
         """Valida que los campos requeridos no estén vacíos. SQLite permite valores vacíos."""
         engine = info.data.get("engine", "").lower() if hasattr(info, "data") else ""
         if engine == "sqlite":
@@ -113,7 +113,7 @@ class QueryAnalysisReport(BaseModel):
 
     @field_validator("execution_time_ms")
     @classmethod
-    def validate_execution_time(cls, v: float, info) -> float:
+    def validate_execution_time(cls, v: float, info: Any) -> float:
         """Valida que el tiempo de ejecución sea positivo. SQLite permite 0."""
         engine = info.data.get("engine", "").lower() if hasattr(info, "data") else ""
         if engine == "sqlite":

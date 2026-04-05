@@ -79,9 +79,9 @@ class SQLiteAdapter(BaseAdapter):
         except sqlite3.Error as e:
             raise AdapterConnectionError(
                 f"Failed to connect to SQLite database '{self._config.database}': {e}"
-            )
+            ) from e
         except Exception as e:
-            raise AdapterConnectionError(f"Unexpected error connecting to SQLite: {e}")
+            raise AdapterConnectionError(f"Unexpected error connecting to SQLite: {e}") from e
 
     def disconnect(self) -> None:
         """Close database connection.
@@ -95,7 +95,7 @@ class SQLiteAdapter(BaseAdapter):
                 self._connection = None
             self._is_connected = False
         except sqlite3.Error as e:
-            raise DisconnectionError(f"Failed to disconnect from SQLite: {e}")
+            raise DisconnectionError(f"Failed to disconnect from SQLite: {e}") from e
 
     def test_connection(self) -> bool:
         """Test if connection is valid.
@@ -166,9 +166,9 @@ class SQLiteAdapter(BaseAdapter):
             return report
 
         except sqlite3.Error as e:
-            raise QueryAnalysisError(f"SQLite error during explain: {e}")
+            raise QueryAnalysisError(f"SQLite error during explain: {e}") from e
         except Exception as e:
-            raise QueryAnalysisError(f"Error analyzing query: {e}")
+            raise QueryAnalysisError(f"Error analyzing query: {e}") from e
 
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
         """Get slow queries (not supported in SQLite).

@@ -1,3 +1,5 @@
+"""MySQL adapter for Query Analyzer with EXPLAIN parsing and metrics collection."""
+
 import re
 import time
 from typing import Any
@@ -15,12 +17,28 @@ from .mysql_parser import MySQLExplainParser
 
 @AdapterRegistry.register("mysql")
 class MySQLAdapter(BaseAdapter):
+    """MySQL database adapter for query analysis and performance metrics.
+
+    Provides EXPLAIN parsing, query metrics, slow query tracking, and MySQL-specific
+    diagnostics for query optimization.
+    """
+
     def __init__(self, config: ConnectionConfig) -> None:
+        """Initialize MySQL adapter with connection configuration.
+
+        Args:
+            config: Connection configuration including host, port, database, credentials
+        """
         super().__init__(config)
         self.connection: Any = None
         self.parser = MySQLExplainParser()
 
     def connect(self) -> None:
+        """Establish connection to MySQL database.
+
+        Raises:
+            QueryAnalysisError: If connection fails
+        """
         try:
             self.connection = pymysql.connect(
                 host=self._config.host,
@@ -49,14 +67,20 @@ class MySQLAdapter(BaseAdapter):
                 )
             cursor.close()
         except pymysql.Error as e:
-            raise QueryAnalysisError(f"Failed to connect to MySQL: {e}")
+            raise QueryAnalysisError(f"Failed to connect to MySQL: {e}") from e
 
     def disconnect(self) -> None:
+        """Close connection to MySQL database."""
         if self.connection:
             self.connection.close()
             self.connection = None
 
     def test_connection(self) -> bool:
+        """Test if connection to MySQL is valid.
+
+        Returns:
+            True if connection is valid, False otherwise
+        """
         try:
             if not self.connection:
                 return False
@@ -68,9 +92,22 @@ class MySQLAdapter(BaseAdapter):
             return False
 
     def is_connected(self) -> bool:
+        """Check if currently connected to MySQL database.
+
+        Returns:
+            True if connected and connection is valid, False otherwise
+        """
         return self.connection is not None and self.test_connection()
 
     def get_connection(self) -> Any:
+        """Get active MySQL database connection.
+
+        Returns:
+            Connection object
+
+        Raises:
+            QueryAnalysisError: If not connected
+        """
         if not self.is_connected():
             raise QueryAnalysisError("Not connected to database")
         return self.connection
@@ -96,6 +133,17 @@ class MySQLAdapter(BaseAdapter):
         }
 
     def execute_explain(self, query: str) -> QueryAnalysisReport:
+        """Execute EXPLAIN analysis on SQL query.
+
+        Args:
+            query: SQL query to analyze
+
+        Returns:
+            QueryAnalysisReport with execution plan and metrics
+
+        Raises:
+            QueryAnalysisError: If query is DDL or analysis fails
+        """
         if not self.is_connected():
             raise QueryAnalysisError("Not connected to database")
 
@@ -141,17 +189,30 @@ class MySQLAdapter(BaseAdapter):
             return report
 
         except pymysql.Error as e:
-            raise QueryAnalysisError(f"MySQL error during explain: {e}")
+            raise QueryAnalysisError(f"MySQL error during explain: {e}") from e
         except Exception as e:
-            raise QueryAnalysisError(f"Error analyzing query: {e}")
+            raise QueryAnalysisError(f"Error analyzing query: {e}") from e
 
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
+        """Get list of slow queries exceeding threshold.
+
+        Args:
+            threshold_ms: Time threshold in milliseconds (default: 1000ms)
+
+        Returns:
+            List of slow query records
+        """
         if not self.is_connected():
             return []
 
         return MySQLMetricsHelper.get_slow_queries(self.connection, threshold_ms)
 
     def get_metrics(self) -> dict[str, Any]:
+        """Get MySQL server and database metrics.
+
+        Returns:
+            Dictionary containing metrics like table count, database size, etc.
+        """
         if not self.is_connected():
             return {}
 
@@ -166,6 +227,11 @@ class MySQLAdapter(BaseAdapter):
             return {}
 
     def get_engine_info(self) -> dict[str, Any]:
+        """Get MySQL version and engine information.
+
+        Returns:
+            Dictionary with version and engine details
+        """
         if not self.is_connected():
             return {}
 

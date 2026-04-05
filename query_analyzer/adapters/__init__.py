@@ -2,7 +2,7 @@
 
 from .base import BaseAdapter
 from .exceptions import (
-    AdapterException,
+    AdapterError,
     ConnectionConfigError,
     ConnectionError,
     DisconnectionError,
@@ -26,7 +26,7 @@ __all__ = [
     "PostgreSQLExplainParser",
     "PostgreSQLMetricsHelper",
     # Exceptions
-    "AdapterException",
+    "AdapterError",
     "ConnectionError",
     "ConnectionConfigError",
     "QueryAnalysisError",

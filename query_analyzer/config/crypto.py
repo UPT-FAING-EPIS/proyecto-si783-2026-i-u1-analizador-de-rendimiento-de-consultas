@@ -1,4 +1,4 @@
-"""Gestión de cifrado y descifrado de credenciales."""
+"""Encryption and decryption utilities for securing credentials in config files."""
 
 import base64
 from pathlib import Path
@@ -9,10 +9,10 @@ from .exceptions import EncryptionError
 
 
 class CryptoManager:
-    """Gestiona cifrado/descifrado de credenciales usando Fernet (AES-128).
+    """Manages encryption and decryption of sensitive credentials.
 
-    La llave se almacena en ~/.query-analyzer/.key con permisos restrictivos (0o600).
-    Si la llave no existe, se genera automáticamente.
+    Uses Fernet symmetric encryption to secure passwords stored in configuration files.
+    Key is stored in ~/.query-analyzer/.key with restricted permissions.
     """
 
     KEY_FILE = Path.home() / ".query-analyzer" / ".key"
@@ -32,14 +32,14 @@ class CryptoManager:
         try:
             cls.CONFIG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
         except OSError as e:
-            raise EncryptionError(f"No se puede crear directorio de config: {e}")
+            raise EncryptionError(f"No se puede crear directorio de config: {e}") from e
 
         # Si la llave existe, leerla
         if cls.KEY_FILE.exists():
             try:
                 return cls.KEY_FILE.read_bytes()
             except OSError as e:
-                raise EncryptionError(f"No se puede leer llave de cifrado: {e}")
+                raise EncryptionError(f"No se puede leer llave de cifrado: {e}") from e
 
         # Generar nueva llave
         try:
@@ -48,7 +48,7 @@ class CryptoManager:
             cls.KEY_FILE.chmod(0o600)  # Solo lectura/escritura para propietario
             return new_key
         except OSError as e:
-            raise EncryptionError(f"No se puede crear llave de cifrado: {e}")
+            raise EncryptionError(f"No se puede crear llave de cifrado: {e}") from e
 
     @classmethod
     def encrypt(cls, plaintext: str) -> str:
@@ -71,7 +71,7 @@ class CryptoManager:
             # Agregar prefijo para identificar datos cifrados
             return f"enc:{base64.b64encode(ciphertext).decode('utf-8')}"
         except Exception as e:
-            raise EncryptionError(f"Error al cifrar datos: {e}")
+            raise EncryptionError(f"Error al cifrar datos: {e}") from e
 
     @classmethod
     def decrypt(cls, ciphertext: str) -> str:
@@ -100,10 +100,10 @@ class CryptoManager:
             cipher = Fernet(key)
             plaintext = cipher.decrypt(encrypted_data)
             return plaintext.decode("utf-8")
-        except InvalidToken:
-            raise EncryptionError("Contraseña cifrada inválida (token corrupto)")
+        except InvalidToken as e:
+            raise EncryptionError("Contraseña cifrada inválida (token corrupto)") from e
         except Exception as e:
-            raise EncryptionError(f"Error al descifrar datos: {e}")
+            raise EncryptionError(f"Error al descifrar datos: {e}") from e
 
     @classmethod
     def is_encrypted(cls, text: str) -> bool:

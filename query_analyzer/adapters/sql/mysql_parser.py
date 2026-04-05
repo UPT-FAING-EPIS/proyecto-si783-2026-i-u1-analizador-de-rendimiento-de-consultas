@@ -1,10 +1,34 @@
+"""MySQL EXPLAIN plan parser and analyzer."""
+
 import json
 import re
 from typing import Any
 
 
 class MySQLExplainParser:
+    """Parser for MySQL EXPLAIN FORMAT=JSON output.
+
+    Analyzes EXPLAIN output, extracts table access patterns, identifies performance
+    issues (full scans, filesort, temporary tables), and computes an optimization
+    score (0-100) based on plan structure.
+    """
+
     def parse(self, json_output: str) -> dict[str, Any]:
+        """Parse EXPLAIN FORMAT=JSON output and extract metrics.
+
+        Args:
+            json_output: Complete EXPLAIN FORMAT=JSON output as string
+
+        Returns:
+            Dictionary with:
+                - raw_json: Original JSON string
+                - query_block: Parsed query block
+                - tables_accessed: List of table access info
+                - has_using_filesort: Whether external sort is used
+                - has_using_temporary: Whether temporary table is used
+                - has_full_scan: Whether full table scan exists
+                - total_rows_examined: Total rows examined across all tables
+        """
         try:
             data = json.loads(json_output)
         except json.JSONDecodeError:
@@ -24,6 +48,11 @@ class MySQLExplainParser:
         return parsed
 
     def _empty_result(self) -> dict[str, Any]:
+        """Create empty result dict with default values.
+
+        Returns:
+            Empty result dictionary with initialized fields
+        """
         return {
             "raw_json": "",
             "query_block": {},
@@ -35,6 +64,12 @@ class MySQLExplainParser:
         }
 
     def _extract_tables(self, query_block: dict, result: dict) -> None:
+        """Recursively extract table access information from query block.
+
+        Args:
+            query_block: Current query block dictionary
+            result: Result accumulator dictionary
+        """
         if "table" in query_block:
             table_info = query_block["table"]
             self._process_table(table_info, result)
@@ -56,6 +91,12 @@ class MySQLExplainParser:
                         result["has_using_filesort"] = True
 
     def _process_table(self, table_info: dict, result: dict) -> None:
+        """Process individual table access information.
+
+        Args:
+            table_info: Table information dictionary from EXPLAIN output
+            result: Result accumulator dictionary
+        """
         table_name = table_info.get("table_name", "unknown")
         access_type = table_info.get("access_type", "unknown").upper()
         key_used = table_info.get("key")
@@ -95,6 +136,14 @@ class MySQLExplainParser:
         )
 
     def identify_warnings(self, parsed_plan: dict[str, Any]) -> list[str]:
+        """Identify performance warnings in the execution plan.
+
+        Args:
+            parsed_plan: Parsed EXPLAIN output from parse()
+
+        Returns:
+            List of warning messages describing performance issues
+        """
         warnings = []
 
         full_scan_tables = [
@@ -122,6 +171,14 @@ class MySQLExplainParser:
         return warnings
 
     def generate_recommendations(self, warnings: list[str]) -> list[str]:
+        """Generate optimization recommendations based on identified warnings.
+
+        Args:
+            warnings: List of warning messages from identify_warnings()
+
+        Returns:
+            List of actionable optimization recommendations
+        """
         recommendations = []
 
         for warning in warnings:
@@ -148,7 +205,15 @@ class MySQLExplainParser:
         return recommendations
 
     def calculate_score(self, parsed_plan: dict[str, Any], warnings: list[str]) -> int:
+        """Calculate optimization score for the query plan.
 
+        Args:
+            parsed_plan: Parsed EXPLAIN output from parse()
+            warnings: List of warnings from identify_warnings()
+
+        Returns:
+            Score between 0 and 100, where 100 is optimal
+        """
         score = 100
 
         full_scan_count = sum(

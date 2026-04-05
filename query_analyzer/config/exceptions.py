@@ -1,37 +1,37 @@
 """Excepciones personalizadas para el módulo de configuración."""
 
 
-class ConfigException(Exception):
+class ConfigError(Exception):
     """Excepción base para errores de configuración."""
 
     pass
 
 
-class ConfigNotFoundError(ConfigException):
+class ConfigNotFoundError(ConfigError):
     """El archivo de configuración no existe (y no se puede crear)."""
 
     pass
 
 
-class ConfigValidationError(ConfigException):
+class ConfigValidationError(ConfigError):
     """El contenido del archivo de configuración es inválido."""
 
     pass
 
 
-class EncryptionError(ConfigException):
+class EncryptionError(ConfigError):
     """Error durante el cifrado o descifrado de credenciales."""
 
     pass
 
 
-class ProfileNotFoundError(ConfigException):
+class ProfileNotFoundError(ConfigError):
     """El perfil solicitado no existe."""
 
     pass
 
 
-class EnvVarNotFoundError(ConfigException):
+class EnvVarNotFoundError(ConfigError):
     """Una variable de entorno requerida no existe."""
 
     pass

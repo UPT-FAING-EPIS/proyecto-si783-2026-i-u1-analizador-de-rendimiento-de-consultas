@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class ProfileConfig(BaseModel):  # type: ignore[misc]
+class ProfileConfig(BaseModel):
     """Configuración de un perfil de conexión.
 
     Attributes:
@@ -28,7 +28,7 @@ class ProfileConfig(BaseModel):  # type: ignore[misc]
 
     model_config = ConfigDict(validate_assignment=True)
 
-    @field_validator("engine")  # type: ignore[untyped-decorator]
+    @field_validator("engine")
     @classmethod
     def validate_engine(cls, v: str) -> str:
         """Valida que el engine sea soportado."""
@@ -38,7 +38,7 @@ class ProfileConfig(BaseModel):  # type: ignore[misc]
             raise ValueError(f"Engine no soportado: {v}. Válidos: {', '.join(valid_engines)}")
         return engine_lower
 
-    @field_validator("port")  # type: ignore[untyped-decorator]
+    @field_validator("port")
     @classmethod
     def validate_port(cls, v: int) -> int:
         """Valida que el puerto esté en rango válido."""
@@ -47,7 +47,7 @@ class ProfileConfig(BaseModel):  # type: ignore[misc]
         return v
 
 
-class AppDefaults(BaseModel):  # type: ignore[misc]
+class AppDefaults(BaseModel):
     """Configuraciones por defecto de la aplicación.
 
     Attributes:
@@ -62,7 +62,7 @@ class AppDefaults(BaseModel):  # type: ignore[misc]
 
     model_config = ConfigDict(validate_assignment=True)
 
-    @field_validator("slow_query_threshold_ms")  # type: ignore[untyped-decorator]
+    @field_validator("slow_query_threshold_ms")
     @classmethod
     def validate_threshold(cls, v: int) -> int:
         """Valida que el threshold sea positivo."""
@@ -70,7 +70,7 @@ class AppDefaults(BaseModel):  # type: ignore[misc]
             raise ValueError(f"Threshold debe ser >= 0, recibido: {v}")
         return v
 
-    @field_validator("explain_format")  # type: ignore[untyped-decorator]
+    @field_validator("explain_format")
     @classmethod
     def validate_explain_format(cls, v: str) -> str:
         """Valida formato de explicación."""
@@ -79,7 +79,7 @@ class AppDefaults(BaseModel):  # type: ignore[misc]
             raise ValueError(f"Format debe ser: {', '.join(valid)}")
         return v.lower()
 
-    @field_validator("output_format")  # type: ignore[untyped-decorator]
+    @field_validator("output_format")
     @classmethod
     def validate_output_format(cls, v: str) -> str:
         """Valida formato de salida."""
@@ -89,7 +89,7 @@ class AppDefaults(BaseModel):  # type: ignore[misc]
         return v.lower()
 
 
-class AppConfig(BaseModel):  # type: ignore[misc]
+class AppConfig(BaseModel):
     """Configuración completa de la aplicación.
 
     Attributes:
@@ -104,7 +104,7 @@ class AppConfig(BaseModel):  # type: ignore[misc]
 
     model_config = ConfigDict(validate_assignment=True)
 
-    @field_validator("default_profile")  # type: ignore[untyped-decorator]
+    @field_validator("default_profile")
     @classmethod
     def validate_default_profile(cls, v: str | None, info: Any) -> str | None:
         """Valida que el default_profile exista si se especifica."""

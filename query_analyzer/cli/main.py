@@ -1,4 +1,8 @@
-"""Punto de entrada principal de la CLI."""
+"""Query Analyzer CLI - Main entry point.
+
+Provides command-line interface for database query performance analysis with
+support for PostgreSQL, MySQL, and SQLite databases.
+"""
 
 import typer
 
@@ -15,7 +19,11 @@ app.add_typer(profile.app, name="profile", help="Gestionar perfiles de conexión
 
 
 def main() -> None:
-    """Punto de entrada del CLI."""
+    """Entry point for the Query Analyzer CLI application.
+
+    Initializes and runs the Typer CLI application with all configured
+    commands and subcommands.
+    """
     app()
 
 

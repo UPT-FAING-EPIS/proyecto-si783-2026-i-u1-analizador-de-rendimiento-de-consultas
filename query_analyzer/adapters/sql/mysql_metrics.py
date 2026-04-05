@@ -1,9 +1,21 @@
+"""MySQL metrics extraction utilities."""
+
 from typing import Any
 
 
 class MySQLMetricsHelper:
+    """Helper class for extracting system metrics from MySQL."""
+
     @staticmethod
     def get_table_count(connection: Any) -> int:
+        """Get total table count in current database.
+
+        Args:
+            connection: pymysql connection object
+
+        Returns:
+            Number of tables in the current database
+        """
         try:
             cursor = connection.cursor()
             cursor.execute(
@@ -17,6 +29,14 @@ class MySQLMetricsHelper:
 
     @staticmethod
     def get_index_count(connection: Any) -> int:
+        """Get total index count (excluding PRIMARY) in current database.
+
+        Args:
+            connection: pymysql connection object
+
+        Returns:
+            Number of distinct indexes in the current database
+        """
         try:
             cursor = connection.cursor()
             cursor.execute(
@@ -31,6 +51,14 @@ class MySQLMetricsHelper:
 
     @staticmethod
     def get_database_size(connection: Any) -> int:
+        """Get total database size in bytes.
+
+        Args:
+            connection: pymysql connection object
+
+        Returns:
+            Total size of all tables' data and indexes in bytes
+        """
         try:
             cursor = connection.cursor()
             cursor.execute(
@@ -45,6 +73,15 @@ class MySQLMetricsHelper:
 
     @staticmethod
     def get_table_info(connection: Any, table_name: str) -> dict[str, Any]:
+        """Get detailed information about a specific table.
+
+        Args:
+            connection: pymysql connection object
+            table_name: Name of the table to retrieve info for
+
+        Returns:
+            Dict with table name, row count, data length, index length, and totals
+        """
         try:
             cursor = connection.cursor()
             cursor.execute(
@@ -70,6 +107,14 @@ class MySQLMetricsHelper:
 
     @staticmethod
     def list_tables(connection: Any) -> list[str]:
+        """Get list of all table names in current database.
+
+        Args:
+            connection: pymysql connection object
+
+        Returns:
+            List of table names
+        """
         try:
             cursor = connection.cursor()
             cursor.execute(
@@ -83,6 +128,14 @@ class MySQLMetricsHelper:
 
     @staticmethod
     def get_engine_version(connection: Any) -> str:
+        """Get MySQL server version.
+
+        Args:
+            connection: pymysql connection object
+
+        Returns:
+            MySQL version string
+        """
         try:
             cursor = connection.cursor()
             cursor.execute("SELECT VERSION()")
@@ -94,6 +147,14 @@ class MySQLMetricsHelper:
 
     @staticmethod
     def get_pragmas(connection: Any) -> dict[str, Any]:
+        """Get MySQL system variables and configuration settings.
+
+        Args:
+            connection: pymysql connection object
+
+        Returns:
+            Dict mapping variable names to their values
+        """
         try:
             cursor = connection.cursor()
             vars_to_get = [
@@ -123,6 +184,16 @@ class MySQLMetricsHelper:
 
     @staticmethod
     def get_slow_queries(connection: Any, threshold_ms: int = 1000) -> list[dict[str, Any]]:
+        """Get slow queries from slow_queries_log table.
+
+        Args:
+            connection: pymysql connection object
+            threshold_ms: Threshold in milliseconds (default: 1000)
+
+        Returns:
+            List of dicts with query text and execution time, or empty list if table
+            does not exist or no results found
+        """
         try:
             cursor = connection.cursor()
             cursor.execute(

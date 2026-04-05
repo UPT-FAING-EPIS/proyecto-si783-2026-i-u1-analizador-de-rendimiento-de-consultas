@@ -1,37 +1,37 @@
 """Excepciones personalizadas para el módulo de adapters."""
 
 
-class AdapterException(Exception):
+class AdapterError(Exception):
     """Excepción base para todos los errores de adapters."""
 
     pass
 
 
-class ConnectionError(AdapterException):
+class ConnectionError(AdapterError):
     """Error al conectar a la base de datos."""
 
     pass
 
 
-class ConnectionConfigError(AdapterException):
+class ConnectionConfigError(AdapterError):
     """Error en la configuración de conexión (validación Pydantic)."""
 
     pass
 
 
-class QueryAnalysisError(AdapterException):
+class QueryAnalysisError(AdapterError):
     """Error durante el análisis de la query."""
 
     pass
 
 
-class DisconnectionError(AdapterException):
+class DisconnectionError(AdapterError):
     """Error al desconectar de la base de datos."""
 
     pass
 
 
-class UnsupportedEngineError(AdapterException):
+class UnsupportedEngineError(AdapterError):
     """Motor de base de datos no registrado o no soportado."""
 
     def __init__(self, engine_name: str, available_engines: list[str]) -> None:

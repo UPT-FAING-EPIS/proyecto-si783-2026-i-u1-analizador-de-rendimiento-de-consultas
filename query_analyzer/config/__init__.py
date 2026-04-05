@@ -1,7 +1,7 @@
 """Módulo de configuración - Gestión de perfiles y config."""
 
 from .exceptions import (
-    ConfigException,
+    ConfigError,
     ConfigNotFoundError,
     ConfigValidationError,
     EncryptionError,
@@ -19,7 +19,7 @@ __all__ = [
     "AppDefaults",
     "ProfileConfig",
     # Exceptions
-    "ConfigException",
+    "ConfigError",
     "ConfigNotFoundError",
     "ConfigValidationError",
     "EncryptionError",

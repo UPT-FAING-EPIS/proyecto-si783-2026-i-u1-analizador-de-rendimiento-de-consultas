@@ -17,7 +17,7 @@ class AdapterRegistry:
     _registry: dict[str, type[BaseAdapter]] = {}
 
     @classmethod
-    def register(cls, engine_name: str) -> Callable[[type[BaseAdapter]], type[BaseAdapter]]:  # type: ignore[return]
+    def register(cls, engine_name: str) -> Callable[[type[BaseAdapter]], type[BaseAdapter]]:
         """Registra un adapter para un motor específico.
 
         Args:

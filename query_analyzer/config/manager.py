@@ -82,7 +82,7 @@ class ConfigManager:
             config = AppConfig(**raw_data)
             return config
         except (yaml.YAMLError, ValueError) as e:
-            raise ConfigValidationError(f"Error al parsear {self.config_path}: {e}")
+            raise ConfigValidationError(f"Error al parsear {self.config_path}: {e}") from e
 
     def _interpolate_env_vars(self, data: Any) -> Any:
         """Interpola variables de entorno en forma ${VAR} o ${VAR:-default}.
@@ -130,7 +130,7 @@ class ConfigManager:
             if value is not None:
                 return value
             elif default_value is not None:
-                return default_value
+                return str(default_value)
             else:
                 raise EnvVarNotFoundError(f"Variable de entorno no encontrada: {var_name}")
 
@@ -236,7 +236,7 @@ class ConfigManager:
             # Permisos restrictivos
             self.config_path.chmod(0o600)
         except OSError as e:
-            raise ConfigNotFoundError(f"Error al guardar configuración: {e}")
+            raise ConfigNotFoundError(f"Error al guardar configuración: {e}") from e
 
     def load_config(self) -> AppConfig:
         """Retorna la configuración actual cargada."""
