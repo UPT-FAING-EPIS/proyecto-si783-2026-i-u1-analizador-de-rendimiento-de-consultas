@@ -2,20 +2,20 @@
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class ConnectionConfig(BaseModel):  # type: ignore[misc]
+class ConnectionConfig(BaseModel):
     """
     Configuración para establecer conexión con una base de datos.
 
     Attributes:
-        engine: Motor de base de datos (mysql, postgresql)
-        host: Dirección del servidor
-        port: Puerto de conexión (1-65535)
+        engine: Motor de base de datos (mysql, postgresql, sqlite)
+        host: Dirección del servidor (path para SQLite)
+        port: Puerto de conexión (1-65535, opcional para SQLite)
         database: Nombre de la base de datos
-        username: Usuario para autenticación
-        password: Contraseña para autenticación
+        username: Usuario para autenticación (opcional para SQLite)
+        password: Contraseña para autenticación (opcional para SQLite)
         extra: Parámetros adicionales específicos del motor
     """
 
@@ -32,11 +32,11 @@ class ConnectionConfig(BaseModel):  # type: ignore[misc]
         validate_assignment=True,
     )
 
-    @field_validator("engine")  # type: ignore[untyped-decorator]
+    @field_validator("engine")
     @classmethod
     def validate_engine(cls, v: str) -> str:
         """Valida que el motor sea uno de los soportados."""
-        valid_engines = {"mysql", "postgresql"}
+        valid_engines = {"mysql", "postgresql", "sqlite"}
         engine_lower = v.lower()
         if engine_lower not in valid_engines:
             raise ValueError(
@@ -44,24 +44,30 @@ class ConnectionConfig(BaseModel):  # type: ignore[misc]
             )
         return engine_lower
 
-    @field_validator("port")  # type: ignore[untyped-decorator]
+    @field_validator("port")
     @classmethod
-    def validate_port(cls, v: int) -> int:
-        """Valida que el puerto esté en rango válido."""
+    def validate_port(cls, v: int, info) -> int:  # type: ignore[no-untyped-def]
+        """Valida que el puerto esté en rango válido. SQLite permite puerto 0."""
+        engine = info.data.get("engine", "").lower() if hasattr(info, "data") else ""
+        if engine == "sqlite":
+            return v
         if not (1 <= v <= 65535):
             raise ValueError(f"Puerto debe estar entre 1 y 65535, recibido: {v}")
         return v
 
-    @field_validator("host", "database", "username", "password")  # type: ignore[untyped-decorator]
+    @field_validator("host", "database", "username", "password")
     @classmethod
-    def validate_non_empty(cls, v: str) -> str:
-        """Valida que los campos requeridos no estén vacíos."""
+    def validate_non_empty(cls, v: str, info) -> str:
+        """Valida que los campos requeridos no estén vacíos. SQLite permite valores vacíos."""
+        engine = info.data.get("engine", "").lower() if hasattr(info, "data") else ""
+        if engine == "sqlite":
+            return v.strip() if v else ""
         if not v or not v.strip():
             raise ValueError("Campo requerido no puede estar vacío")
         return v.strip()
 
 
-class QueryAnalysisReport(BaseModel):  # type: ignore[misc]
+class QueryAnalysisReport(BaseModel):
     """
     Reporte de análisis de una consulta SQL.
 
@@ -87,11 +93,11 @@ class QueryAnalysisReport(BaseModel):  # type: ignore[misc]
 
     model_config = ConfigDict(validate_assignment=True)
 
-    @field_validator("engine")  # type: ignore[untyped-decorator]
+    @field_validator("engine")
     @classmethod
     def validate_engine(cls, v: str) -> str:
         """Valida que el motor sea uno de los soportados."""
-        valid_engines = {"mysql", "postgresql"}
+        valid_engines = {"mysql", "postgresql", "sqlite"}
         engine_lower = v.lower()
         if engine_lower not in valid_engines:
             raise ValueError(
@@ -99,7 +105,7 @@ class QueryAnalysisReport(BaseModel):  # type: ignore[misc]
             )
         return engine_lower
 
-    @field_validator("score")  # type: ignore[untyped-decorator]
+    @field_validator("score")
     @classmethod
     def validate_score(cls, v: int) -> int:
         """Valida que el score esté en rango válido (0-100)."""
@@ -107,10 +113,13 @@ class QueryAnalysisReport(BaseModel):  # type: ignore[misc]
             raise ValueError(f"Score debe estar entre 0 y 100, recibido: {v}")
         return v
 
-    @field_validator("execution_time_ms")  # type: ignore[untyped-decorator]
+    @field_validator("execution_time_ms")
     @classmethod
-    def validate_execution_time(cls, v: float) -> float:
-        """Valida que el tiempo de ejecución sea positivo."""
+    def validate_execution_time(cls, v: float, info) -> float:
+        """Valida que el tiempo de ejecución sea positivo. SQLite permite 0."""
+        engine = info.data.get("engine", "").lower() if hasattr(info, "data") else ""
+        if engine == "sqlite":
+            return v
         if v <= 0:
             raise ValueError(f"execution_time_ms debe ser mayor a 0, recibido: {v}")
         return v
