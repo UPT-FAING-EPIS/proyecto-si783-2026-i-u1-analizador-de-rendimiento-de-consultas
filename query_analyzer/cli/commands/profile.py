@@ -105,6 +105,45 @@ def add(
 
 
 @app.command()
+def list() -> None:
+    r"""Listar todos los perfiles de conexión.
+
+    Muestra una tabla con:
+    - Nombre del perfil (con [DEFAULT] si es default)
+    - Engine (postgresql, mysql, etc)
+    - Host y puerto
+    - Database
+    - Usuario
+
+    \b
+    $ qa profile list
+    Perfiles de Conexion
+    ┏━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━┳━━━━━┓
+    ┃ Nombre ┃ Engine ┃ Host   ┃ DB ┃ User┃
+    ┡━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━╇━━━━┩
+    │ test * │ postgr │ localh │ qy │ pgr│
+    └────────┴────────┴────────┴────┴────┘
+    """
+    try:
+        config_mgr = ConfigManager()
+        config = config_mgr.load_config()
+        profiles = config_mgr.list_profiles()
+
+        if not profiles:
+            OutputFormatter.print_info("No hay perfiles configurados")
+            return
+
+        table = OutputFormatter.create_profiles_table(profiles, config.default_profile)
+        console.print()
+        console.print(table)
+        console.print()
+
+    except Exception as e:
+        OutputFormatter.print_error(f"Error: {e}")
+        raise typer.Exit(code=1) from None
+
+
+@app.command()
 def test(
     name: str = typer.Argument(..., help="Nombre del perfil a probar"),
 ) -> None:

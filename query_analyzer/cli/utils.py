@@ -44,7 +44,7 @@ class OutputFormatter:
         Returns:
             Cadena formateada del perfil
         """
-        default_marker = " [bold green]✓ (default)[/bold green]" if is_default else ""
+        default_marker = " [bold green](default)[/bold green]" if is_default else ""
         password_display = (
             OutputFormatter.mask_password(profile.password) if mask_pwd else profile.password
         )
@@ -60,23 +60,23 @@ class OutputFormatter:
 
     @staticmethod
     def print_success(message: str) -> None:
-        """Imprime mensaje de éxito con check verde."""
-        console.print(f"[green]✓[/green] {message}")
+        """Imprime mensaje de exito con [OK]."""
+        console.print(f"[green][OK][/green] {message}")
 
     @staticmethod
     def print_error(message: str) -> None:
-        """Imprime mensaje de error con X roja."""
-        console.print(f"[red]✗[/red] {message}")
+        """Imprime mensaje de error con [ERROR]."""
+        console.print(f"[red][ERROR][/red] {message}")
 
     @staticmethod
     def print_info(message: str) -> None:
         """Imprime mensaje informativo."""
-        console.print(f"[blue]ℹ[/blue] {message}")
+        console.print(f"[blue][INFO][/blue] {message}")
 
     @staticmethod
     def print_warning(message: str) -> None:
         """Imprime mensaje de warning."""
-        console.print(f"[yellow]⚠[/yellow] {message}")
+        console.print(f"[yellow][WARN][/yellow] {message}")
 
     @staticmethod
     def create_profiles_table(
@@ -91,7 +91,7 @@ class OutputFormatter:
         Returns:
             Tabla de rich
         """
-        table = Table(title="Perfiles de Conexión", show_header=True, header_style="bold")
+        table = Table(title="Perfiles de Conexion", show_header=True, header_style="bold")
         table.add_column("Nombre", style="cyan")
         table.add_column("Engine", style="magenta")
         table.add_column("Host", style="green")
@@ -99,7 +99,7 @@ class OutputFormatter:
         table.add_column("Usuario", style="blue")
 
         for name, profile in profiles.items():
-            default_marker = "✓" if name == default_profile else ""
+            default_marker = "[DEFAULT]" if name == default_profile else ""
             table.add_row(
                 f"{name} {default_marker}",
                 profile.engine,
