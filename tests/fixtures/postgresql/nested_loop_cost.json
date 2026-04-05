@@ -1,0 +1,84 @@
+{
+  "name": "nested_loop_costly_150k_iterations",
+  "description": "Nested Loop con 150.000 iteraciones (1.500 × 100)",
+  "raw_explain": {
+    "Plan": {
+      "Node Type": "Nested Loop",
+      "Actual Rows": 15000,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "orders",
+          "Alias": "o",
+          "Actual Rows": 1500,
+          "Actual Loops": 1,
+          "Plan Rows": 1500,
+          "Actual Total Time": 45.0,
+          "Total Cost": 150.0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "items",
+          "Index Name": "idx_items_order_id",
+          "Alias": "i",
+          "Actual Rows": 100,
+          "Actual Loops": 1500,
+          "Plan Rows": 100,
+          "Actual Total Time": 250.0,
+          "Total Cost": 2500.0,
+          "Filter": "item_status = 'active'"
+        }
+      ]
+    },
+    "Planning Time": 0.8,
+    "Execution Time": 295.0
+  },
+  "normalized_plan": {
+    "node_type": "Nested Loop",
+    "table_name": null,
+    "actual_rows": 15000,
+    "estimated_rows": null,
+    "actual_time_ms": 295.0,
+    "estimated_cost": 2500.0,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": [],
+    "buffers": null,
+    "children": [
+      {
+        "node_type": "Seq Scan",
+        "table_name": "orders",
+        "actual_rows": 1500,
+        "estimated_rows": 1500,
+        "actual_time_ms": 45.0,
+        "estimated_cost": 150.0,
+        "index_used": null,
+        "filter_condition": null,
+        "extra_info": [],
+        "buffers": null,
+        "children": []
+      },
+      {
+        "node_type": "Index Scan",
+        "table_name": "items",
+        "actual_rows": 100,
+        "estimated_rows": 100,
+        "actual_time_ms": 250.0,
+        "estimated_cost": 2500.0,
+        "index_used": "idx_items_order_id",
+        "filter_condition": "item_status = 'active'",
+        "extra_info": [],
+        "buffers": null,
+        "children": []
+      }
+    ]
+  },
+  "query": "SELECT o.id, i.name FROM orders o JOIN items i ON o.id = i.order_id WHERE i.item_status = 'active'",
+  "expected": {
+    "anti_patterns_detected": ["nested_loop_cost"],
+    "min_score": 75,
+    "max_score": 85,
+    "should_have_recommendation": true
+  }
+}

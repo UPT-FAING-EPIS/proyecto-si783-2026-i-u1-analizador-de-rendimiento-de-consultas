@@ -1,0 +1,27 @@
+{
+  "name": "sqlite_result_without_limit",
+  "description": "SQLite: Retorna muchas filas sin LIMIT",
+  "raw_explain_lines": [
+    "0|0|0 SCAN TABLE logs (~100000 rows)"
+  ],
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "logs",
+    "actual_rows": 100000,
+    "estimated_rows": 100000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM logs WHERE status = 'error'",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan", "result_without_limit", "select_star"],
+    "min_score": 55,
+    "max_score": 75,
+    "should_have_recommendation": true
+  }
+}

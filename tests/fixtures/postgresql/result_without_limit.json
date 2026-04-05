@@ -1,0 +1,38 @@
+{
+  "name": "result_without_limit_100k_rows",
+  "description": "Query retorna 100.000 filas sin LIMIT (problema potencial)",
+  "raw_explain": {
+    "Plan": {
+      "Node Type": "Seq Scan",
+      "Relation Name": "logs",
+      "Actual Rows": 100000,
+      "Actual Loops": 1,
+      "Plan Rows": 100000,
+      "Plan Width": 256,
+      "Actual Total Time": 500.0,
+      "Total Cost": 2000.0
+    },
+    "Planning Time": 0.2,
+    "Execution Time": 500.0
+  },
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "logs",
+    "actual_rows": 100000,
+    "estimated_rows": 100000,
+    "actual_time_ms": 500.0,
+    "estimated_cost": 2000.0,
+    "index_used": null,
+    "filter_condition": "status = 'error'",
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM logs WHERE status = 'error'",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan", "result_without_limit", "select_star"],
+    "min_score": 55,
+    "max_score": 75,
+    "should_have_recommendation": true
+  }
+}

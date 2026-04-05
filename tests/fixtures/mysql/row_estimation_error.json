@@ -1,0 +1,45 @@
+{
+  "name": "mysql_row_estimation_error",
+  "description": "MySQL: Divergencia entre filas reales y estimadas",
+  "raw_explain": {
+    "query_block": {
+      "select_id": 1,
+      "table": {
+        "table_name": "orders",
+        "access_type": "ref",
+        "possible_keys": ["idx_orders_customer_id"],
+        "key": "idx_orders_customer_id",
+        "key_length": 8,
+        "ref": ["const"],
+        "rows_examined": 45000,
+        "rows": 20000,
+        "filtered": 100.0,
+        "extra": [
+          {
+            "extra_info": "Using index"
+          }
+        ]
+      }
+    }
+  },
+  "normalized_plan": {
+    "node_type": "Index Scan",
+    "table_name": "orders",
+    "actual_rows": 45000,
+    "estimated_rows": 20000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": "idx_orders_customer_id",
+    "filter_condition": null,
+    "extra_info": ["Using index"],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT id, customer_id FROM orders WHERE customer_id = 123 LIMIT 100",
+  "expected": {
+    "anti_patterns_detected": ["row_estimation_error"],
+    "min_score": 85,
+    "max_score": 100,
+    "should_have_recommendation": true
+  }
+}

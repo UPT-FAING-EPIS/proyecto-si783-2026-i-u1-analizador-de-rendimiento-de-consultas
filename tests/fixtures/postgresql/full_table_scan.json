@@ -1,0 +1,41 @@
+{
+  "name": "full_table_scan_customers_50k_rows",
+  "description": "Seq Scan sin índice en tabla customers con 50.000 filas",
+  "raw_explain": {
+    "Plan": {
+      "Node Type": "Seq Scan",
+      "Relation Name": "customers",
+      "Alias": "customers",
+      "Actual Rows": 50000,
+      "Actual Loops": 1,
+      "Plan Rows": 50000,
+      "Plan Width": 100,
+      "Actual Total Time": 125.5,
+      "Total Cost": 450.0,
+      "Rows Removed by Filter": 0,
+      "Filter": "age > 30"
+    },
+    "Planning Time": 0.5,
+    "Execution Time": 125.5
+  },
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "customers",
+    "actual_rows": 50000,
+    "estimated_rows": 50000,
+    "actual_time_ms": 125.5,
+    "estimated_cost": 450.0,
+    "index_used": null,
+    "filter_condition": "age > 30",
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT id, name, email FROM customers WHERE age > 30 LIMIT 100",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan"],
+    "min_score": 75,
+    "max_score": 80,
+    "should_have_recommendation": true
+  }
+}

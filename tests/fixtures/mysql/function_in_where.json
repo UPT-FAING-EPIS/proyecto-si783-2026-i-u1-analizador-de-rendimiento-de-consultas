@@ -1,0 +1,41 @@
+{
+  "name": "mysql_function_in_where",
+  "description": "MySQL: Función en WHERE sin índice",
+  "raw_explain": {
+    "query_block": {
+      "select_id": 1,
+      "table": {
+        "table_name": "users",
+        "access_type": "ALL",
+        "rows_examined": 5000,
+        "rows": 5000,
+        "filtered": 1.0,
+        "extra": [
+          {
+            "extra_info": "Using where"
+          }
+        ]
+      }
+    }
+  },
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "users",
+    "actual_rows": 5000,
+    "estimated_rows": 5000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": "LOWER(email) = 'john@example.com'",
+    "extra_info": ["Using where"],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT id, name, email FROM users WHERE LOWER(email) = 'john@example.com'",
+  "expected": {
+    "anti_patterns_detected": ["function_in_where"],
+    "min_score": 75,
+    "max_score": 85,
+    "should_have_recommendation": true
+  }
+}

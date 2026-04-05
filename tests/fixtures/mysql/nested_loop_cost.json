@@ -1,0 +1,84 @@
+{
+  "name": "mysql_nested_loop_expensive",
+  "description": "MySQL: Nested loop costoso (múltiples tablas en JOIN)",
+  "raw_explain": {
+    "query_block": {
+      "select_id": 1,
+      "nested_loop": [
+        {
+          "table_name": "orders",
+          "access_type": "ALL",
+          "rows_examined": 1500,
+          "rows": 1500,
+          "filtered": 100.0,
+          "extra": [
+            {
+              "extra_info": "Using where"
+            }
+          ]
+        },
+        {
+          "table_name": "items",
+          "access_type": "ref",
+          "possible_keys": ["idx_items_order_id"],
+          "key": "idx_items_order_id",
+          "rows_examined": 150000,
+          "rows": 100,
+          "filtered": 100.0,
+          "extra": [
+            {
+              "extra_info": "Using index"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "normalized_plan": {
+    "node_type": "Nested Loop",
+    "table_name": null,
+    "actual_rows": 150000,
+    "estimated_rows": null,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": [],
+    "buffers": null,
+    "children": [
+      {
+        "node_type": "Seq Scan",
+        "table_name": "orders",
+        "actual_rows": 1500,
+        "estimated_rows": 1500,
+        "actual_time_ms": null,
+        "estimated_cost": null,
+        "index_used": null,
+        "filter_condition": null,
+        "extra_info": ["Using where"],
+        "buffers": null,
+        "children": []
+      },
+      {
+        "node_type": "Index Scan",
+        "table_name": "items",
+        "actual_rows": 150000,
+        "estimated_rows": 100,
+        "actual_time_ms": null,
+        "estimated_cost": null,
+        "index_used": "idx_items_order_id",
+        "filter_condition": null,
+        "extra_info": ["Using index"],
+        "buffers": null,
+        "children": []
+      }
+    ]
+  },
+  "query": "SELECT o.id, i.name FROM orders o JOIN items i ON o.id = i.order_id",
+  "expected": {
+    "anti_patterns_detected": ["nested_loop_cost"],
+    "min_score": 75,
+    "max_score": 85,
+    "should_have_recommendation": true
+  }
+}

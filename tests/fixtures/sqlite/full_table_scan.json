@@ -1,0 +1,27 @@
+{
+  "name": "sqlite_full_table_scan",
+  "description": "SQLite: SCAN TABLE sin índice",
+  "raw_explain_lines": [
+    "0|0|0 SCAN TABLE customers (~50000 rows)"
+  ],
+  "normalized_plan": {
+    "node_type": "Seq Scan",
+    "table_name": "customers",
+    "actual_rows": 50000,
+    "estimated_rows": 50000,
+    "actual_time_ms": null,
+    "estimated_cost": null,
+    "index_used": null,
+    "filter_condition": null,
+    "extra_info": [],
+    "buffers": null,
+    "children": []
+  },
+  "query": "SELECT * FROM customers WHERE age > 30",
+  "expected": {
+    "anti_patterns_detected": ["full_table_scan", "select_star"],
+    "min_score": 70,
+    "max_score": 85,
+    "should_have_recommendation": true
+  }
+}
