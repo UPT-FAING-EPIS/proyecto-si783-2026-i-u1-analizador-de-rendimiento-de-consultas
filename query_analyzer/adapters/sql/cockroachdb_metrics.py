@@ -24,7 +24,11 @@ class CockroachDBMetricsHelper:
             connection: psycopg2 connection object
 
         Returns:
-            Version string, or empty string if query fails
+            Version string (empty string if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan string vacío en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             with connection.cursor() as cursor:
@@ -34,7 +38,7 @@ class CockroachDBMetricsHelper:
                     return str(result[0])
                 return ""
         except Exception as e:
-            logger.warning(f"Failed to get version: {e}")
+            logger.debug(f"Failed to get version: {e}")
             return ""
 
     @staticmethod
@@ -47,7 +51,11 @@ class CockroachDBMetricsHelper:
             connection: psycopg2 connection object
 
         Returns:
-            Node count, or 0 if unavailable (expected for non-admin)
+            Node count (0 if unavailable or permission denied; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan 0 en lugar de propagar excepciones,
+            permitiendo análisis parcial. Esperado para usuarios no-admin.
         """
         try:
             with connection.cursor() as cursor:

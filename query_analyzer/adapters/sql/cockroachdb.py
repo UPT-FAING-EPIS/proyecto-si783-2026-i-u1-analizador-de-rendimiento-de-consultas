@@ -94,7 +94,11 @@ class CockroachDBAdapter(BaseAdapter):
         """Test CockroachDB connection with simple query.
 
         Returns:
-            True if connection is valid, False otherwise
+            True if connection is valid, False otherwise (strategy: fail-safe).
+
+        Note:
+            Errores en test de conexión retornan False en lugar de propagar
+            excepciones, permitiendo detección segura de desconexión.
         """
         try:
             if not self._is_connected:
@@ -104,7 +108,7 @@ class CockroachDBAdapter(BaseAdapter):
                 cursor.execute("SELECT 1")
                 return True
         except Exception as e:
-            logger.warning(f"Connection test failed: {e}")
+            logger.debug(f"Connection test failed: {e}")
             return False
 
     def execute_explain(self, query: str) -> QueryAnalysisReport:

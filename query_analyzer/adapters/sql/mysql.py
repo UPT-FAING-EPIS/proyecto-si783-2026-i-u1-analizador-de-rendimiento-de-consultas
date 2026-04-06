@@ -1,5 +1,6 @@
 """MySQL adapter for Query Analyzer with EXPLAIN parsing and metrics collection."""
 
+import logging
 import re
 import time
 from typing import Any
@@ -13,6 +14,8 @@ from query_analyzer.adapters.registry import AdapterRegistry
 
 from .mysql_metrics import MySQLMetricsHelper
 from .mysql_parser import MySQLExplainParser
+
+logger = logging.getLogger(__name__)
 
 
 @AdapterRegistry.register("mysql")
@@ -79,7 +82,11 @@ class MySQLAdapter(BaseAdapter):
         """Test if connection to MySQL is valid.
 
         Returns:
-            True if connection is valid, False otherwise
+            True if connection is valid, False otherwise (strategy: fail-safe).
+
+        Note:
+            Errores en test de conexión retornan False en lugar de propagar
+            excepciones, permitiendo detección segura de desconexión.
         """
         try:
             if not self.connection:
@@ -88,7 +95,8 @@ class MySQLAdapter(BaseAdapter):
             cursor.execute("SELECT 1")
             cursor.close()
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Connection test failed: {e}")
             return False
 
     def is_connected(self) -> bool:
@@ -212,6 +220,11 @@ class MySQLAdapter(BaseAdapter):
 
         Returns:
             Dictionary containing metrics like table count, database size, etc.
+            Returns empty dict if metrics retrieval fails (strategy: fail-safe).
+
+        Note:
+            Errores en consultas de métricas retornan dict vacío en lugar de
+            propagar excepciones, permitiendo análisis parcial.
         """
         if not self.is_connected():
             return {}
@@ -223,14 +236,20 @@ class MySQLAdapter(BaseAdapter):
                 "database_size_bytes": MySQLMetricsHelper.get_database_size(self.connection),
                 "slow_queries_count": len(MySQLMetricsHelper.get_slow_queries(self.connection)),
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get metrics: {e}")
             return {}
 
     def get_engine_info(self) -> dict[str, Any]:
         """Get MySQL version and engine information.
 
         Returns:
-            Dictionary with version and engine details
+            Dictionary with version and engine details.
+            Returns partial dict if retrieval fails (strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan dict parcial en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         if not self.is_connected():
             return {}
@@ -246,5 +265,6 @@ class MySQLAdapter(BaseAdapter):
                 "max_allowed_packet": pragmas.get("max_allowed_packet", "N/A"),
                 "query_cache_size": pragmas.get("query_cache_size", "N/A"),
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get engine info: {e}")
             return {"engine": "mysql", "version": "unknown"}

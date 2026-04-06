@@ -6,11 +6,19 @@ from typing import Any
 
 
 class MySQLExplainParser:
-    """Parser for MySQL EXPLAIN FORMAT=JSON output.
+    """Parseador especializado para salidas EXPLAIN de MySQL.
 
-    Analyzes EXPLAIN output, extracts table access patterns, identifies performance
-    issues (full scans, filesort, temporary tables), and computes an optimization
-    score (0-100) based on plan structure.
+    Analiza planes de ejecución en formato JSON (EXPLAIN FORMAT=JSON) para
+    extraer patrones de acceso a datos y detectar anti-patrones de rendimiento.
+    Identifica problemas comunes como full table scans, uso de filesort,
+    creación de tablas temporales, y calcula una puntuación de optimización
+    (0-100) basada en la estructura del plan.
+
+    Métodos principales:
+        - parse(): Parsea JSON de EXPLAIN y extrae métricas
+        - identify_warnings(): Detecta anti-patrones
+        - generate_recommendations(): Sugiere optimizaciones
+        - calculate_score(): Genera puntuación 0-100
     """
 
     def parse(self, json_output: str) -> dict[str, Any]:

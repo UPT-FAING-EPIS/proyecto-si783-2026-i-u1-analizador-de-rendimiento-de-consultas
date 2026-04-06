@@ -1,6 +1,9 @@
 """MySQL metrics extraction utilities."""
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class MySQLMetricsHelper:
@@ -14,7 +17,11 @@ class MySQLMetricsHelper:
             connection: pymysql connection object
 
         Returns:
-            Number of tables in the current database
+            Number of tables in the current database (0 if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan 0 en lugar de propagar excepciones,
+            permitiendo análisis parcial cuando la base de datos es inaccesible.
         """
         try:
             cursor = connection.cursor()
@@ -24,7 +31,8 @@ class MySQLMetricsHelper:
             result = cursor.fetchone()
             cursor.close()
             return result[0] if result else 0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to count tables in MySQL: {e}")
             return 0
 
     @staticmethod
@@ -35,7 +43,11 @@ class MySQLMetricsHelper:
             connection: pymysql connection object
 
         Returns:
-            Number of distinct indexes in the current database
+            Number of distinct indexes in the current database (0 if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan 0 en lugar de propagar excepciones,
+            permitiendo análisis parcial cuando la base de datos es inaccesible.
         """
         try:
             cursor = connection.cursor()
@@ -46,7 +58,8 @@ class MySQLMetricsHelper:
             result = cursor.fetchone()
             cursor.close()
             return result[0] if result else 0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to count indexes in MySQL: {e}")
             return 0
 
     @staticmethod
@@ -57,7 +70,11 @@ class MySQLMetricsHelper:
             connection: pymysql connection object
 
         Returns:
-            Total size of all tables' data and indexes in bytes
+            Total size of all tables' data and indexes in bytes (0 if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan 0 en lugar de propagar excepciones,
+            permitiendo análisis parcial cuando la base de datos es inaccesible.
         """
         try:
             cursor = connection.cursor()
@@ -68,7 +85,8 @@ class MySQLMetricsHelper:
             result = cursor.fetchone()
             cursor.close()
             return result[0] if result and result[0] is not None else 0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get database size: {e}")
             return 0
 
     @staticmethod
@@ -80,7 +98,12 @@ class MySQLMetricsHelper:
             table_name: Name of the table to retrieve info for
 
         Returns:
-            Dict with table name, row count, data length, index length, and totals
+            Dict with table name, row count, data length, index length, and totals.
+            Returns default dict if query fails (strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan dict con valores 0 en lugar de
+            propagar excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -102,7 +125,8 @@ class MySQLMetricsHelper:
                     "total_length": (result[1] or 0) + (result[2] or 0),
                 }
             return {"table_name": table_name, "rows": 0, "data_length": 0}
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get table info for {table_name}: {e}")
             return {"table_name": table_name, "rows": 0, "data_length": 0}
 
     @staticmethod
@@ -113,7 +137,11 @@ class MySQLMetricsHelper:
             connection: pymysql connection object
 
         Returns:
-            List of table names
+            List of table names (empty list if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan lista vacía en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -123,7 +151,8 @@ class MySQLMetricsHelper:
             results = cursor.fetchall()
             cursor.close()
             return [row[0] for row in results] if results else []
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to list tables: {e}")
             return []
 
     @staticmethod
@@ -134,7 +163,11 @@ class MySQLMetricsHelper:
             connection: pymysql connection object
 
         Returns:
-            MySQL version string
+            MySQL version string ('unknown' if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan 'unknown' en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -142,7 +175,8 @@ class MySQLMetricsHelper:
             result = cursor.fetchone()
             cursor.close()
             return result[0] if result else "unknown"
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get engine version: {e}")
             return "unknown"
 
     @staticmethod
@@ -153,7 +187,11 @@ class MySQLMetricsHelper:
             connection: pymysql connection object
 
         Returns:
-            Dict mapping variable names to their values
+            Dict mapping variable names to their values (empty dict if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas de variables retornan dict vacío o parcial
+            en lugar de propagar excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -174,12 +212,13 @@ class MySQLMetricsHelper:
                     row = cursor.fetchone()
                     if row:
                         result[var] = row[1]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to get PRAGMA {var}: {e}")
 
             cursor.close()
             return result
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get pragmas: {e}")
             return {}
 
     @staticmethod
@@ -192,7 +231,11 @@ class MySQLMetricsHelper:
 
         Returns:
             List of dicts with query text and execution time, or empty list if table
-            does not exist or no results found
+            does not exist, no results found, or query fails (strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan lista vacía en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -214,5 +257,6 @@ class MySQLMetricsHelper:
                 }
                 for row in results
             ]
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get slow queries: {e}")
             return []

@@ -3,9 +3,12 @@
 Utility class for extracting metrics and statistics from SQLite databases.
 """
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class SQLiteMetricsHelper:
@@ -19,7 +22,11 @@ class SQLiteMetricsHelper:
             connection: Active SQLite connection
 
         Returns:
-            Number of user tables
+            Number of user tables (0 if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan 0 en lugar de propagar excepciones,
+            permitiendo análisis parcial cuando la base de datos es inaccesible.
         """
         try:
             cursor = connection.cursor()
@@ -28,7 +35,8 @@ class SQLiteMetricsHelper:
             )
             result = cursor.fetchone()
             return result[0] if result else 0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to count tables in SQLite: {e}")
             return 0
 
     @staticmethod
@@ -39,7 +47,11 @@ class SQLiteMetricsHelper:
             connection: Active SQLite connection
 
         Returns:
-            Number of user-defined indexes
+            Number of user-defined indexes (0 if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan 0 en lugar de propagar excepciones,
+            permitiendo análisis parcial cuando la base de datos es inaccesible.
         """
         try:
             cursor = connection.cursor()
@@ -48,7 +60,8 @@ class SQLiteMetricsHelper:
             )
             result = cursor.fetchone()
             return result[0] if result else 0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to count indexes in SQLite: {e}")
             return 0
 
     @staticmethod
@@ -60,14 +73,19 @@ class SQLiteMetricsHelper:
             db_path: Path to SQLite database file
 
         Returns:
-            File size in bytes (or -1 if unavailable)
+            File size in bytes (-1 if unavailable; strategy: fail-safe).
+
+        Note:
+            Errores al acceder al archivo retornan -1 en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             db_path = Path(db_path)
             if db_path.exists():
                 return db_path.stat().st_size
             return -1
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get database size: {e}")
             return -1
 
     @staticmethod
@@ -78,7 +96,12 @@ class SQLiteMetricsHelper:
             connection: Active SQLite connection
 
         Returns:
-            Dict with: page_size, page_count, total_size_bytes
+            Dict with: page_size, page_count, total_size_bytes.
+            Returns default dict with -1 values if query fails (strategy: fail-safe).
+
+        Note:
+            Errores en PRAGMA queries retornan valores por defecto (-1) en lugar
+            de propagar excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -96,7 +119,8 @@ class SQLiteMetricsHelper:
                 "page_count": page_count,
                 "total_size_bytes": page_size * page_count,
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get page stats: {e}")
             return {"page_size": -1, "page_count": -1, "total_size_bytes": -1}
 
     @staticmethod
@@ -107,7 +131,12 @@ class SQLiteMetricsHelper:
             connection: Active SQLite connection
 
         Returns:
-            Dict with: cache_size, cache_size_bytes
+            Dict with: cache_size, cache_size_bytes.
+            Returns default dict with -1 values if query fails (strategy: fail-safe).
+
+        Note:
+            Errores en PRAGMA queries retornan valores por defecto (-1) en lugar
+            de propagar excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -125,7 +154,8 @@ class SQLiteMetricsHelper:
                 "cache_size_bytes": cache_bytes,
                 "page_size": page_size,
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get cache settings: {e}")
             return {"cache_size_pages": -1, "cache_size_bytes": -1, "page_size": -1}
 
     @staticmethod
@@ -136,7 +166,12 @@ class SQLiteMetricsHelper:
             connection: Active SQLite connection
 
         Returns:
-            Dict with pragma values
+            Dict with pragma values. Individual pragma failures return None
+            for that key; complete failure returns empty dict (strategy: fail-safe).
+
+        Note:
+            Errores en PRAGMA queries retornan None por pragma o dict vacío
+            en lugar de propagar excepciones, permitiendo análisis parcial.
         """
         pragma_settings = {
             "journal_mode": "PRAGMA journal_mode",
@@ -153,10 +188,11 @@ class SQLiteMetricsHelper:
                     cursor.execute(pragma)
                     value = cursor.fetchone()
                     result[key] = value[0] if value else None
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Failed to get PRAGMA {key}: {e}")
                     result[key] = None
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to get pragmas: {e}")
 
         return result
 
@@ -169,7 +205,12 @@ class SQLiteMetricsHelper:
             table: Table name
 
         Returns:
-            Dict with: column_count, has_primary_key, indexed_columns
+            Dict with: column_count, has_primary_key, indexed_columns.
+            Returns empty/zero defaults if query fails (strategy: fail-safe).
+
+        Note:
+            Errores en PRAGMA table_info retornan dict vacío en lugar
+            de propagar excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -189,7 +230,8 @@ class SQLiteMetricsHelper:
                 "indexed_columns": indexed_columns,
                 "columns": [col[1] for col in columns],
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get table info for {table}: {e}")
             return {
                 "column_count": 0,
                 "has_primary_key": False,
@@ -205,7 +247,11 @@ class SQLiteMetricsHelper:
             connection: Active SQLite connection
 
         Returns:
-            List of table names
+            List of table names (empty list if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consulta de tablas retornan lista vacía en lugar
+            de propagar excepciones, permitiendo análisis parcial.
         """
         try:
             cursor = connection.cursor()
@@ -213,5 +259,6 @@ class SQLiteMetricsHelper:
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
             )
             return [row[0] for row in cursor.fetchall()]
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to list tables: {e}")
             return []

@@ -4,11 +4,17 @@ from typing import Any
 
 
 class PostgreSQLExplainParser:
-    """Parser for PostgreSQL EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) output.
+    """Parseador especializado para salidas EXPLAIN de PostgreSQL.
 
-    Recursively traverses the plan tree, extracts metrics, calculates warnings,
-    and computes an optimization score (0-100) based on plan structure and
-    execution time.
+    Analiza planes de ejecución en formato JSON (EXPLAIN ANALYZE, BUFFERS, FORMAT JSON)
+    para extraer métricas de rendimiento y detectar anti-patrones. Recorre recursivamente
+    el árbol de planes, calcula costos estimados vs. actuales, identifica operaciones
+    costosas (sequential scans, index operations, joins), y genera una puntuación de
+    optimización (0-100) basada en la estructura del plan.
+
+    Atributos:
+        seq_scan_threshold: Número de filas en tabla para considerar Seq Scan como
+            posible anti-patrón (default: 10000).
     """
 
     def __init__(self, seq_scan_threshold: int = 10000) -> None:

@@ -9,13 +9,22 @@ from typing import Any
 
 
 class SQLiteExplainParser:
-    """Parser for SQLite EXPLAIN QUERY PLAN output.
+    """Parseador especializado para salidas EXPLAIN QUERY PLAN de SQLite.
 
-    SQLite produces tab-separated output with columns: id, parent, notused, detail
-    Example:
+    Analiza planes de ejecución en formato texto (EXPLAIN QUERY PLAN) con
+    columnas separadas por tabulaciones: id, parent, notused, detail.
+    Identifica operaciones de acceso a datos (full scans vs. indexed searches),
+    detecta anti-patrones como scans innecesarios, y calcula una puntuación
+    de optimización (0-100).
+
+    Ejemplo de entrada:
         id  parent  notused  detail
         0   0       0        SCAN TABLE orders
         1   0       0        SEARCH TABLE users USING INDEX idx_users_id
+
+    Atributos:
+        table_row_threshold: Número estimado de filas para generar warnings
+            en full scans (default: 1000; conservador para SQLite pequeño).
     """
 
     def __init__(self, table_row_threshold: int = 1000):

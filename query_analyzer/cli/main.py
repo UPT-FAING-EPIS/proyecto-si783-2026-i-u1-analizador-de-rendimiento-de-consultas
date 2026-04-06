@@ -19,10 +19,28 @@ app.add_typer(profile.app, name="profile", help="Gestionar perfiles de conexión
 
 
 def main() -> None:
-    """Entry point for the Query Analyzer CLI application.
+    r"""Punto de entrada principal para el CLI de Query Analyzer.
 
-    Initializes and runs the Typer CLI application with all configured
-    commands and subcommands.
+    Inicializa y ejecuta la aplicación Typer con todos los comandos y
+    subcomandos configurados. Esta función es el punto de inicio cuando
+    se ejecuta el paquete como módulo o como aplicación instalada.
+
+    La aplicación soporta análisis de rendimiento de queries para múltiples
+    motores de base de datos (PostgreSQL, MySQL, SQLite, CockroachDB, etc.)
+    a través de perfiles de conexión configurables.
+
+    Raises:
+        SystemExit: Con código 0 en salida exitosa, >0 en caso de error.
+
+    Example:
+        \b
+        # Llamar directamente
+        $ python -m query_analyzer
+
+        # O si está instalado como paquete:
+        $ qa --help
+        $ qa profile list
+        $ qa profile add mydb --engine postgresql
     """
     app()
 

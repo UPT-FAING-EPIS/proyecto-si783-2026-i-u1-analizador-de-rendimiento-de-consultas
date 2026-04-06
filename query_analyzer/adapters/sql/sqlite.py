@@ -4,6 +4,7 @@ Provides query analysis for SQLite databases using EXPLAIN QUERY PLAN.
 Supports both in-memory and file-based databases.
 """
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from query_analyzer.adapters.registry import AdapterRegistry
 
 from .sqlite_metrics import SQLiteMetricsHelper
 from .sqlite_parser import SQLiteExplainParser
+
+logger = logging.getLogger(__name__)
 
 
 @AdapterRegistry.register("sqlite")
@@ -101,7 +104,11 @@ class SQLiteAdapter(BaseAdapter):
         """Test if connection is valid.
 
         Returns:
-            True if connection is working, False otherwise
+            True if connection is working, False otherwise.
+
+        Note:
+            Errores en test de conexión retornan False en lugar de propagar
+            excepciones, permitiendo detección segura de desconexión.
         """
         if not self.is_connected():
             return False
@@ -188,7 +195,12 @@ class SQLiteAdapter(BaseAdapter):
         """Get database metrics.
 
         Returns:
-            Dict with: tables, indexes, page_size, page_count, total_size_mb, cache_config
+            Dict with: tables, indexes, page_size, page_count, total_size_mb, cache_config.
+            Returns empty dict if metrics retrieval fails (strategy: fail-safe).
+
+        Note:
+            Errores en consultas de métricas retornan dict vacío en lugar de
+            propagar excepciones, permitiendo análisis parcial.
         """
         if not self.is_connected():
             return {}
@@ -217,14 +229,50 @@ class SQLiteAdapter(BaseAdapter):
                 "cache_size_pages": cache_settings.get("cache_size_pages", 0),
                 "cache_size_bytes": cache_settings.get("cache_size_bytes", 0),
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get metrics: {e}")
+            return {}
+
+        try:
+            conn = self.get_connection()
+
+            table_count = self.metrics.get_table_count(conn)
+            index_count = self.metrics.get_index_count(conn)
+
+            page_stats = self.metrics.get_page_stats(conn)
+
+            cache_settings = self.metrics.get_cache_settings(conn)
+
+            db_path = self._config.database
+            file_size = self.metrics.get_database_size(conn, db_path)
+
+            return {
+                "tables": table_count,
+                "indexes": index_count,
+                "page_size_bytes": page_stats.get("page_size", 0),
+                "page_count": page_stats.get("page_count", 0),
+                "total_size_bytes": file_size
+                if file_size > 0
+                else page_stats.get("total_size_bytes", 0),
+                "cache_size_pages": cache_settings.get("cache_size_pages", 0),
+                "cache_size_bytes": cache_settings.get("cache_size_bytes", 0),
+            }
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).debug(f"Failed to get metrics: {e}")
             return {}
 
     def get_engine_info(self) -> dict[str, Any]:
         """Get SQLite engine information.
 
         Returns:
-            Dict with: version, engine, database_path, max_connections
+            Dict with: version, engine, database_path, max_connections.
+            Returns empty dict if retrieval fails (strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan dict vacío en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         if not self.is_connected():
             return {}
@@ -242,7 +290,27 @@ class SQLiteAdapter(BaseAdapter):
                 "database_path": str(self._config.database),
                 "max_connections": 1,
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get engine info: {e}")
+            return {}
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT sqlite_version()")
+            version = cursor.fetchone()[0]
+
+            return {
+                "version": version,
+                "engine": "sqlite",
+                "database_path": str(self._config.database),
+                "max_connections": 1,
+            }
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).debug(f"Failed to get engine info: {e}")
             return {}
 
     def _is_ddl_statement(self, query: str) -> bool:

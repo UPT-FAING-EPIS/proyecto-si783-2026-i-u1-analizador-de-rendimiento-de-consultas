@@ -1,6 +1,9 @@
 """PostgreSQL metrics extraction utilities."""
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class PostgreSQLMetricsHelper:
@@ -14,7 +17,11 @@ class PostgreSQLMetricsHelper:
             connection: psycopg2 connection object
 
         Returns:
-            Dict with database statistics
+            Dict with database statistics (empty dict if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan dict vacío en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             with connection.cursor() as cursor:
@@ -52,7 +59,8 @@ class PostgreSQLMetricsHelper:
                     "transactions_committed": int(row[8]),
                     "transactions_rolled_back": int(row[9]),
                 }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get database stats: {e}")
             return {}
 
     @staticmethod
@@ -60,7 +68,11 @@ class PostgreSQLMetricsHelper:
         """Calculate cache hit ratio from pg_statio_user_tables.
 
         Returns:
-            Float between 0 and 1 (or -1 if unable to calculate)
+            Float between 0 and 1 (-1.0 if unable to calculate; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan -1.0 en lugar de propagar excepciones,
+            permitiendo análisis parcial.
         """
         try:
             with connection.cursor() as cursor:
@@ -79,7 +91,8 @@ class PostgreSQLMetricsHelper:
                     return 1.0
 
                 return float(hit / total)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get cache hit ratio: {e}")
             return -1.0
 
     @staticmethod
@@ -91,7 +104,11 @@ class PostgreSQLMetricsHelper:
             setting_names: List of setting names to retrieve
 
         Returns:
-            Dict mapping setting names to their values
+            Dict mapping setting names to their values (empty dict if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan dict vacío en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             with connection.cursor() as cursor:
@@ -102,7 +119,8 @@ class PostgreSQLMetricsHelper:
                     if value:
                         result[setting] = value[0]
                 return result
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get settings: {e}")
             return {}
 
     @staticmethod
@@ -113,7 +131,11 @@ class PostgreSQLMetricsHelper:
             connection: psycopg2 connection object
 
         Returns:
-            True if extension is available, False otherwise
+            True if extension is available, False otherwise (returns False if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan False en lugar de propagar excepciones,
+            permitiendo análisis parcial.
         """
         try:
             with connection.cursor() as cursor:
@@ -127,7 +149,8 @@ class PostgreSQLMetricsHelper:
                 )
                 exists = cursor.fetchone()[0]
                 return bool(exists)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to check pg_stat_statements: {e}")
             return False
 
     @staticmethod
@@ -142,7 +165,11 @@ class PostgreSQLMetricsHelper:
             limit: Maximum number of queries to return
 
         Returns:
-            List of dicts with query and timing information
+            List of dicts with query and timing information (empty list if query fails; strategy: fail-safe).
+
+        Note:
+            Errores en consultas retornan lista vacía en lugar de propagar
+            excepciones, permitiendo análisis parcial.
         """
         try:
             with connection.cursor() as cursor:
@@ -176,5 +203,6 @@ class PostgreSQLMetricsHelper:
                         }
                     )
                 return results
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get slow queries: {e}")
             return []

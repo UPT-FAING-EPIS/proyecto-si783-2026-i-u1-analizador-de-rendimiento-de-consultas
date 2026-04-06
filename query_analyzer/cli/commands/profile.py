@@ -20,10 +20,23 @@ console = Console()
 
 
 def _get_adapter(engine: str) -> type[BaseAdapter]:
-    """Obtiene la clase del adapter para un engine.
+    """Obtiene la clase del adapter para un engine específico.
 
-    Nota: Por ahora retornamos un mock. En producción,
-    cargaríamos dinámicamente desde query_analyzer.adapters.sql, etc.
+    Esta función es un helper privado que se usa internamente para
+    instanciar adapters basados en el nombre del motor de base de datos.
+
+    Args:
+        engine: Nombre del motor ('postgresql', 'mysql', 'sqlite', 'cockroachdb', etc.)
+
+    Returns:
+        Clase del adapter correspondiente al engine.
+
+    Raises:
+        ValueError: Si el engine no está soportado o no registrado en el registry.
+
+    Note:
+        Actualmente es un stub. La implementación real cargará dinámicamente
+        desde el AdapterRegistry en producción.
     """
     # TODO: Implementar factory de adapters cuando existan
     # Por ahora retornamos None para indicar que no está implementado
@@ -44,18 +57,38 @@ def add(
         None, "--password", "-pw", help="Password (interactivo si omitido)"
     ),
 ) -> None:
-    r"""Agregar nuevo perfil de conexión.
+    r"""Agregar un nuevo perfil de conexión a la configuración.
 
-    Modo interactivo si se omiten parámetros:
+    Crea un nuevo perfil de conexión interactivamente o mediante opciones CLI.
+    Si se omiten parámetros, el comando entra en modo interactivo solicitando
+    cada valor. Las credenciales se cifran y almacenan de forma segura.
 
-    \b
-    $ qa profile add staging
-    Engine [postgresql]: mysql
-    Host [localhost]: prod-db.example.com
-    Port [3306]:
-    Database: myapp
-    Username: analyst
-    Password (hidden): ****
+    Args:
+        name: Nombre único del nuevo perfil (ej: 'staging', 'local-postgres').
+        engine: Motor de base de datos ('postgresql' o 'mysql'). Interactivo si omitido.
+        host: Host del servidor. Interactivo si omitido.
+        port: Puerto del servidor. Interactivo si omitido.
+        database: Nombre de la base de datos. Interactivo si omitido.
+        username: Usuario de conexión. Interactivo si omitido.
+        password: Contraseña (siempre oculta en input). Interactivo si omitido.
+
+    Raises:
+        typer.Exit: Con código 1 si hay error de validación o I/O.
+
+    Example:
+        \b
+        # Modo interactivo
+        $ qa profile add staging
+        Engine [postgresql]: mysql
+        Host [localhost]: prod-db.example.com
+        Port [3306]:
+        Database: myapp
+        Username: analyst
+        Password (hidden): ****
+
+        # Modo no-interactivo
+        $ qa profile add local-dev -e postgresql -h localhost -p 5432 \
+            -d dev_db -u postgres -pw secret
     """
     try:
         config_mgr = ConfigManager()
@@ -106,23 +139,29 @@ def add(
 
 @app.command()
 def list() -> None:
-    r"""Listar todos los perfiles de conexión.
+    r"""Listar todos los perfiles de conexión configurados.
 
-    Muestra una tabla con:
-    - Nombre del perfil (con [DEFAULT] si es default)
-    - Engine (postgresql, mysql, etc)
+    Muestra una tabla de todos los perfiles guardados con información de:
+    - Nombre del perfil (marcado con [DEFAULT] si es el perfil por defecto)
+    - Engine (postgresql, mysql, sqlite, cockroachdb, etc.)
     - Host y puerto
-    - Database
-    - Usuario
+    - Nombre de la base de datos
+    - Usuario de conexión
 
-    \b
-    $ qa profile list
-    Perfiles de Conexion
-    ┏━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━┳━━━━━┓
-    ┃ Nombre ┃ Engine ┃ Host   ┃ DB ┃ User┃
-    ┡━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━╇━━━━┩
-    │ test * │ postgr │ localh │ qy │ pgr│
-    └────────┴────────┴────────┴────┴────┘
+    Las contraseñas no se muestran por seguridad.
+
+    Returns:
+        Imprime tabla formateada en la consola.
+
+    Example:
+        \b
+        $ qa profile list
+        Perfiles de Conexion
+        ┏━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━┳━━━━━┓
+        ┃ Nombre ┃ Engine ┃ Host   ┃ DB ┃ User┃
+        ┡━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━╇━━━━┩
+        │ test * │ postgr │ localh │ qy │ pgr│
+        └────────┴────────┴────────┴────┴────┘
     """
     try:
         config_mgr = ConfigManager()
@@ -147,18 +186,27 @@ def list() -> None:
 def test(
     name: str = typer.Argument(..., help="Nombre del perfil a probar"),
 ) -> None:
-    r"""Probar conexión a un perfil.
+    r"""Probar la conexión a un perfil de base de datos.
 
-    Ejecuta:
-    1. test_connection() del adapter
-    2. Query diagnóstica según el engine
+    Valida que el perfil especificado tenga una conexión activa y funcional
+    al motor de base de datos correspondiente. Ejecuta:
+    1. Validación del perfil (existencia y configuración)
+    2. test_connection() del adapter
+    3. Consultas diagnósticas según el engine
 
-    \b
-    $ qa profile test local-postgres
-    Testing connection to 'local-postgres'...
-    ✓ Connection successful
-    ✓ PostgreSQL 14.2
-    ✓ 1 active connection
+    Args:
+        name: Nombre del perfil a probar (ej: 'local-postgres').
+
+    Raises:
+        typer.Exit: Con código 1 si el perfil no existe o la conexión falla.
+
+    Example:
+        \b
+        $ qa profile test local-postgres
+        Testing connection to 'local-postgres'...
+        ✓ Connection successful
+        ✓ PostgreSQL 14.2
+        ✓ 1 active connection
     """
     try:
         config_mgr = ConfigManager()
@@ -191,7 +239,22 @@ def test(
 def set_default(
     name: str = typer.Argument(..., help="Nombre del perfil"),
 ) -> None:
-    """Establecer perfil por defecto."""
+    r"""Establecer un perfil como el perfil por defecto.
+
+    Marca el perfil especificado como el perfil por defecto, que se usará
+    automáticamente en comandos que no especifiquen explícitamente un perfil.
+
+    Args:
+        name: Nombre del perfil a establecer como default.
+
+    Raises:
+        typer.Exit: Con código 1 si el perfil no existe.
+
+    Example:
+        \b
+        $ qa profile set-default production
+        Perfil default establecido a 'production'
+    """
     try:
         config_mgr = ConfigManager()
         config_mgr.set_default_profile(name)
@@ -210,7 +273,27 @@ def delete(
     name: str = typer.Argument(..., help="Nombre del perfil a eliminar"),
     force: bool = typer.Option(False, "--force", "-f", help="Sin confirmación"),
 ) -> None:
-    """Eliminar un perfil."""
+    r"""Eliminar un perfil de conexión.
+
+    Elimina un perfil de la configuración. Solicita confirmación a menos
+    que se use la opción --force.
+
+    Args:
+        name: Nombre del perfil a eliminar.
+        force: Si True, elimina sin pedir confirmación.
+
+    Raises:
+        typer.Exit: Con código 1 si el perfil no existe o el usuario cancela.
+
+    Example:
+        \b
+        $ qa profile delete staging
+        ¿Eliminar perfil 'staging'? [y/N]: y
+        Perfil 'staging' eliminado
+
+        $ qa profile delete staging --force
+        Perfil 'staging' eliminado
+    """
     try:
         # Pedir confirmación si no hay --force
         if not force:
@@ -237,7 +320,33 @@ def show(
         False, "--show-password", help="Mostrar password sin enmascarar"
     ),
 ) -> None:
-    """Mostrar detalles de un perfil (sin password por defecto)."""
+    r"""Mostrar detalles completos de un perfil.
+
+    Muestra la configuración completa de un perfil (host, puerto, usuario, etc.).
+    Por defecto, la contraseña se enmascara por seguridad. Use --show-password
+    para mostrar la contraseña en texto plano.
+
+    Args:
+        name: Nombre del perfil a mostrar.
+        show_password: Si True, muestra la contraseña sin enmascarar.
+
+    Raises:
+        typer.Exit: Con código 1 si el perfil no existe.
+
+    Example:
+        \b
+        $ qa profile show production
+        Profile: production (DEFAULT)
+        Engine: postgresql
+        Host: prod-db.example.com
+        Port: 5432
+        Database: myapp_prod
+        User: analyst
+        Password: ****
+
+        $ qa profile show production --show-password
+        Password: super_secret_pwd
+    """
     try:
         config_mgr = ConfigManager()
         config = config_mgr.load_config()
