@@ -109,6 +109,69 @@ No direct imports of specific adapters needed in client code.
 
 ---
 
+## CockroachDB Adapter
+
+**CockroachDBAdapter** (`query_analyzer/adapters/sql/cockroachdb.py`) extends **PostgreSQLAdapter** to handle CRDB-specific optimizations.
+
+### Key Features
+
+- **Wire Protocol Compatibility:** CockroachDB implements PostgreSQL wire protocol, so uses `psycopg2` driver
+- **CockroachDB Parser:** `CockroachDBParser` extends `PostgreSQLExplainParser` to detect CRDB-specific join types
+- **EXPLAIN Fallback Strategy:**
+  1. `EXPLAIN (DISTSQL, ANALYZE, FORMAT JSON)` — full distributed metrics (v22.1+)
+  2. `EXPLAIN (ANALYZE, FORMAT JSON)` — standard format
+  3. `EXPLAIN ANALYZE` — text fallback if JSON unavailable
+
+### CRDB-Specific Features
+
+| Feature | Detection | Warning Threshold |
+|---------|-----------|-------------------|
+| **Lookup Join** | Node type contains "Lookup Join" | Count > 5 |
+| **Zigzag Join** | Node type contains "Zigzag Join" | Informational |
+| **Distributed Execution** | Presence of "Distributed" or "Remote" nodes | Informational |
+
+### Metrics Added
+
+```python
+{
+    # PostgreSQL inherited
+    "planning_time_ms": float,
+    "execution_time_ms": float,
+    ...
+    # CockroachDB-specific
+    "is_distributed": bool,           # Uses distributed execution
+    "lookup_join_count": int,         # Number of Lookup Joins
+    "zigzag_join_count": int,         # Number of Zigzag Joins
+    "has_remote_execution": bool,     # Contains Remote nodes
+}
+```
+
+### Example Usage
+
+```python
+from query_analyzer.adapters import AdapterRegistry, ConnectionConfig
+
+config = ConnectionConfig(
+    engine="cockroachdb",
+    host="localhost",
+    port=26257,
+    database="defaultdb",
+    username="root",
+    password="",
+    extra={"seq_scan_threshold": 10000}
+)
+
+adapter = AdapterRegistry.create("cockroachdb", config)
+adapter.connect()
+report = adapter.execute_explain("SELECT * FROM orders JOIN customers ...")
+print(f"Score: {report.score}/100")
+print(f"Is Distributed: {report.metrics['is_distributed']}")
+print(f"Lookup Joins: {report.metrics['lookup_join_count']}")
+adapter.disconnect()
+```
+
+---
+
 ## Docker & Services
 
 `docker/compose.yml` defines 7 database services for dev & testing:

@@ -7,6 +7,7 @@ import pytest
 from query_analyzer.adapters import CockroachDBAdapter, ConnectionConfig
 from query_analyzer.adapters.exceptions import QueryAnalysisError
 from query_analyzer.adapters.models import QueryAnalysisReport
+from query_analyzer.adapters.sql.cockroachdb_parser import CockroachDBParser
 
 
 class TestCockroachDBAdapterInit:
@@ -27,6 +28,7 @@ class TestCockroachDBAdapterInit:
         assert adapter._config == config
         assert adapter._is_connected is False
         assert adapter.parser is not None
+        assert isinstance(adapter.parser, CockroachDBParser)
         assert adapter.metrics_helper is not None
 
     def test_adapter_is_base_adapter_subclass(self):
@@ -301,13 +303,20 @@ class TestCockroachDBAdapterExplain:
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
 
-        # Mock text EXPLAIN with "full scan"
+        # Mock cursor: DISTSQL fails, JSON fails, text succeeds
         mock_cursor = MagicMock()
-        mock_cursor.execute.side_effect = [
-            Exception("JSON failed"),
-            None,
-        ]
+
+        # Track which execute() call we're on
+        def execute_side_effect(query):
+            if "DISTSQL" in query:
+                raise Exception("DISTSQL not supported")
+            elif "FORMAT JSON" in query:
+                raise Exception("JSON parsing failed")
+            # Text format succeeds
+
+        mock_cursor.execute.side_effect = execute_side_effect
         mock_cursor.fetchall.return_value = [("Seq Scan on large_table",), ("Full scan",)]
+        mock_cursor.fetchone.return_value = None
 
         mock_conn = MagicMock()
         mock_conn.cursor = MagicMock(return_value=mock_cursor)
@@ -336,16 +345,22 @@ class TestCockroachDBAdapterExplain:
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
 
-        # Mock text with "full scan" + "region"
+        # Mock cursor: DISTSQL fails, JSON fails, text succeeds
         mock_cursor = MagicMock()
-        mock_cursor.execute.side_effect = [
-            Exception("JSON failed"),
-            None,
-        ]
+
+        def execute_side_effect(query):
+            if "DISTSQL" in query:
+                raise Exception("DISTSQL not supported")
+            elif "FORMAT JSON" in query:
+                raise Exception("JSON parsing failed")
+            # Text format succeeds
+
+        mock_cursor.execute.side_effect = execute_side_effect
         mock_cursor.fetchall.return_value = [
             ("Distributed execution across regions",),
             ("Full scan on us-east-1 region",),
         ]
+        mock_cursor.fetchone.return_value = None
 
         mock_conn = MagicMock()
         mock_conn.cursor = MagicMock(return_value=mock_cursor)

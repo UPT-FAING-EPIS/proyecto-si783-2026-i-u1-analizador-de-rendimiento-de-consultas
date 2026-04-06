@@ -1,9 +1,10 @@
 """CockroachDB database adapter using psycopg2 (wire protocol compatible).
 
 CockroachDB implements PostgreSQL wire protocol, so we extend PostgreSQLAdapter
-and override key methods for CRDB-specific behavior:
-- EXPLAIN with JSON format (with text fallback for older versions)
-- CRDB-specific warnings (full scans, cross-region scans)
+and use CockroachDBParser for CRDB-specific optimizations:
+- EXPLAIN with intelligent fallback: DISTSQL → JSON → Text format
+- CRDB-specific node types: Lookup Join, Zigzag Join, distributed execution
+- CRDB-specific warnings: high lookup join count, distributed execution patterns
 - Minimal metrics (no admin-only queries in v1)
 """
 
@@ -22,8 +23,8 @@ from query_analyzer.adapters.exceptions import QueryAnalysisError
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
 
+from .cockroachdb_parser import CockroachDBParser
 from .postgresql_metrics import PostgreSQLMetricsHelper
-from .postgresql_parser import PostgreSQLExplainParser
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,8 @@ class CockroachDBAdapter(BaseAdapter):
             ConnectionConfigError: If config is invalid
         """
         super().__init__(config)
-        # Reuse PostgreSQL parser (YAGNI — create subclass if tests fail)
-        self.parser = PostgreSQLExplainParser(
+        # Use CockroachDB-specific parser instead of PostgreSQL parser
+        self.parser = CockroachDBParser(
             seq_scan_threshold=config.extra.get("seq_scan_threshold", 10000)
         )
         self.metrics_helper = PostgreSQLMetricsHelper()
@@ -112,10 +113,12 @@ class CockroachDBAdapter(BaseAdapter):
             return False
 
     def execute_explain(self, query: str) -> QueryAnalysisReport:
-        """Execute EXPLAIN with JSON primary, text fallback.
+        """Execute EXPLAIN with intelligent fallback strategy.
 
-        Attempts EXPLAIN (ANALYZE, FORMAT JSON) first (CockroachDB v22.1+).
-        Falls back to EXPLAIN ANALYZE (text) if JSON fails.
+        Attempts formats in this order (CRDB v23.2+):
+        1. EXPLAIN (DISTSQL, ANALYZE, FORMAT JSON) — full distributed metrics
+        2. EXPLAIN (ANALYZE, FORMAT JSON) — standard format, falls back for older versions
+        3. EXPLAIN ANALYZE — text fallback if JSON fails
 
         Args:
             query: SQL query to analyze (SELECT/INSERT/UPDATE/DELETE)
@@ -141,27 +144,42 @@ class CockroachDBAdapter(BaseAdapter):
                 explain_json = None
                 explain_text = None
 
-                # Try JSON format first (CockroachDB v22.1+)
+                # Try DISTSQL format first (CockroachDB v22.1+)
                 try:
-                    explain_query = f"EXPLAIN (ANALYZE, FORMAT JSON) {query}"
+                    explain_query = f"EXPLAIN (DISTSQL, ANALYZE, FORMAT JSON) {query}"
                     cursor.execute(explain_query)
                     result = cursor.fetchone()
 
-                    if not result:
-                        raise QueryAnalysisError("EXPLAIN returned no results")
-
-                    # Parse JSON result
-                    if isinstance(result[0], str):
-                        explain_json = json.loads(result[0])[0]
-                    else:
-                        explain_json = result[0][0]
-
-                    logger.debug("EXPLAIN JSON format succeeded")
+                    if result:
+                        # Parse JSON result
+                        if isinstance(result[0], str):
+                            explain_json = json.loads(result[0])[0]
+                        else:
+                            explain_json = result[0][0]
+                        logger.debug("EXPLAIN DISTSQL JSON format succeeded")
 
                 except Exception as e:
-                    logger.warning(f"JSON EXPLAIN failed: {e}, trying text fallback")
+                    logger.debug(f"DISTSQL EXPLAIN failed (expected for older versions): {e}")
 
-                    # Fallback to text format
+                # Fallback: Try JSON format (standard PostgreSQL style)
+                if not explain_json:
+                    try:
+                        explain_query = f"EXPLAIN (ANALYZE, FORMAT JSON) {query}"
+                        cursor.execute(explain_query)
+                        result = cursor.fetchone()
+
+                        if result:
+                            if isinstance(result[0], str):
+                                explain_json = json.loads(result[0])[0]
+                            else:
+                                explain_json = result[0][0]
+                            logger.debug("EXPLAIN JSON format succeeded")
+
+                    except Exception as e:
+                        logger.warning(f"JSON EXPLAIN failed: {e}, trying text fallback")
+
+                # Fallback: Try text format
+                if not explain_json:
                     try:
                         explain_query = f"EXPLAIN ANALYZE {query}"
                         cursor.execute(explain_query)
@@ -170,7 +188,7 @@ class CockroachDBAdapter(BaseAdapter):
                         logger.debug("EXPLAIN text fallback succeeded")
                     except Exception as e_text:
                         raise QueryAnalysisError(
-                            f"Both JSON and text EXPLAIN failed: {e_text}"
+                            f"All EXPLAIN formats failed: {e_text}"
                         ) from e_text
 
                 # Parse plan
@@ -185,7 +203,15 @@ class CockroachDBAdapter(BaseAdapter):
                     metrics = self._parse_text_explain(explain_text)
 
                 # Get CRDB-specific warnings
-                plan_text = explain_text or json.dumps(explain_json)
+                if explain_text:
+                    plan_text = explain_text
+                else:
+                    # Try to serialize explain_json, fallback to empty string
+                    try:
+                        plan_text = json.dumps(explain_json) if explain_json else ""
+                    except TypeError, ValueError:
+                        plan_text = ""
+
                 crdb_warnings = self._detect_crdb_specific_issues(plan_text, metrics)
 
                 # Get base warnings from parser
@@ -200,7 +226,9 @@ class CockroachDBAdapter(BaseAdapter):
                 # Calculate optimization score
                 score = self.parser.calculate_score(metrics, all_warnings)
 
-                # Build report
+                # Build report (ensure raw_plan is None if text-only)
+                raw_plan = explain_json if explain_json else None
+
                 return QueryAnalysisReport(
                     engine="cockroachdb",
                     query=query,
@@ -208,7 +236,7 @@ class CockroachDBAdapter(BaseAdapter):
                     execution_time_ms=metrics.get("execution_time_ms", 0.0),
                     warnings=all_warnings,
                     recommendations=recommendations,
-                    raw_plan=explain_json,  # Only include JSON, not text fallback
+                    raw_plan=raw_plan,  # Only include JSON, not text fallback
                     metrics=metrics,
                 )
 
