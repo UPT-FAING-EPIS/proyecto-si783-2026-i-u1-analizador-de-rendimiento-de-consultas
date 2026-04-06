@@ -172,10 +172,63 @@ adapter.disconnect()
 
 ---
 
+## YugabyteDB Adapter
+
+**YugabyteDBAdapter** (`query_analyzer/adapters/sql/yugabytedb.py`) extends **PostgreSQLAdapter** with YugabyteDB-specific defaults.
+
+### Key Features
+
+- **Wire Protocol Compatibility:** YugabyteDB implements PostgreSQL wire protocol, uses `psycopg2` driver
+- **YugabyteDB Parser:** `YugabyteDBParser` extends `PostgreSQLExplainParser` (minimal override for MVP)
+- **Default Port:** Automatically converts PostgreSQL default port 5432 → YugabyteDB port 5433
+- **Standard EXPLAIN Format:** Uses standard PostgreSQL EXPLAIN (no DISTSQL equivalent in v1)
+- **Implicit Distribution:** Distribution is transparent to query optimizer (DocDB storage layer handles it)
+
+### Architecture Note
+
+Unlike CockroachDB, YugabyteDB distribution is **implicit** and not visible in EXPLAIN output. For MVP (v1):
+- Parser reuses PostgreSQL behavior (no special node type detection)
+- Future enhancements (v1.1) will add:
+  - Tablet-level metrics via `yb_local_tablets()` and `yb_tablet_servers()`
+  - Colocation detection and warnings
+  - Cross-region query patterns
+
+### Example Usage
+
+```python
+from query_analyzer.adapters import AdapterRegistry, ConnectionConfig
+
+config = ConnectionConfig(
+    engine="yugabytedb",
+    host="localhost",
+    port=5433,  # YugabyteDB YSQL port (or omit - adapter auto-converts 5432→5433)
+    database="yugabyte",
+    username="yugabyte",
+    password="yugabyte",
+    extra={"seq_scan_threshold": 10000}
+)
+
+adapter = AdapterRegistry.create("yugabytedb", config)
+adapter.connect()
+report = adapter.execute_explain("SELECT * FROM users JOIN orders ...")
+print(f"Score: {report.score}/100")
+print(f"Execution Time: {report.execution_time_ms}ms")
+adapter.disconnect()
+```
+
+### Default Credentials
+
+- Username: `yugabyte`
+- Password: `yugabyte`
+- Database: `yugabyte`
+- YSQL Port: `5433` (PostgreSQL-compatible query layer)
+
+---
+
 ## Docker & Services
 
 `docker/compose.yml` defines 7 database services for dev & testing:
-- PostgreSQL, MySQL, MongoDB, Redis, InfluxDB, Neo4j, CockroachDB
+- PostgreSQL, MySQL, MongoDB, Redis, InfluxDB, Neo4j, CockroachDB, YugabyteDB
 
 **Makefile shortcuts:**
 - `make up` — start services (non-blocking)

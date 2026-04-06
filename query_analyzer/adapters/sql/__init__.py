@@ -1,4 +1,4 @@
-"""SQL Adapters - Drivers para bases de datos SQL (PostgreSQL, MySQL, SQLite, CockroachDB, etc)."""
+"""SQL Adapters - Drivers para bases de datos SQL (PostgreSQL, MySQL, SQLite, CockroachDB, YugabyteDB, etc)."""
 
 from .cockroachdb import CockroachDBAdapter
 from .cockroachdb_metrics import CockroachDBMetricsHelper
@@ -11,6 +11,8 @@ from .postgresql_parser import PostgreSQLExplainParser
 from .sqlite import SQLiteAdapter
 from .sqlite_metrics import SQLiteMetricsHelper
 from .sqlite_parser import SQLiteExplainParser
+from .yugabytedb import YugabyteDBAdapter
+from .yugabytedb_parser import YugabyteDBParser
 
 __all__ = [
     "CockroachDBAdapter",
@@ -24,4 +26,6 @@ __all__ = [
     "SQLiteAdapter",
     "SQLiteExplainParser",
     "SQLiteMetricsHelper",
+    "YugabyteDBAdapter",
+    "YugabyteDBParser",
 ]

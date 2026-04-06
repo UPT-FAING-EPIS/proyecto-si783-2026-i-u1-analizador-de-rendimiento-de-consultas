@@ -17,6 +17,8 @@ from .sql import (
     PostgreSQLAdapter,
     PostgreSQLExplainParser,
     PostgreSQLMetricsHelper,
+    YugabyteDBAdapter,
+    YugabyteDBParser,
 )
 
 __all__ = [
@@ -33,6 +35,8 @@ __all__ = [
     "PostgreSQLAdapter",
     "PostgreSQLExplainParser",
     "PostgreSQLMetricsHelper",
+    "YugabyteDBAdapter",
+    "YugabyteDBParser",
     # Exceptions
     "AdapterError",
     "ConnectionError",
