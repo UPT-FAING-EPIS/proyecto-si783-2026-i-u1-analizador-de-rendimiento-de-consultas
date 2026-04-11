@@ -123,52 +123,52 @@ clean:
 
 test: wait-healthy seed
 	@echo "🧪 Running all 126 integration tests..."
-	@python -m pytest tests/integration/ -v
+	@uv run python -m pytest tests/integration/ -v
 	@echo "✅ All tests completed!"
 
 test-unit:
 	@echo "🧪 Running unit tests only..."
-	@python -m pytest tests/unit/ -v
+	@uv run python -m pytest tests/unit/ -v
 	@echo "✅ Unit tests completed!"
 
 test-fast:
 	@echo "⚡ Running quick unit tests (no Docker)..."
-	@python -m pytest tests/unit/ -v --timeout=10
+	@uv run python -m pytest tests/unit/ -v --timeout=10
 	@echo "✅ Quick tests completed!"
 
 test-coverage:
 	@echo "📊 Running tests with coverage report..."
-	@python -m pytest tests/ --cov=query_analyzer --cov-report=term-missing --cov-report=html
+	@uv run python -m pytest tests/ --cov=query_analyzer --cov-report=term-missing --cov-report=html
 	@echo "✅ Coverage report generated! Open htmlcov/index.html to view."
 
 test-pg: wait-healthy seed
 	@echo "🐘 Running PostgreSQL integration tests..."
-	@python -m pytest tests/integration/test_postgresql_integration.py -v
+	@uv run python -m pytest tests/integration/test_postgresql_integration.py -v
 	@echo "✅ PostgreSQL tests completed!"
 
 test-mysql: wait-healthy seed
 	@echo "🐬 Running MySQL integration tests..."
-	@python -m pytest tests/integration/test_mysql_integration.py -v
+	@uv run python -m pytest tests/integration/test_mysql_integration.py -v
 	@echo "✅ MySQL tests completed!"
 
 test-sqlite: wait-healthy seed
 	@echo "📁 Running SQLite integration tests..."
-	@python -m pytest tests/integration/test_sqlite_integration.py -v
+	@uv run python -m pytest tests/integration/test_sqlite_integration.py -v
 	@echo "✅ SQLite tests completed!"
 
 test-crdb: wait-healthy seed
 	@echo "🦀 Running CockroachDB integration tests..."
-	@python -m pytest tests/integration/test_cockroachdb_integration.py -v
+	@uv run python -m pytest tests/integration/test_cockroachdb_integration.py -v
 	@echo "✅ CockroachDB tests completed!"
 
 test-yugabyte: wait-healthy seed
 	@echo "🌊 Running YugabyteDB integration tests..."
-	@python -m pytest tests/integration/test_yugabytedb_integration.py -v
+	@uv run python -m pytest tests/integration/test_yugabytedb_integration.py -v
 	@echo "✅ YugabyteDB tests completed!"
 
 test-verbose: wait-healthy seed
 	@echo "🗣️  Running all tests with verbose output..."
-	@python -m pytest tests/integration/ -vv --tb=short
+	@uv run python -m pytest tests/integration/ -vv --tb=short
 	@echo "✅ Tests completed!"
 
 test-clean:
