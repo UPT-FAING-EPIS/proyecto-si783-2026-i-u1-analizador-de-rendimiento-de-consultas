@@ -169,6 +169,9 @@ class SQLiteExplainParser:
     def identify_warnings(self, parsed_plan: dict[str, Any]) -> list[str]:
         """Identify query optimization issues.
 
+        ⚠️ DEPRECATED (v1.0): This method is superseded by AntiPatternDetector.analyze().
+        For new code, use AntiPatternDetector directly. This method will be removed in v2.0.
+
         Args:
             parsed_plan: Output from parse()
 
@@ -197,6 +200,9 @@ class SQLiteExplainParser:
 
     def generate_recommendations(self, warnings: list[str]) -> list[str]:
         """Generate actionable recommendations based on warnings.
+
+        ⚠️ DEPRECATED (v1.0): This method is superseded by AntiPatternDetector.analyze().
+        For new code, use AntiPatternDetector directly. This method will be removed in v2.0.
 
         Args:
             warnings: List from identify_warnings()
@@ -233,6 +239,9 @@ class SQLiteExplainParser:
 
     def calculate_score(self, parsed_plan: dict[str, Any], warnings: list[str]) -> int:
         """Calculate optimization score (0-100).
+
+        ⚠️ DEPRECATED (v1.0): This method is superseded by AntiPatternDetector.analyze().
+        For new code, use AntiPatternDetector directly. This method will be removed in v2.0.
 
         Scoring logic:
         - Base: 100

@@ -22,6 +22,7 @@ from query_analyzer.adapters.exceptions import (
 from query_analyzer.adapters.exceptions import QueryAnalysisError
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
+from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
 
 from .cockroachdb_parser import CockroachDBParser
 from .postgresql_metrics import PostgreSQLMetricsHelper
@@ -143,6 +144,7 @@ class CockroachDBAdapter(BaseAdapter):
             with self._connection.cursor() as cursor:
                 explain_json = None
                 explain_text = None
+                original_error: str | None = None
 
                 # Try DISTSQL format first (CockroachDB v22.1+)
                 try:
@@ -159,11 +161,14 @@ class CockroachDBAdapter(BaseAdapter):
                         logger.debug("EXPLAIN DISTSQL JSON format succeeded")
 
                 except Exception as e:
+                    original_error = str(e)
                     logger.debug(f"DISTSQL EXPLAIN failed (expected for older versions): {e}")
 
                 # Fallback: Try JSON format (standard PostgreSQL style)
                 if not explain_json:
                     try:
+                        # Rollback transaction to recover from previous error
+                        self._connection.rollback()
                         explain_query = f"EXPLAIN (ANALYZE, FORMAT JSON) {query}"
                         cursor.execute(explain_query)
                         result = cursor.fetchone()
@@ -176,19 +181,25 @@ class CockroachDBAdapter(BaseAdapter):
                             logger.debug("EXPLAIN JSON format succeeded")
 
                     except Exception as e:
+                        if not original_error:
+                            original_error = str(e)
                         logger.warning(f"JSON EXPLAIN failed: {e}, trying text fallback")
 
                 # Fallback: Try text format
                 if not explain_json:
                     try:
+                        # Rollback transaction to recover from previous error
+                        self._connection.rollback()
                         explain_query = f"EXPLAIN ANALYZE {query}"
                         cursor.execute(explain_query)
                         rows = cursor.fetchall()
                         explain_text = "\n".join([row[0] for row in rows])
                         logger.debug("EXPLAIN text fallback succeeded")
                     except Exception as e_text:
+                        # Use original error if available, otherwise use final error
+                        error_msg = original_error if original_error else str(e_text)
                         raise QueryAnalysisError(
-                            f"All EXPLAIN formats failed: {e_text}"
+                            f"All EXPLAIN formats failed: {error_msg}"
                         ) from e_text
 
                 # Parse plan
@@ -202,29 +213,21 @@ class CockroachDBAdapter(BaseAdapter):
                         )
                     metrics = self._parse_text_explain(explain_text)
 
-                # Get CRDB-specific warnings
-                if explain_text:
-                    plan_text = explain_text
-                else:
-                    # Try to serialize explain_json, fallback to empty string
-                    try:
-                        plan_text = json.dumps(explain_json) if explain_json else ""
-                    except TypeError, ValueError:
-                        plan_text = ""
+                # Normalize plan to engine-agnostic format for AntiPatternDetector
+                normalized_plan = {}
+                if explain_json:
+                    root_plan = explain_json.get("Plan", {})
+                    normalized_plan = self.parser.normalize_plan(root_plan)
 
-                crdb_warnings = self._detect_crdb_specific_issues(plan_text, metrics)
+                # Analyze with AntiPatternDetector for unified scoring
+                detector = AntiPatternDetector()
+                detection_result = detector.analyze(normalized_plan, query)
 
-                # Get base warnings from parser
-                base_warnings = self.parser.identify_warnings(metrics, metrics["all_nodes"])
-
-                # Merge warnings (CRDB + base)
-                all_warnings = crdb_warnings + base_warnings
-
-                # Generate recommendations
-                recommendations = self.parser.generate_recommendations(metrics, all_warnings)
-
-                # Calculate optimization score
-                score = self.parser.calculate_score(metrics, all_warnings)
+                # Use detector's score and recommendations (single source of truth)
+                # Convert anti-pattern descriptions to warnings
+                warnings = [ap.description for ap in detection_result.anti_patterns]
+                recommendations = detection_result.recommendations
+                score = detection_result.score
 
                 # Build report (ensure raw_plan is None if text-only)
                 raw_plan = explain_json if explain_json else None
@@ -234,7 +237,7 @@ class CockroachDBAdapter(BaseAdapter):
                     query=query,
                     score=score,
                     execution_time_ms=metrics.get("execution_time_ms", 0.0),
-                    warnings=all_warnings,
+                    warnings=warnings,
                     recommendations=recommendations,
                     raw_plan=raw_plan,  # Only include JSON, not text fallback
                     metrics=metrics,

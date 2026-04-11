@@ -11,6 +11,7 @@ from query_analyzer.adapters.base import BaseAdapter
 from query_analyzer.adapters.exceptions import QueryAnalysisError
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
+from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
 
 from .mysql_metrics import MySQLMetricsHelper
 from .mysql_parser import MySQLExplainParser
@@ -45,9 +46,9 @@ class MySQLAdapter(BaseAdapter):
         try:
             self.connection = pymysql.connect(
                 host=self._config.host,
-                port=self._config.port,
+                port=self._config.port or 3306,
                 user=self._config.username,
-                password=self._config.password,
+                password=self._config.password or "",
                 database=self._config.database,
                 charset="utf8mb4",
                 autocommit=True,
@@ -175,10 +176,20 @@ class MySQLAdapter(BaseAdapter):
 
             parsed_plan = self.parser.parse(explain_json)
 
-            warnings = self.parser.identify_warnings(parsed_plan)
-            recommendations = self.parser.generate_recommendations(warnings)
+            # Normalize plan to engine-agnostic format for AntiPatternDetector
+            # MySQL parse() returns dict with query_block, we normalize it
+            query_block = parsed_plan.get("query_block", {})
+            normalized_plan = self.parser.normalize_plan(query_block)
 
-            score = self.parser.calculate_score(parsed_plan, warnings)
+            # Analyze with AntiPatternDetector for unified scoring
+            detector = AntiPatternDetector()
+            detection_result = detector.analyze(normalized_plan, query)
+
+            # Use detector's score and recommendations (single source of truth)
+            # Convert anti-pattern descriptions to warnings
+            warnings = [ap.description for ap in detection_result.anti_patterns]
+            recommendations = detection_result.recommendations
+            score = detection_result.score
 
             metrics = self._get_query_metrics()
 

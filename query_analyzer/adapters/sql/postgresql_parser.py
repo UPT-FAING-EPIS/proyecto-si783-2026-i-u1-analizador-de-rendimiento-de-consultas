@@ -188,10 +188,16 @@ class PostgreSQLExplainParser:
     ) -> list[str]:
         """Generate warnings based on plan analysis.
 
+        ⚠️ DEPRECATED (v1.0): This method is superseded by AntiPatternDetector.analyze().
+        For new code, use AntiPatternDetector directly. This method will be removed in v2.0.
+
+        Query adapters now call AntiPatternDetector, which provides unified scoring
+        and pattern detection across all database engines.
+
         Returns:
             List of warning strings
         """
-        warnings: list[str] = []
+        warnings_list: list[str] = []
 
         # Warning 1: Row divergence > 20%
         divergent_nodes = []
@@ -212,7 +218,7 @@ class PostgreSQLExplainParser:
 
         if divergent_nodes:
             node_type, plan_rows, actual_rows, divergence = divergent_nodes[0]
-            warnings.append(
+            warnings_list.append(
                 f"Estimación de filas inexacta en {node_type}: "
                 f"esperaba {plan_rows}, obtuve {actual_rows} "
                 f"({divergence:.0%} divergencia)"
@@ -225,7 +231,7 @@ class PostgreSQLExplainParser:
                 plan_rows = int(node.get("Plan Rows", 0))
                 if plan_rows >= self.seq_scan_threshold:
                     relation = node.get("Relation Name", "unknown")
-                    warnings.append(
+                    warnings_list.append(
                         f"Búsqueda secuencial en tabla {relation} "
                         f"({plan_rows} filas) - considere agregar un índice"
                     )
@@ -235,7 +241,7 @@ class PostgreSQLExplainParser:
             if node.get("Node Type") == "Nested Loop":
                 actual_rows = int(node.get("Actual Rows", 0))
                 if actual_rows > 1000:
-                    warnings.append(
+                    warnings_list.append(
                         f"Nested Loop con {actual_rows} iteraciones - puede ser muy costoso"
                     )
 
@@ -243,15 +249,18 @@ class PostgreSQLExplainParser:
         buffer_stats = metrics.get("buffer_stats", {})
         cache_miss_rate = buffer_stats.get("cache_miss_rate", 0.0)
         if cache_miss_rate > 0.1:
-            warnings.append(
+            warnings_list.append(
                 f"Tasa de fallos de caché alta ({cache_miss_rate:.1%}) - "
                 f"considere aumentar shared_buffers"
             )
 
-        return warnings
+        return warnings_list
 
     def generate_recommendations(self, metrics: dict[str, Any], warnings: list[str]) -> list[str]:
         """Generate optimization recommendations based on analysis.
+
+        ⚠️ DEPRECATED (v1.0): This method is superseded by AntiPatternDetector.analyze().
+        For new code, use AntiPatternDetector directly. This method will be removed in v2.0.
 
         Returns:
             List of recommendation strings
@@ -287,6 +296,9 @@ class PostgreSQLExplainParser:
 
     def calculate_score(self, metrics: dict[str, Any], warnings: list[str]) -> int:
         """Calculate optimization score (0-100).
+
+        ⚠️ DEPRECATED (v1.0): This method is superseded by AntiPatternDetector.analyze().
+        For new code, use AntiPatternDetector directly. This method will be removed in v2.0.
 
         Factors:
         - Execution time penalty: -30 max

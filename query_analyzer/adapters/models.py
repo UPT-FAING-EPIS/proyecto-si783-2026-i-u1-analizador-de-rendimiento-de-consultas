@@ -10,20 +10,20 @@ class ConnectionConfig(BaseModel):
 
     Attributes:
         engine: Motor de base de datos (postgresql, mysql, sqlite)
-        host: Dirección del servidor
-        port: Puerto de conexión
+        host: Dirección del servidor (optional for SQLite)
+        port: Puerto de conexión (optional for SQLite)
         database: Nombre o ruta de la base de datos
-        username: Usuario para autenticación
-        password: Contraseña para autenticación
+        username: Usuario para autenticación (optional for SQLite)
+        password: Contraseña para autenticación (optional for SQLite)
         extra: Parámetros adicionales específicos del motor
     """
 
     engine: str
-    host: str
-    port: int
+    host: str | None = None
+    port: int | None = None
     database: str
-    username: str
-    password: str
+    username: str | None = None
+    password: str | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(validate_assignment=True)

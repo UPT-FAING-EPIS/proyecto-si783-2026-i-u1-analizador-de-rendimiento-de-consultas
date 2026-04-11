@@ -14,6 +14,7 @@ from query_analyzer.adapters.exceptions import (
 from query_analyzer.adapters.exceptions import QueryAnalysisError
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
+from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
 
 from .postgresql_metrics import PostgreSQLMetricsHelper
 from .postgresql_parser import PostgreSQLExplainParser
@@ -141,12 +142,19 @@ class PostgreSQLAdapter(BaseAdapter):
                 metrics = self.parser.parse(explain_json)
                 execution_time = metrics.get("execution_time_ms", 0.0)
 
-                # Generate warnings and recommendations
-                warnings = self.parser.identify_warnings(metrics, metrics["all_nodes"])
-                recommendations = self.parser.generate_recommendations(metrics, warnings)
+                # Normalize plan to engine-agnostic format for AntiPatternDetector
+                root_plan = explain_json.get("Plan", {})
+                normalized_plan = self.parser.normalize_plan(root_plan)
 
-                # Calculate optimization score
-                score = self.parser.calculate_score(metrics, warnings)
+                # Analyze with AntiPatternDetector for unified scoring
+                detector = AntiPatternDetector()
+                detection_result = detector.analyze(normalized_plan, query)
+
+                # Use detector's score and recommendations (single source of truth)
+                # Convert anti-pattern descriptions to warnings
+                warnings = [ap.description for ap in detection_result.anti_patterns]
+                recommendations = detection_result.recommendations
+                score = detection_result.score
 
                 # Build report
                 return QueryAnalysisReport(

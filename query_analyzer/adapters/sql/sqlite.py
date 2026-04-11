@@ -19,6 +19,7 @@ from query_analyzer.adapters.exceptions import (
 )
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
+from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
 
 from .sqlite_metrics import SQLiteMetricsHelper
 from .sqlite_parser import SQLiteExplainParser
@@ -152,10 +153,26 @@ class SQLiteAdapter(BaseAdapter):
 
             parsed_plan = self.parser.parse(explain_text)
 
-            warnings = self.parser.identify_warnings(parsed_plan)
-            recommendations = self.parser.generate_recommendations(warnings)
+            # Normalize plan to engine-agnostic format for AntiPatternDetector
+            # SQLite parse() returns dict with nodes list, normalize each top-level node
+            # For simplicity, we normalize the first node (SQLite usually has single root)
+            normalized_plan = {}
+            if parsed_plan.get("nodes"):
+                # Build normalized plan from SQLite nodes
+                # SQLite's structure is different - we need to construct a normalized tree
+                normalized_plan = self._build_normalized_plan_from_nodes(
+                    parsed_plan.get("nodes", [])
+                )
 
-            score = self.parser.calculate_score(parsed_plan, warnings)
+            # Analyze with AntiPatternDetector for unified scoring
+            detector = AntiPatternDetector()
+            detection_result = detector.analyze(normalized_plan, query)
+
+            # Use detector's score and recommendations (single source of truth)
+            # Convert anti-pattern descriptions to warnings
+            warnings = [ap.description for ap in detection_result.anti_patterns]
+            recommendations = detection_result.recommendations
+            score = detection_result.score
 
             metrics = self._get_query_metrics()
 
@@ -381,3 +398,55 @@ class SQLiteAdapter(BaseAdapter):
             }
         except Exception:
             return {}
+
+    def _build_normalized_plan_from_nodes(self, nodes: list[dict[str, Any]]) -> dict[str, Any]:
+        """Build a normalized plan from SQLite EXPLAIN QUERY PLAN nodes.
+
+        SQLite returns a flat list of nodes. This converts them to a tree structure
+        compatible with AntiPatternDetector.
+
+        Args:
+            nodes: List of parsed nodes from SQLiteParser
+
+        Returns:
+            Normalized plan dict with standard fields
+        """
+        if not nodes:
+            return {}
+
+        # Find root nodes (parent == 0 or no parent in list)
+        root_nodes = [node for node in nodes if node.get("parent") == 0]
+
+        if not root_nodes:
+            # If no clear root, use first node
+            root_nodes = [nodes[0]]
+
+        # Convert first root node to normalized format
+        root = root_nodes[0]
+
+        # Determine node type based on SQLite operation
+        detail = root.get("detail", "")
+        is_full_scan = root.get("is_full_scan", False)
+        node_type = "Seq Scan" if is_full_scan else "Index Scan"
+
+        # Build children from nodes with this node as parent
+        children = []
+        for node in nodes:
+            if node.get("parent") == root.get("id"):
+                child_normalized = self._build_normalized_plan_from_nodes([node])
+                if child_normalized:
+                    children.append(child_normalized)
+
+        return {
+            "node_type": node_type,
+            "table_name": root.get("table"),
+            "actual_rows": None,  # SQLite EXPLAIN doesn't provide actual rows
+            "estimated_rows": None,  # SQLite EXPLAIN doesn't provide estimates
+            "actual_time_ms": None,
+            "estimated_cost": None,
+            "index_used": root.get("index"),
+            "filter_condition": None,
+            "extra_info": [detail] if detail else [],
+            "buffers": None,
+            "children": children,
+        }

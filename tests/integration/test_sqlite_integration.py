@@ -44,11 +44,62 @@ def sqlite_adapter(sqlite_config: ConnectionConfig) -> Generator:
 
     try:
         adapter.connect()
-        # Create test tables
-        adapter._create_test_tables()
+        # Create test tables for integration tests
+        _create_test_tables(adapter)
         yield adapter
     finally:
         adapter.disconnect()
+
+
+def _create_test_tables(adapter: SQLiteAdapter) -> None:
+    """Create test tables for SQLite integration tests."""
+    cursor = adapter._connection.cursor()
+    try:
+        # Create customers table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS customers (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create orders table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY,
+                customer_id INTEGER NOT NULL,
+                order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                total REAL,
+                FOREIGN KEY(customer_id) REFERENCES customers(id)
+            )
+        """)
+
+        # Create indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email)")
+
+        # Insert test data
+        cursor.execute(
+            "INSERT OR IGNORE INTO customers (id, name, email) VALUES (1, 'John Doe', 'john@example.com')"
+        )
+        cursor.execute(
+            "INSERT OR IGNORE INTO customers (id, name, email) VALUES (2, 'Jane Smith', 'jane@example.com')"
+        )
+        cursor.execute(
+            "INSERT OR IGNORE INTO orders (id, customer_id, total) VALUES (1, 1, 100.00)"
+        )
+        cursor.execute(
+            "INSERT OR IGNORE INTO orders (id, customer_id, total) VALUES (2, 1, 200.00)"
+        )
+        cursor.execute(
+            "INSERT OR IGNORE INTO orders (id, customer_id, total) VALUES (3, 2, 150.00)"
+        )
+
+        adapter._connection.commit()
+    finally:
+        cursor.close()
 
 
 # ============================================================================
