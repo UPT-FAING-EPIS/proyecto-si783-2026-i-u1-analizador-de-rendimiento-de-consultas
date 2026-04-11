@@ -39,14 +39,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.14"
-          cache: pip
-
-      - name: Install uv package manager
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+          enable-cache: true
 
       - name: Start Docker services
         run: |
@@ -63,20 +60,20 @@ jobs:
         run: make seed
 
       - name: Sync dependencies
-        run: ~/.cargo/bin/uv sync
+        run: uv sync
 
       - name: Run linting and type checks
         run: |
-          ~/.cargo/bin/uv run ruff check --fix
-          ~/.cargo/bin/uv run ruff format --check
-          ~/.cargo/bin/uv run mypy query_analyzer
+          uv run ruff check --fix
+          uv run ruff format --check
+          uv run mypy query_analyzer
 
       - name: Run integration tests
-        run: ~/.cargo/bin/uv run pytest tests/integration/ -v --tb=short --color=yes
+        run: uv run pytest tests/integration/ -v --tb=short --color=yes
 
       - name: Run integration tests with coverage
         if: always()
-        run: ~/.cargo/bin/uv run pytest tests/integration/ --cov=query_analyzer --cov-report=xml --cov-report=term
+        run: uv run pytest tests/integration/ --cov=query_analyzer --cov-report=xml --cov-report=term
 
       - name: Upload coverage reports
         if: always()
