@@ -33,6 +33,10 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.14.0",
     "ruff>=0.15.9",
+    # Type stubs para librerías externas
+    "types-psycopg2>=2.9.21.19.1",
+    "types-PyMySQL>=1.1.0.20240815",
+    "types-PyYAML>=6.0.12.20240917",
 ]
 
 [tool.ruff]
