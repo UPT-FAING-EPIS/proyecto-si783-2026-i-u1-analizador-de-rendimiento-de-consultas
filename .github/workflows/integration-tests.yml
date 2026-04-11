@@ -1,0 +1,109 @@
+name: Integration Tests (Docker Compose)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "query_analyzer/**"
+      - "tests/integration/**"
+      - "tests/conftest.py"
+      - "docker/**"
+      - ".github/workflows/integration-tests.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "query_analyzer/**"
+      - "tests/integration/**"
+      - "tests/conftest.py"
+      - "docker/**"
+
+env:
+  PYTHONUNBUFFERED: 1
+  DB_POSTGRES_USER: postgres
+  DB_POSTGRES_PASSWORD: postgres123
+  DB_POSTGRES_NAME: query_analyzer
+  DB_POSTGRES_PORT: 5432
+  DB_MYSQL_USER: analyst
+  DB_MYSQL_PASSWORD: mysql123
+  DB_MYSQL_NAME: query_analyzer
+  DB_MYSQL_PORT: 3306
+  DB_COCKROACH_PORT: 26257
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install uv package manager
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Start Docker services
+        run: |
+          docker compose -f docker/compose.yml up -d
+          echo "Waiting for services to be ready..."
+          make wait-healthy || sleep 30
+
+      - name: Verify services are running
+        run: |
+          docker compose -f docker/compose.yml ps
+          make health
+
+      - name: Seed databases
+        run: make seed
+
+      - name: Sync dependencies
+        run: ~/.cargo/bin/uv sync
+
+      - name: Run linting and type checks
+        run: |
+          ~/.cargo/bin/uv run ruff check --fix
+          ~/.cargo/bin/uv run ruff format --check
+          ~/.cargo/bin/uv run mypy query_analyzer
+
+      - name: Run integration tests
+        run: ~/.cargo/bin/uv run pytest tests/integration/ -v --tb=short --color=yes
+
+      - name: Run integration tests with coverage
+        if: always()
+        run: ~/.cargo/bin/uv run pytest tests/integration/ --cov=query_analyzer --cov-report=xml --cov-report=term
+
+      - name: Upload coverage reports
+        if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          flags: integration-tests
+          name: integration-coverage
+          fail_ci_if_error: false
+
+      - name: Collect Docker logs on failure
+        if: failure()
+        run: |
+          mkdir -p logs
+          docker compose -f docker/compose.yml logs --no-color > logs/docker-compose.log
+          docker compose -f docker/compose.yml logs postgres --no-color > logs/postgres.log 2>&1 || true
+          docker compose -f docker/compose.yml logs mysql --no-color > logs/mysql.log 2>&1 || true
+          docker compose -f docker/compose.yml logs cockroachdb --no-color > logs/cockroachdb.log 2>&1 || true
+
+      - name: Upload Docker logs
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-logs
+          path: logs/
+          retention-days: 5
+
+      - name: Stop Docker services
+        if: always()
+        run: docker compose -f docker/compose.yml down -v

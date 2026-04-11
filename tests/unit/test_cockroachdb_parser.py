@@ -279,8 +279,6 @@ class TestCockroachDBParserWarnings:
         warnings = parser.identify_warnings(metrics, metrics["all_nodes"])
 
         # Should have warning about lookup joins
-        warning_text = " ".join(warnings).lower()
-        has_lookup_warning = "lookup" in warning_text
         # Note: May or may not have lookup warning depending on threshold, but should have some warnings
         assert isinstance(warnings, list)
 

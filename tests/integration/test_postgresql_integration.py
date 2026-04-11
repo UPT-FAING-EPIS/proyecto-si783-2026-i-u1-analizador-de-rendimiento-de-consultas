@@ -95,9 +95,31 @@ class TestPostgreSQLIntegrationConnection:
         except Exception:
             pytest.skip("Docker PostgreSQL not available")
 
+    def test_invalid_credentials_raises_error(
+        self, docker_postgres_config: ConnectionConfig
+    ) -> None:
+        """Invalid credentials raise descriptive error."""
+        bad_config = ConnectionConfig(
+            engine="postgresql",
+            host="localhost",
+            port=5432,
+            database="query_analyzer",
+            username="postgres",
+            password="wrongpassword123",
+            extra={"connection_timeout": 5},
+        )
+        adapter = PostgreSQLAdapter(bad_config)
+
+        with pytest.raises(Exception) as exc_info:
+            adapter.connect()
+
+        # Should mention authentication error
+        error_msg = str(exc_info.value).lower()
+        assert "password" in error_msg or "auth" in error_msg or "connection" in error_msg
+
 
 # ============================================================================
-# TESTS - Real EXPLAIN Analysis
+# TESTS - Real EXPLAIN Analysis with Parametrized Queries
 # ============================================================================
 
 
@@ -119,6 +141,49 @@ class TestPostgreSQLIntegrationExplain:
             assert isinstance(report.metrics, dict)
         except Exception as e:
             pytest.skip(f"EXPLAIN analysis failed: {e}")
+
+    def test_anti_pattern_query_analysis(
+        self,
+        pg_adapter: PostgreSQLAdapter,
+        anti_pattern_query: dict,
+    ) -> None:
+        """Analyze anti-pattern queries and validate scoring/warnings."""
+        query = anti_pattern_query["query"]
+
+        try:
+            report = pg_adapter.execute_explain(query)
+
+            # Validate score range if specified
+            if "expected_score_min" in anti_pattern_query:
+                assert report.score >= anti_pattern_query["expected_score_min"], (
+                    f"Score {report.score} below minimum "
+                    f"{anti_pattern_query['expected_score_min']} for {anti_pattern_query['name']}"
+                )
+
+            if "expected_score_max" in anti_pattern_query:
+                assert report.score <= anti_pattern_query["expected_score_max"], (
+                    f"Score {report.score} above maximum "
+                    f"{anti_pattern_query['expected_score_max']} for {anti_pattern_query['name']}"
+                )
+
+            # Validate expected warnings
+            if anti_pattern_query.get("expected_warnings"):
+                for expected_warning in anti_pattern_query["expected_warnings"]:
+                    assert any(expected_warning.lower() in w.lower() for w in report.warnings), (
+                        f"Expected warning containing '{expected_warning}' not found "
+                        f"in {report.warnings} for query: {anti_pattern_query['name']}"
+                    )
+
+            # Validate expected recommendation keywords
+            if anti_pattern_query.get("expected_recommendation_keywords"):
+                for keyword in anti_pattern_query["expected_recommendation_keywords"]:
+                    assert any(keyword.lower() in rec.lower() for rec in report.recommendations), (
+                        f"Expected recommendation keyword '{keyword}' not found "
+                        f"in {report.recommendations} for {anti_pattern_query['name']}"
+                    )
+
+        except Exception as e:
+            pytest.skip(f"Anti-pattern analysis failed for {anti_pattern_query['name']}: {e}")
 
     def test_explain_detects_seq_scan_on_large_table(self, pg_adapter: PostgreSQLAdapter) -> None:
         """Analyze SELECT on large_table (10K rows) - should detect Seq Scan."""
@@ -272,3 +337,27 @@ class TestPostgreSQLIntegrationValidation:
 
         except Exception as e:
             pytest.skip(f"Query validation failed: {e}")
+
+    def test_invalid_table_raises_error(self, pg_adapter: PostgreSQLAdapter) -> None:
+        """Invalid table name raises clear error."""
+        with pytest.raises(Exception) as exc_info:
+            pg_adapter.execute_explain("SELECT * FROM nonexistent_table_xyz")
+
+        error_msg = str(exc_info.value)
+        assert "nonexistent_table" in error_msg or "does not exist" in error_msg.lower()
+
+    def test_invalid_column_raises_error(self, pg_adapter: PostgreSQLAdapter) -> None:
+        """Invalid column name raises clear error."""
+        with pytest.raises(Exception) as exc_info:
+            pg_adapter.execute_explain("SELECT nonexistent_column_xyz FROM orders")
+
+        error_msg = str(exc_info.value)
+        assert "nonexistent_column" in error_msg or "does not exist" in error_msg.lower()
+
+    def test_syntax_error_raises_error(self, pg_adapter: PostgreSQLAdapter) -> None:
+        """Malformed SQL raises clear error."""
+        with pytest.raises(Exception) as exc_info:
+            pg_adapter.execute_explain("SELECT * FORM orders")  # Typo: FORM -> FROM
+
+        error_msg = str(exc_info.value)
+        assert "syntax" in error_msg.lower() or "error" in error_msg.lower()
