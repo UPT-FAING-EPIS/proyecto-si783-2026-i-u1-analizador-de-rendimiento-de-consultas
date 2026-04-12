@@ -1,0 +1,8 @@
+[
+  {"_id": 1, "level": "error", "message": "Connection timeout error", "timestamp": "2024-01-01T10:00:00Z", "service": "api"},
+  {"_id": 2, "level": "error", "message": "Database error occurred", "timestamp": "2024-01-01T10:15:00Z", "service": "db"},
+  {"_id": 3, "level": "warning", "message": "Slow query detected", "timestamp": "2024-01-01T10:30:00Z", "service": "query"},
+  {"_id": 4, "level": "error", "message": "Authentication error", "timestamp": "2024-01-01T10:45:00Z", "service": "auth"},
+  {"_id": 5, "level": "info", "message": "Service started", "timestamp": "2024-01-01T11:00:00Z", "service": "app"},
+  {"_id": 6, "level": "error", "message": "Memory allocation error", "timestamp": "2024-01-01T11:15:00Z", "service": "cache"}
+]

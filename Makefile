@@ -52,25 +52,7 @@ reset:
 	@echo "✅ Clean slate ready! Run 'make up' to start fresh."
 
 seed:
-	@echo "🌱 Seeding databases with test data..."
-	@echo ""
-	@echo "📦 PostgreSQL..."
-	docker compose -f docker/compose.yml exec -T postgres psql -U postgres -d query_analyzer -f /docker-entrypoint-initdb.d/init-postgres.sql 2>/dev/null || \
-	docker exec query-analyzer-postgres psql -U postgres -d query_analyzer -f /tmp/init-postgres.sql || \
-	cat docker/seed/init-postgres.sql | docker compose -f docker/compose.yml exec -T postgres psql -U postgres -d query_analyzer
-	@echo "✅ PostgreSQL seeded!"
-	@echo ""
-	@echo "🐬 MySQL..."
-	cat docker/seed/init-mysql.sql | docker compose -f docker/compose.yml exec -T mysql mysql -u analyst -pmysql123 query_analyzer
-	@echo "✅ MySQL seeded!"
-	@echo ""
-	@echo "🍃 MongoDB..."
-	docker compose -f docker/compose.yml exec -T mongodb mongosh --authenticationDatabase admin -u admin -p mongodb123 query_analyzer --eval "db.orders.deleteMany({});" 2>/dev/null || true
-	docker compose -f docker/compose.yml exec -T mongodb mongoimport --authenticationDatabase admin -u admin -p mongodb123 --db query_analyzer --collection orders --type json --file /tmp/init-mongodb.json 2>/dev/null || \
-	cat docker/seed/init-mongodb.json | docker compose -f docker/compose.yml exec -T mongodb mongosh --authenticationDatabase admin -u admin -p mongodb123 query_analyzer --eval "db.orders.insertMany(JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8')))"
-	@echo "✅ MongoDB seeded!"
-	@echo ""
-	@echo "🌍 All databases seeded successfully!"
+	@powershell -ExecutionPolicy Bypass -File scripts/seed.ps1
 
 health:
 	@echo "🏥 Checking service health..."
