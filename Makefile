@@ -52,7 +52,11 @@ reset:
 	@echo "✅ Clean slate ready! Run 'make up' to start fresh."
 
 seed:
+ifeq ($(OS),Windows_NT)
 	@powershell -ExecutionPolicy Bypass -File scripts/seed.ps1
+else
+	@bash scripts/seed.sh
+endif
 
 health:
 	@echo "🏥 Checking service health..."
