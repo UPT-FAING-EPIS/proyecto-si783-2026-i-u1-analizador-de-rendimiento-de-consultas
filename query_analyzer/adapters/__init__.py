@@ -9,6 +9,7 @@ from .exceptions import (
     QueryAnalysisError,
     UnsupportedEngineError,
 )
+from .graph import Neo4jAdapter
 from .models import ConnectionConfig, QueryAnalysisReport
 from .nosql import MongoDBAdapter
 from .registry import AdapterRegistry
@@ -40,6 +41,8 @@ __all__ = [
     "YugabyteDBParser",
     # NoSQL Adapters
     "MongoDBAdapter",
+    # Graph Adapters
+    "Neo4jAdapter",
     # Exceptions
     "AdapterError",
     "ConnectionError",

@@ -52,6 +52,8 @@ class ConnectionConfig(BaseModel):
             return 3306
         elif engine == "redis":
             return 6379
+        elif engine == "neo4j":
+            return 7687
         elif engine == "sqlite":
             return None
         return v

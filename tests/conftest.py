@@ -6,20 +6,37 @@ from query_analyzer.adapters import AdapterRegistry
 
 
 @pytest.fixture(autouse=True)
-def ensure_postgresql_registered() -> None:
-    """Ensure PostgreSQL adapter is registered before each test.
+def ensure_adapters_registered() -> None:
+    """Ensure all adapters are registered before each test.
 
     This is needed because some tests (like adapter_registry tests) may clear
-    the registry, and we need to re-register PostgreSQL for subsequent tests.
+    the registry, and we need to re-register adapters for subsequent tests.
     """
-    # Import to trigger registration
-    from query_analyzer.adapters.sql import PostgreSQLAdapter  # noqa: F401
+    # Import to trigger registration via decorators
+    from query_analyzer.adapters.graph import Neo4jAdapter  # noqa: F401
+    from query_analyzer.adapters.nosql import MongoDBAdapter  # noqa: F401
+    from query_analyzer.adapters.sql import (  # noqa: F401
+        CockroachDBAdapter,
+        MySQLAdapter,
+        PostgreSQLAdapter,
+        SQLiteAdapter,
+        YugabyteDBAdapter,
+    )
 
-    # If not registered, register it
-    if not AdapterRegistry.is_registered("postgresql"):
-        from query_analyzer.adapters.sql import PostgreSQLAdapter as PGAdapter
+    # Optional: Re-register if not already registered (for tests that clear registry)
+    adapters_to_check = [
+        ("postgresql", PostgreSQLAdapter),
+        ("mysql", MySQLAdapter),
+        ("sqlite", SQLiteAdapter),
+        ("mongodb", MongoDBAdapter),
+        ("cockroachdb", CockroachDBAdapter),
+        ("yugabytedb", YugabyteDBAdapter),
+        ("neo4j", Neo4jAdapter),
+    ]
 
-        AdapterRegistry.register("postgresql")(PGAdapter)
+    for engine_name, adapter_class in adapters_to_check:
+        if not AdapterRegistry.is_registered(engine_name):
+            AdapterRegistry.register(engine_name)(adapter_class)
 
 
 # ============================================================================

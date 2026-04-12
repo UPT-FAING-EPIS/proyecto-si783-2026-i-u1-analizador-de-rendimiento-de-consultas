@@ -9,6 +9,7 @@ import pytest
 from query_analyzer.adapters import (
     ConnectionConfig,
     MySQLAdapter,
+    Neo4jAdapter,
     PostgreSQLAdapter,
 )
 
@@ -99,6 +100,20 @@ def docker_yugabytedb_config() -> ConnectionConfig:
         username=os.getenv("DB_YUGABYTE_USER", "yugabyte"),
         password=os.getenv("DB_YUGABYTE_PASSWORD", "yugabyte"),
         extra={"seq_scan_threshold": 10000, "connection_timeout": 10},
+    )
+
+
+@pytest.fixture(scope="session")
+def docker_neo4j_config() -> ConnectionConfig:
+    """Neo4j connection config."""
+    return ConnectionConfig(
+        engine="neo4j",
+        host=os.getenv("DB_NEO4J_HOST", "localhost"),
+        port=int(os.getenv("DB_NEO4J_BOLT_PORT", "7687")),
+        database=os.getenv("DB_NEO4J_DATABASE", "neo4j"),
+        username=os.getenv("DB_NEO4J_USER", "neo4j"),
+        password=os.getenv("DB_NEO4J_PASSWORD", "neo4j123"),
+        extra={"expand_threshold": 1000, "connection_timeout": 30},
     )
 
 
@@ -205,6 +220,27 @@ def yugabytedb_adapter(docker_yugabytedb_config: ConnectionConfig) -> Generator:
                 time.sleep(1)
             else:
                 pytest.skip("Could not connect to YugabyteDB - is it running?")
+
+    yield adapter
+    adapter.disconnect()
+
+
+@pytest.fixture
+def neo4j_adapter(docker_neo4j_config: ConnectionConfig) -> Generator:
+    """Neo4j adapter with automatic connection management."""
+    adapter = Neo4jAdapter(docker_neo4j_config)
+
+    max_retries = 30
+    for attempt in range(max_retries):
+        try:
+            adapter.connect()
+            if adapter.test_connection():
+                break
+        except Exception:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+            else:
+                pytest.skip("Could not connect to Neo4j - is it running?")
 
     yield adapter
     adapter.disconnect()

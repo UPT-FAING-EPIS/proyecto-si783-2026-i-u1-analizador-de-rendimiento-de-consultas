@@ -19,6 +19,7 @@ dependencies = [
     "typer>=0.24.1",
     "cryptography>=42.0.0",
     "redis>=5.0",
+    "neo4j>=5.0.0",
 ]
 
 [tool.setuptools]
