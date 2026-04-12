@@ -11,6 +11,7 @@ requires-python = ">=3.14"
 dependencies = [
     "psycopg2-binary>=2.9.11",
     "pymysql>=1.1.0",
+    "pymongo>=4.0.0",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
     "rich>=14.3.3",
@@ -78,3 +79,7 @@ exclude = [
     "^dist/",
     "^\\.venv/",
 ]
+
+[[tool.mypy.overrides]]
+module = "pymongo.*"
+ignore_missing_imports = true

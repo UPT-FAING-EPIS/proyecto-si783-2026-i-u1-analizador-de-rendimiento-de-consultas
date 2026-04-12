@@ -1,328 +1,208 @@
 # AGENTS.md — Query Performance Analyzer
 
-Fast-track guidance for OpenCode and future agent sessions. Only includes facts that differ from Python/Linux defaults or would otherwise cause mistakes.
+Fast-track guidance for OpenCode and agentic coding operations.
 
 ---
 
-## Entry Points & Package Manager
+## Quick Start
 
-**Use `uv` exclusively** — not pip. All workflows go through `uv run`.
-
+**Use `uv` exclusively** (not pip). All development through `uv run`:
 ```bash
-# Sync environment (install deps + dev tools)
-uv sync
-
-# Run the app (TUI/CLI)
-uv run query_analyzer
-
-# Or equivalently
-python -m query_analyzer
-```
-
-No direct Python execution; the project relies on uv's venv handling.
-
----
-
-## Code Quality: Pre-commit Hooks & Linting
-
-**Critical execution order:** ruff (auto-fixes files) runs *before* mypy (must pass after fixes).
-
-- **Ruff** (lines 38–52 in pyproject.toml): line-length=100, select E/F/W/I/N/UP/B/D, ignores E501 (handled by formatter)
-- **MyPy** (lines 61–76): `disallow_incomplete_defs = true`, **but `disallow_untyped_defs = false` intentionally** (type coverage incomplete in early phase)
-  - Excludes: tests/ (no type hints required)
-
-Manually run before commit:
-```bash
-uv run ruff check --fix
-uv run ruff format
-uv run mypy query_analyzer
-```
-
-Or rely on installed hooks:
-```bash
-uv run pre-commit install  # One-time setup
-git add . && git commit -m "..."  # Hooks run automatically
-```
-
-**If commit fails:** ruff auto-fixes files (re-add them) then mypy rejects on remaining type errors (fix them). Retry commit.
-
----
-
-## Testing
-
-### Unit Tests
-```bash
-uv run pytest tests/unit/
-```
-
-No Docker required. MyPy skips test files (no type coverage expected).
-
-### Integration Tests
-Require database services running:
-```bash
-make up              # Start Docker Compose services
-make health          # Verify services are ready
-uv run pytest tests/integration/
-make down            # Optional cleanup
-```
-
-**Adapter registry quirk:** `conftest.py` auto-registers PostgreSQL adapter before each test via `ensure_postgresql_registered()` fixture. Some tests (like adapter_registry tests) may clear the registry; re-registration is automatic.
-
-### Coverage
-```bash
-uv run pytest --cov=query_analyzer
+uv sync              # Install dependencies + dev tools
+uv run query_analyzer  # Run CLI app
+python -m query_analyzer  # Alternative entry point
 ```
 
 ---
 
-## Architecture: Adapter Pattern & Registry
+## Build, Lint & Test Commands
 
-The core design is a **pluggable adapter system** for multi-engine support.
+### Linting & Formatting (pre-commit order: ruff → mypy)
+```bash
+uv run ruff check --fix    # Auto-fix linting issues
+uv run ruff format         # Format code (line-length=100)
+uv run mypy query_analyzer # Type check (disallow_untyped_defs=false OK)
+```
 
-**Structure:**
-- `query_analyzer/adapters/base.py` — `BaseAdapter` abstract class (interface for all drivers)
-- `query_analyzer/adapters/registry.py` — `AdapterRegistry` (factory & registration)
-- `query_analyzer/adapters/sql/` — PostgreSQL, MySQL, SQLite, CockroachDB, etc.
-- `query_analyzer/adapters/nosql/` — MongoDB, Redis, Neo4j, etc.
-- `query_analyzer/core/` — `AntiPatternDetector`, `RecommendationEngine`, parsers (engine-agnostic)
-- `query_analyzer/cli/` — CLI entry point (typer-based)
-- `query_analyzer/tui/` — Textual UI (TUI framework)
+### Unit Tests (no Docker needed)
+```bash
+uv run pytest tests/unit/                    # All unit tests
+uv run pytest tests/unit/test_registry.py   # Single file
+uv run pytest tests/unit/test_registry.py::test_register_adapter  # Single test
+uv run pytest -k "test_register" -v         # Tests matching pattern
+```
 
-**Adapter registration pattern:**
+### Integration Tests (requires Docker)
+```bash
+make up              # Start services (PostgreSQL, MySQL, MongoDB, Redis, etc.)
+make health          # Verify services ready (wait ~30s)
+uv run pytest tests/integration/                          # All integration tests
+uv run pytest tests/integration/test_postgresql_integration.py  # Engine-specific
+uv run pytest tests/integration/ -k "test_explain" -v    # Pattern-based filtering
+make down            # Stop services (keep volumes)
+make reset           # Destroy containers + volumes (clean slate)
+```
+
+### Test Coverage
+```bash
+uv run pytest --cov=query_analyzer --cov-report=term-missing
+uv run pytest --cov=query_analyzer --cov-report=html  # Open htmlcov/index.html
+```
+
+---
+
+## Code Style Guidelines
+
+### Imports
+- Sort: standard library → third-party → local (ruff enforces via `-I` flag)
+- Avoid circular imports; use TYPE_CHECKING for type hints
+```python
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .models import ConnectionConfig
+```
+
+### Formatting
+- **Line length:** 100 characters (ruff format enforces)
+- **Docstring style:** Google format (pydocstyle convention)
+- Indentation: 4 spaces (no tabs)
+
+### Type Hints
+- Use type hints on all function signatures (disallow_incomplete_defs=true)
+- `disallow_untyped_defs=false` is intentional (type coverage ~70%, strictened post-v1)
+- Return types always required; use `None` explicitly
+- Tests excluded from mypy checks (no type hints needed in tests/)
+
+```python
+def execute_explain(self, query: str) -> QueryAnalysisReport:
+    """Analyze query and return report."""
+```
+
+### Naming Conventions
+- **Classes:** PascalCase (e.g., `PostgreSQLAdapter`, `ConnectionConfig`)
+- **Functions/methods:** snake_case (e.g., `execute_explain`, `validate_config`)
+- **Constants:** UPPER_SNAKE_CASE (e.g., `DEFAULT_PORT`, `MAX_RETRIES`)
+- **Private:** leading underscore (e.g., `_config`, `_connection`)
+- **Boolean methods:** prefix with `is_` or `has_` (e.g., `is_connected`, `has_errors`)
+
+### Error Handling
+All custom exceptions inherit from module-level base class:
+```python
+# config/exceptions.py
+class ConfigError(Exception):
+    """Base for all config errors."""
+
+class ConfigValidationError(ConfigError):
+    """Configuration content is invalid."""
+
+# adapters/exceptions.py
+class AdapterError(Exception):
+    """Base for all adapter errors."""
+
+class ConnectionError(AdapterError):
+    """Failed to connect to database."""
+```
+
+Raise with context for debugging:
+```python
+try:
+    adapter.connect()
+except ConnectionError as e:
+    raise QueryAnalysisError(f"Connection failed: {e}") from e
+```
+
+### Docstrings (Google Style)
+```python
+def analyze_query(query: str, config: ConnectionConfig) -> QueryAnalysisReport:
+    """Analyze SQL query performance.
+
+    Args:
+        query: SQL query string
+        config: Database connection config
+
+    Returns:
+        Report with metrics and recommendations
+
+    Raises:
+        QueryAnalysisError: If query execution fails
+    """
+```
+
+---
+
+## Architecture Essentials
+
+**Adapter Pattern:** Pluggable drivers via `AdapterRegistry`:
 ```python
 @AdapterRegistry.register("postgresql")
 class PostgreSQLAdapter(BaseAdapter):
-    def connect(self) -> None: ...
     def execute_explain(self, query: str) -> QueryAnalysisReport: ...
-    # ... (other abstract methods)
 ```
 
-**Creating an adapter instance:**
-```python
-config = ConnectionConfig(engine="postgresql", host="localhost", ...)
-adapter = AdapterRegistry.create("postgresql", config)
-adapter.connect()
-report = adapter.execute_explain("SELECT ...")
-```
+Create instances: `adapter = AdapterRegistry.create("postgresql", config)`
 
-No direct imports of specific adapters needed in client code.
+**Core modules:**
+- `adapters/base.py` — abstract interface (connect, disconnect, execute_explain)
+- `adapters/registry.py` — factory pattern
+- `adapters/sql/*` — PostgreSQL, MySQL, SQLite, CockroachDB, YugabyteDB
+- `config/*` — connection profiles, encryption
+- `core/*` — anti-pattern detection, recommendations (engine-agnostic)
+- `cli/*` — CLI entry point (typer-based)
 
 ---
 
-## CockroachDB Adapter
+## Pre-Commit Hooks (Auto-Run on Commit)
 
-**CockroachDBAdapter** (`query_analyzer/adapters/sql/cockroachdb.py`) extends **PostgreSQLAdapter** to handle CRDB-specific optimizations.
+Install once: `uv run pre-commit install`
 
-### Key Features
+Hooks run in order:
+1. **ruff** (`--fix`) — Auto-fixes; re-add modified files
+2. **ruff-format** — Formatting
+3. **mypy** — Type checking (fails if errors remain; fix and retry)
+4. **pre-commit-hooks** — Trailing whitespace, merge conflicts, large files
 
-- **Wire Protocol Compatibility:** CockroachDB implements PostgreSQL wire protocol, so uses `psycopg2` driver
-- **CockroachDB Parser:** `CockroachDBParser` extends `PostgreSQLExplainParser` to detect CRDB-specific join types
-- **EXPLAIN Fallback Strategy:**
-  1. `EXPLAIN (DISTSQL, ANALYZE, FORMAT JSON)` — full distributed metrics (v22.1+)
-  2. `EXPLAIN (ANALYZE, FORMAT JSON)` — standard format
-  3. `EXPLAIN ANALYZE` — text fallback if JSON unavailable
-
-### CRDB-Specific Features
-
-| Feature | Detection | Warning Threshold |
-|---------|-----------|-------------------|
-| **Lookup Join** | Node type contains "Lookup Join" | Count > 5 |
-| **Zigzag Join** | Node type contains "Zigzag Join" | Informational |
-| **Distributed Execution** | Presence of "Distributed" or "Remote" nodes | Informational |
-
-### Metrics Added
-
-```python
-{
-    # PostgreSQL inherited
-    "planning_time_ms": float,
-    "execution_time_ms": float,
-    ...
-    # CockroachDB-specific
-    "is_distributed": bool,           # Uses distributed execution
-    "lookup_join_count": int,         # Number of Lookup Joins
-    "zigzag_join_count": int,         # Number of Zigzag Joins
-    "has_remote_execution": bool,     # Contains Remote nodes
-}
-```
-
-### Example Usage
-
-```python
-from query_analyzer.adapters import AdapterRegistry, ConnectionConfig
-
-config = ConnectionConfig(
-    engine="cockroachdb",
-    host="localhost",
-    port=26257,
-    database="defaultdb",
-    username="root",
-    password="",
-    extra={"seq_scan_threshold": 10000}
-)
-
-adapter = AdapterRegistry.create("cockroachdb", config)
-adapter.connect()
-report = adapter.execute_explain("SELECT * FROM orders JOIN customers ...")
-print(f"Score: {report.score}/100")
-print(f"Is Distributed: {report.metrics['is_distributed']}")
-print(f"Lookup Joins: {report.metrics['lookup_join_count']}")
-adapter.disconnect()
-```
+If commit fails: ruff auto-modifies files (re-add), mypy rejects on type errors (fix manually), retry commit.
 
 ---
 
-## YugabyteDB Adapter
+## Key Quirks
 
-**YugabyteDBAdapter** (`query_analyzer/adapters/sql/yugabytedb.py`) extends **PostgreSQLAdapter** with YugabyteDB-specific defaults.
-
-### Key Features
-
-- **Wire Protocol Compatibility:** YugabyteDB implements PostgreSQL wire protocol, uses `psycopg2` driver
-- **YugabyteDB Parser:** `YugabyteDBParser` extends `PostgreSQLExplainParser` (minimal override for MVP)
-- **Default Port:** Automatically converts PostgreSQL default port 5432 → YugabyteDB port 5433
-- **Standard EXPLAIN Format:** Uses standard PostgreSQL EXPLAIN (no DISTSQL equivalent in v1)
-- **Implicit Distribution:** Distribution is transparent to query optimizer (DocDB storage layer handles it)
-
-### Architecture Note
-
-Unlike CockroachDB, YugabyteDB distribution is **implicit** and not visible in EXPLAIN output. For MVP (v1):
-- Parser reuses PostgreSQL behavior (no special node type detection)
-- Future enhancements (v1.1) will add:
-  - Tablet-level metrics via `yb_local_tablets()` and `yb_tablet_servers()`
-  - Colocation detection and warnings
-  - Cross-region query patterns
-
-### Example Usage
-
-```python
-from query_analyzer.adapters import AdapterRegistry, ConnectionConfig
-
-config = ConnectionConfig(
-    engine="yugabytedb",
-    host="localhost",
-    port=5433,  # YugabyteDB YSQL port (or omit - adapter auto-converts 5432→5433)
-    database="yugabyte",
-    username="yugabyte",
-    password="yugabyte",
-    extra={"seq_scan_threshold": 10000}
-)
-
-adapter = AdapterRegistry.create("yugabytedb", config)
-adapter.connect()
-report = adapter.execute_explain("SELECT * FROM users JOIN orders ...")
-print(f"Score: {report.score}/100")
-print(f"Execution Time: {report.execution_time_ms}ms")
-adapter.disconnect()
-```
-
-### Default Credentials
-
-- Username: `yugabyte`
-- Password: `yugabyte`
-- Database: `yugabyte`
-- YSQL Port: `5433` (PostgreSQL-compatible query layer)
+| Item | Detail |
+|------|--------|
+| **MyPy strictness** | `disallow_untyped_defs=false` intentional (post-v1 tightening) |
+| **E501 ignored** | ruff formatter handles line-length, not linter |
+| **Adapter registry** | Tests auto-register PostgreSQL via `ensure_postgresql_registered()` fixture |
+| **No pytest.ini** | Config in `[tool.pytest]` section of pyproject.toml |
 
 ---
 
-## Docker & Services
+## Git Policy (CRITICAL)
 
-`docker/compose.yml` defines 7 database services for dev & testing:
-- PostgreSQL, MySQL, MongoDB, Redis, InfluxDB, Neo4j, CockroachDB, YugabyteDB
+❌ **NEVER** `git add` or `git commit` without explicit user request
+✅ **OK** to explore: `git status`, `git log`, `git diff`, `git branch`
+❌ **NEVER** force push, rebase -i, or destructive operations
 
-**Makefile shortcuts:**
-- `make up` — start services (non-blocking)
-- `make down` — stop services
-- `make reset` — destroy containers & volumes (clean slate)
-- `make seed` — populate SQL databases with test data
-- `make health` — check service health status
-- `make logs` or `make logs-<service>` — tail logs
-
-**Credentials:** Defined in `.env` (copy from `.env.example`). Defaults:
-```
-DB_POSTGRES_USER=postgres, DB_POSTGRES_PASSWORD=postgres123, DB_POSTGRES_PORT=5432
-DB_MYSQL_USER=analyst, DB_MYSQL_PASSWORD=mysql123, DB_MYSQL_PORT=3306
-DB_MONGODB_USER=admin, DB_MONGODB_PASSWORD=mongodb123, DB_MONGODB_PORT=27017
-```
+Commit message format (when authorized): [Conventional Commits](https://www.conventionalcommits.org/)
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation
+- `test:` Test changes
+- `chore:` Administrative tasks
 
 ---
 
-## Known Quirks & Intentional Decisions
-
-| Item | Detail | Why |
-|---|---|---|
-| MyPy permissiveness | `disallow_untyped_defs = false` | Type coverage ~70%; strictness deferred to post-v1 |
-| Type skipping | Tests excluded from MyPy checks | Tests don't need type hints; focus on core code |
-| E501 ignored | Ruff ignores line-length in lint rules | Formatter (`ruff format`) handles it instead |
-| Test fixtures | Adapter registry auto-registers PostgreSQL | Prevents test pollution from adapter state changes |
-| No pytest.ini | Config lives in `[tool.pytest]` section of pyproject.toml | Single source of truth for all tool config |
-
----
-
-## 📋 Git Policies (CRÍTICO)
-
-### Política de Commits
-❌ NUNCA hagas `git add` sin autorización explícita del usuario
-❌ NUNCA hagas `git commit` sin autorización explícita del usuario
-✅ Puedes preparar cambios y mostrar diffs, pero espera instrucción explícita
-✅ Si el usuario dice "crea un commit" o "haz commit", entonces procede
-
-### Política de Git Push
-❌ NUNCA hagas `git push` sin autorización explícita del usuario
-✅ Solo haz push cuando el usuario lo pida explícitamente
-✅ Avisa al usuario si hay commits listos para ser pusheados
-
-### Operaciones Git Permitidas
-✅ **Exploración sin restricciones:**
-- `git status` — Ver estado del repositorio
-- `git log` — Ver histórico de commits
-- `git diff` — Ver cambios
-- `git branch` — Ver ramas
-
-✅ **Cambios de rama:** Solo si el usuario lo solicita explícitamente
-
-❌ **Operaciones destructivas:** `git reset --hard`, `git rebase -i`, `git add .`
-   - Solo con autorización explícita del usuario
-
-### Commit Message Format (cuando esté autorizado)
-Usar [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat:` Nueva funcionalidad
-- `fix:` Corrección de bugs
-- `docs:` Documentación
-- `test:` Tests
-- `chore:` Tareas administrativas
-
----
-
-## Common Workflows
+## Useful Commands
 
 ```bash
-# Develop a new feature
-git checkout -b feature/my-feature
-uv sync
-# ... make changes ...
-uv run ruff check --fix && uv run ruff format
-uv run mypy query_analyzer
-uv run pytest tests/unit/
-git add . && git commit -m "feat: description"
+# Full workflow
+uv sync && uv run ruff check --fix && uv run ruff format && uv run mypy query_analyzer
+uv run pytest tests/unit/ -v
+# Then: make up && make health && uv run pytest tests/integration/ && make down
 
-# Run integration tests
-make up
-make health   # Wait for services
-uv run pytest tests/integration/
-make down
-
-# Clean up
-make reset    # Remove containers & volumes
-uv run pre-commit clean  # Clear cache
+# Cleanup
+make reset                    # Remove containers & volumes
+uv run pre-commit clean      # Clear hook cache
+rm -rf htmlcov .coverage .pytest_cache
 ```
 
----
-
-## Useful References
-
-- **Backlog & roadmap:** See root backlog document (4 phases: v0-setup → v1-sql → v2-nosql → v3-tui → v4-release)
-- **Dependencies:** `pyproject.toml` [project] section (production) and [dependency-groups.dev] (dev tools)
-- **Docker config:** `docker/compose.yml` (services), `docker/seed/` (test data scripts)
-- **Pre-commit hooks:** `.pre-commit-config.yaml` (ruff, mypy, standard checks)
-- **Type stubs for drivers:** `[additional_dependencies]` in `.pre-commit-config.yaml` (mypy mirrors-mypy hook)
+**No Cursor rules** (.cursor/rules/) or **GitHub Copilot instructions** found in this repo.

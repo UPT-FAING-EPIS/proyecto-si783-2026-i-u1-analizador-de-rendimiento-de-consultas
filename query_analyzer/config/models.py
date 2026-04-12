@@ -32,7 +32,7 @@ class ProfileConfig(BaseModel):
     @classmethod
     def validate_engine(cls, v: str) -> str:
         """Valida que el engine sea soportado."""
-        valid_engines = {"postgresql", "mysql"}
+        valid_engines = {"postgresql", "mysql", "mongodb"}
         engine_lower = v.lower()
         if engine_lower not in valid_engines:
             raise ValueError(f"Engine no soportado: {v}. Válidos: {', '.join(valid_engines)}")

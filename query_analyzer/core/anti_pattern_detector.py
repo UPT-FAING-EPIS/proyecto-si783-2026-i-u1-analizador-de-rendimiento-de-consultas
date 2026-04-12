@@ -694,3 +694,83 @@ class AntiPatternDetector:
                 recommendations.append(rec)
 
         return recommendations
+
+
+class MongoDBAntiPatternDetector:
+    """Detect MongoDB-specific anti-patterns."""
+
+    PATTERNS = [
+        "collection_scan",
+        "high_doc_examination_ratio",
+        "sort_without_index",
+        "regex_without_prefix",
+    ]
+
+    @staticmethod
+    def detect(parsed_explain: dict) -> dict:
+        """Detect anti-patterns in MongoDB query.
+
+        Args:
+            parsed_explain: Output from MongoExplainParser.parse()
+
+        Returns:
+            Detection results with anti-patterns and final score
+            {
+                "anti_patterns": [...],
+                "total_penalty": int,
+                "final_score": float (0-100)
+            }
+        """
+        anti_patterns: list[dict[str, Any]] = []
+        total_penalty = 0
+
+        metrics = parsed_explain["metrics"]
+
+        if parsed_explain["has_collection_scan"]:
+            pattern = {
+                "name": "collection_scan",
+                "severity": "HIGH",
+                "score_penalty": -25,
+                "description": "Query performs full collection scan (COLLSCAN)",
+                "recommendation": "Create an index on the queried fields",
+            }
+            anti_patterns.append(pattern)
+            total_penalty += -25
+
+        docs_returned = metrics["documents_returned"]
+        docs_examined = metrics["documents_examined"]
+
+        if docs_returned > 0 and docs_examined > 0:
+            ratio = docs_examined / docs_returned
+            if ratio > 10:
+                pattern = {
+                    "name": "high_doc_examination_ratio",
+                    "severity": "MEDIUM",
+                    "score_penalty": -15,
+                    "description": (
+                        f"Query examined {docs_examined} documents to return "
+                        f"{docs_returned} ({ratio:.1f}x ratio)"
+                    ),
+                    "recommendation": "Create a more selective index",
+                }
+                anti_patterns.append(pattern)
+                total_penalty += -15
+
+        if parsed_explain["has_sort"] and not parsed_explain["has_index"]:
+            pattern = {
+                "name": "sort_without_index",
+                "severity": "MEDIUM",
+                "score_penalty": -15,
+                "description": "Sorting performed in memory (no index support)",
+                "recommendation": "Create index on sort field(s)",
+            }
+            anti_patterns.append(pattern)
+            total_penalty += -15
+
+        final_score = max(0, 100 + total_penalty)
+
+        return {
+            "anti_patterns": anti_patterns,
+            "total_penalty": total_penalty,
+            "final_score": final_score,
+        }

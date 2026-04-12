@@ -10,6 +10,7 @@ from .exceptions import (
     UnsupportedEngineError,
 )
 from .models import ConnectionConfig, QueryAnalysisReport
+from .nosql import MongoDBAdapter
 from .registry import AdapterRegistry
 from .sql import (
     CockroachDBAdapter,
@@ -37,6 +38,8 @@ __all__ = [
     "PostgreSQLMetricsHelper",
     "YugabyteDBAdapter",
     "YugabyteDBParser",
+    # NoSQL Adapters
+    "MongoDBAdapter",
     # Exceptions
     "AdapterError",
     "ConnectionError",
