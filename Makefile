@@ -37,7 +37,7 @@ up:
 	docker compose -f docker/compose.yml up -d
 
 wait-healthy:
-	@scripts/wait-for-services.sh
+	@bash scripts/wait-for-services.sh
 
 down:
 	@echo "⏹️  Stopping all services..."

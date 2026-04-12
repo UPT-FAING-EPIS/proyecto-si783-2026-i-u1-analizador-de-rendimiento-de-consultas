@@ -134,13 +134,17 @@ class MongoDBAdapter(BaseAdapter):
             # Get collection
             collection = self._db[collection_name]
 
-            # Build query cursor with projection if provided
-            cursor = collection.find(filter_dict, projection=projection_dict)
+            # Execute EXPLAIN with execution statistics using find()
+            # pymongo's find().explain() returns executionStats with full stage info
+            kwargs = {}
+            if projection_dict:
+                kwargs["projection"] = projection_dict
 
+            cursor = collection.find(filter_dict, **kwargs)
             if sort_dict:
                 cursor = cursor.sort(list(sort_dict.items()))
+            cursor = cursor.limit(1)
 
-            # Execute EXPLAIN
             explain_result = cursor.explain()
 
             # Parse explain output
@@ -154,7 +158,7 @@ class MongoDBAdapter(BaseAdapter):
             # Build report
             docs_returned = parsed_explain["metrics"]["documents_returned"]
             docs_examined = parsed_explain["metrics"]["documents_examined"]
-            examination_ratio = docs_examined / max(1, docs_returned) if docs_returned > 0 else 0
+            examination_ratio = docs_examined / max(1, docs_returned)
 
             report = QueryAnalysisReport(
                 engine="mongodb",
