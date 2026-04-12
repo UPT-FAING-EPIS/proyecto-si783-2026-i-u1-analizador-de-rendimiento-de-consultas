@@ -68,12 +68,10 @@ jobs:
           uv run ruff format --check
           uv run mypy query_analyzer
 
-      - name: Run integration tests
-        run: uv run pytest tests/integration/ -v --tb=short --color=yes
-
       - name: Run integration tests with coverage
         if: always()
-        run: uv run pytest tests/integration/ --cov=query_analyzer --cov-report=xml --cov-report=term
+        run: |
+          uv run pytest tests/integration/ -v --tb=short --color=yes --cov=query_analyzer --cov-report=xml --cov-report=term
 
       - name: Upload coverage reports
         if: always()

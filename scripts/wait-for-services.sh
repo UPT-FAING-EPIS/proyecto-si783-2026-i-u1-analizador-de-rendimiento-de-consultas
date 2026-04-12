@@ -8,20 +8,22 @@ NC='\033[0m' # No Color
 
 # Configuration
 MAX_WAIT=120
-INTERVAL=3
+INTERVAL=5
 ELAPSED=0
 
 echo "⏳ Esperando que todos los servicios estén listos..."
 echo ""
 
-# Get initial count
+# Get total number of services
 TOTAL_SERVICES=$(docker compose -f docker/compose.yml ps --services 2>/dev/null | wc -l)
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
-	# Count services that are "Up" or "Running" (with or without healthy status)
-	READY=$(docker compose -f docker/compose.yml ps --format 'table {{.Status}}' 2>/dev/null | grep -c '^\(Up\|Running\)' || echo 0)
+	# Count services that are healthy or up and running
+	# Services with health checks must be healthy (contains "healthy")
+	# Services without health checks just need to be up (Up [0-9]+ seconds)
+	HEALTHY=$(docker compose -f docker/compose.yml ps --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null | tail -n +2 | grep -c 'healthy\|Up [0-9]' || echo 0)
 
-	if [ "$READY" -eq "$TOTAL_SERVICES" ]; then
+	if [ "$HEALTHY" -eq "$TOTAL_SERVICES" ]; then
 		echo "✅ ¡Todos los servicios están listos!"
 		echo ""
 		echo "🎉 Stack completamente operativo:"
@@ -30,7 +32,7 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
 		exit 0
 	fi
 
-	echo "⏳ [$ELAPSED/$MAX_WAIT] Aguardando... ($READY/$TOTAL_SERVICES servicios listos)"
+	echo "⏳ [$ELAPSED/$MAX_WAIT] Aguardando... ($HEALTHY/$TOTAL_SERVICES servicios listos)"
 	sleep $INTERVAL
 	ELAPSED=$((ELAPSED + INTERVAL))
 done
