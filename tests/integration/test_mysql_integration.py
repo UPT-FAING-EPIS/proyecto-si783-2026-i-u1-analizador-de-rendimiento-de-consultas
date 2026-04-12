@@ -292,10 +292,10 @@ class TestMySQLIntegrationValidation:
     def test_invalid_column_raises_error(self, mysql_adapter: MySQLAdapter) -> None:
         """Invalid column name raises clear error."""
         with pytest.raises(Exception) as exc_info:
-            mysql_adapter.execute_explain("SELECT nonexistent_column_xyz FROM customers")
+            mysql_adapter.execute_explain("SELECT nonexistent_xyz FROM orders")
 
         error_msg = str(exc_info.value)
-        assert "nonexistent_column" in error_msg or "unknown column" in error_msg.lower()
+        assert "nonexistent_xyz" in error_msg or "unknown column" in error_msg.lower()
 
     def test_syntax_error_raises_error(self, mysql_adapter: MySQLAdapter) -> None:
         """Malformed SQL raises clear error."""
