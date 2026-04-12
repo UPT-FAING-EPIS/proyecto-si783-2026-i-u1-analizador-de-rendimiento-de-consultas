@@ -50,6 +50,8 @@ class ConnectionConfig(BaseModel):
             return 5432
         elif engine == "mysql":
             return 3306
+        elif engine == "redis":
+            return 6379
         elif engine == "sqlite":
             return None
         return v

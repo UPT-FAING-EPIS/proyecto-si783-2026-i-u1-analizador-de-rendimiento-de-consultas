@@ -22,6 +22,8 @@ repos:
           - "types-pyyaml"
           - "types-psycopg2"
           - "types-PyMySQL"
+          - "types-redis"
+          - "redis"
           - "pymysql"
           - "pydantic"
           - "pytest"

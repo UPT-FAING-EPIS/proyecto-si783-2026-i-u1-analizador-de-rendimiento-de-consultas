@@ -48,7 +48,12 @@ def _get_adapter(engine: str) -> type[BaseAdapter]:
 @app.command()
 def add(
     name: str = typer.Argument(..., help="Nombre del nuevo perfil"),
-    engine: str | None = typer.Option(None, "--engine", "-e", help="postgresql | mysql"),
+    engine: str | None = typer.Option(
+        None,
+        "--engine",
+        "-e",
+        help="postgresql | mysql | sqlite | redis | cockroachdb | yugabytedb | mongodb",
+    ),
     host: str | None = typer.Option(None, "--host", "-h", help="Host de la BD"),
     port: int | None = typer.Option(None, "--port", "-p", help="Puerto"),
     database: str | None = typer.Option(None, "--database", "-d", help="Nombre de DB"),

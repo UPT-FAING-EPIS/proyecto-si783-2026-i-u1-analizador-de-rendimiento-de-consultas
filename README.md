@@ -35,9 +35,8 @@ query-analyzer/
 │   │   ├── parser.py
 │   │   └── recommender.py
 │   └── adapters/                # Drivers por motor
-│       ├── sql/                 # PostgreSQL, MySQL
-│       ├── nosql/               # MongoDB
-│       └── timeseries/          # InfluxDB, TimescaleDB
+│       ├── sql/                 # PostgreSQL, MySQL, SQLite, CockroachDB, YugabyteDB
+│       └── nosql/               # MongoDB, Redis
 ├── tests/                       # Pruebas
 │   ├── unit/
 │   └── integration/
