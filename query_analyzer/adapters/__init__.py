@@ -16,12 +16,14 @@ from .registry import AdapterRegistry
 from .sql import (
     CockroachDBAdapter,
     CockroachDBMetricsHelper,
+    MySQLAdapter,
     PostgreSQLAdapter,
     PostgreSQLExplainParser,
     PostgreSQLMetricsHelper,
     YugabyteDBAdapter,
     YugabyteDBParser,
 )
+from .timeseries import InfluxDBAdapter
 
 __all__ = [
     # Models
@@ -34,6 +36,7 @@ __all__ = [
     # SQL Adapters
     "CockroachDBAdapter",
     "CockroachDBMetricsHelper",
+    "MySQLAdapter",
     "PostgreSQLAdapter",
     "PostgreSQLExplainParser",
     "PostgreSQLMetricsHelper",
@@ -41,6 +44,8 @@ __all__ = [
     "YugabyteDBParser",
     # NoSQL Adapters
     "MongoDBAdapter",
+    # TimeSeries Adapters
+    "InfluxDBAdapter",
     # Graph Adapters
     "Neo4jAdapter",
     # Exceptions

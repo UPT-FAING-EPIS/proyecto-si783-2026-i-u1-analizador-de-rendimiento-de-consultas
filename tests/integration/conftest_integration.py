@@ -29,6 +29,11 @@ try:
 except ImportError:
     YugabyteDBAdapter = None  # type: ignore
 
+try:
+    from query_analyzer.adapters.timeseries import InfluxDBAdapter
+except ImportError:
+    InfluxDBAdapter = None  # type: ignore
+
 
 # ============================================================================
 # CONNECTION CONFIGS - Database credentials from environment or defaults
@@ -114,6 +119,26 @@ def docker_neo4j_config() -> ConnectionConfig:
         username=os.getenv("DB_NEO4J_USER", "neo4j"),
         password=os.getenv("DB_NEO4J_PASSWORD", "neo4j123"),
         extra={"expand_threshold": 1000, "connection_timeout": 30},
+    )
+
+
+@pytest.fixture(scope="session")
+def docker_influxdb_config() -> ConnectionConfig:
+    """InfluxDB connection config for Docker container.
+
+    InfluxDB 2.x uses API tokens (not username/password).
+    Token should be provided in the password field.
+    """
+    return ConnectionConfig(
+        engine="influxdb",
+        host=os.getenv("DB_INFLUXDB_HOST", "localhost"),
+        port=int(os.getenv("DB_INFLUXDB_PORT", "8086")),
+        database=os.getenv("DB_INFLUXDB_NAME", "query_analyzer"),
+        password=os.getenv("DB_INFLUXDB_TOKEN", "influxdb123"),  # API token
+        extra={
+            "org": os.getenv("DB_INFLUXDB_ORG") or "myorg",
+            "connection_timeout": 10,
+        },
     )
 
 

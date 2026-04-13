@@ -695,6 +695,168 @@ class AntiPatternDetector:
 
         return recommendations
 
+    def analyze_influxdb_patterns(
+        self, normalized_plan: dict[str, Any], query: str = ""
+    ) -> DetectionResult:
+        """Analyze InfluxDB/Flux-specific anti-patterns.
+
+        Detects patterns unique to InfluxDB's Flux language and time-series
+        workloads that don't apply to SQL databases.
+
+        Args:
+            normalized_plan: Normalized plan with flux_metadata field
+            query: Flux query string (for context)
+
+        Returns:
+            DetectionResult with InfluxDB-specific scoring (0-100)
+        """
+        # Reset scoring for new analysis
+        self.scoring_engine = ScoringEngine()
+
+        anti_patterns: list[AntiPattern] = []
+        flux_metadata = normalized_plan.get("flux_metadata", {})
+
+        # AP1: Unbounded Query (CRITICAL - no time filter)
+        if not flux_metadata.get("has_time_filter", False):
+            pattern = AntiPattern(
+                name="unbounded_query",
+                severity=Severity.HIGH,
+                description=(
+                    "Query without time filter: Full bucket scan without time bounds. "
+                    "This can scan enormous amounts of data and cause performance issues."
+                ),
+                affected_table=normalized_plan.get("table_name"),
+                affected_column=None,
+                metadata={
+                    "time_range": None,
+                    "has_time_filter": False,
+                },
+            )
+            anti_patterns.append(pattern)
+            # Unbounded queries are CRITICAL in InfluxDB: deduct 30 points (not default 25)
+            # Results in score <= 70 for unbounded queries
+            self.scoring_engine.deduct("unbounded_query", Severity.HIGH, amount=30)
+
+        # AP2: High-Cardinality Group-By
+        group_by_columns = flux_metadata.get("group_by_columns", [])
+        if len(group_by_columns) > 10:
+            pattern = AntiPattern(
+                name="high_cardinality_group_by",
+                severity=Severity.MEDIUM,
+                description=(
+                    f"Group-by on {len(group_by_columns)} columns: "
+                    "Risk of memory exhaustion and slow performance."
+                ),
+                affected_table=normalized_plan.get("table_name"),
+                affected_column=None,
+                metadata={
+                    "column_count": len(group_by_columns),
+                    "columns": group_by_columns,
+                },
+            )
+            anti_patterns.append(pattern)
+            self.scoring_engine.deduct("high_cardinality_group_by", Severity.MEDIUM)
+
+        # AP3: Excessive Transformations
+        transformation_count = flux_metadata.get("transformation_count", 0)
+        if transformation_count > 5:
+            pattern = AntiPattern(
+                name="excessive_transformations",
+                severity=Severity.MEDIUM,
+                description=(
+                    f"{transformation_count} transformations detected: "
+                    "Consider simplifying pipeline by combining operations."
+                ),
+                affected_table=None,
+                affected_column=None,
+                metadata={
+                    "transformation_count": transformation_count,
+                },
+            )
+            anti_patterns.append(pattern)
+            self.scoring_engine.deduct("excessive_transformations", Severity.MEDIUM)
+
+        # AP4: Missing Field Filtering
+        has_aggregation = flux_metadata.get("has_aggregation", False)
+        operations = flux_metadata.get("operations", [])
+        # Check if no explicit field selection before aggregation
+        if not has_aggregation and not any("select" in op.lower() for op in operations):
+            if transformation_count > 0:  # Only warn if there are transformations
+                pattern = AntiPattern(
+                    name="missing_field_filtering",
+                    severity=Severity.LOW,
+                    description=(
+                        "No explicit field filtering detected: May return unnecessary fields. "
+                        "Consider using select() to limit returned fields."
+                    ),
+                    affected_table=None,
+                    affected_column=None,
+                    metadata={},
+                )
+                anti_patterns.append(pattern)
+                self.scoring_engine.deduct("missing_field_filtering", Severity.LOW)
+
+        # Generate recommendations
+        recommendations = self._generate_influxdb_recommendations(anti_patterns, flux_metadata)
+
+        return DetectionResult(
+            score=self.scoring_engine.get_score(),
+            anti_patterns=anti_patterns,
+            recommendations=recommendations,
+        )
+
+    def _generate_influxdb_recommendations(
+        self, anti_patterns: list[AntiPattern], flux_metadata: dict[str, Any]
+    ) -> list[str]:
+        """Generate actionable recommendations for InfluxDB anti-patterns.
+
+        Args:
+            anti_patterns: List of detected anti-patterns
+            flux_metadata: Flux-specific metadata from normalized plan
+
+        Returns:
+            List of specific recommendations
+        """
+        recommendations = []
+
+        for ap in anti_patterns:
+            if ap.name == "unbounded_query":
+                rec = (
+                    "Add time filter to query: "
+                    "range(start: -24h, stop: now()) "
+                    "to limit data scanned"
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+            elif ap.name == "high_cardinality_group_by":
+                col_count = ap.metadata.get("column_count", 0)
+                rec = (
+                    f"Reduce group-by from {col_count} columns to < 10, "
+                    "or add filters before grouping to reduce cardinality"
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+            elif ap.name == "excessive_transformations":
+                transform_count = ap.metadata.get("transformation_count", 0)
+                rec = (
+                    f"Simplify pipeline: {transform_count} transformations detected. "
+                    "Consider combining multiple map() operations into one."
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+            elif ap.name == "missing_field_filtering":
+                rec = (
+                    "Add field selection to limit returned fields: "
+                    'use select(columns: ["field1", "field2"])'
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+        return recommendations
+
 
 class MongoDBAntiPatternDetector:
     """Detect MongoDB-specific anti-patterns."""
