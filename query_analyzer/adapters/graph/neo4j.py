@@ -2,6 +2,7 @@
 
 import logging
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 from neo4j import GraphDatabase, basic_auth  # type: ignore[import-not-found]
@@ -15,7 +16,10 @@ from query_analyzer.adapters.exceptions import (
     ConnectionError as AdapterConnectionError,
 )
 from query_analyzer.adapters.exceptions import QueryAnalysisError
-from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
+from query_analyzer.adapters.migration_helpers import (
+    detection_result_to_warnings_and_recommendations,
+)
+from query_analyzer.adapters.models import ConnectionConfig, PlanNode, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
 from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
 
@@ -60,10 +64,8 @@ class Neo4jAdapter(BaseAdapter):
             port = self._config.port or 7687
             database = self._config.database or "neo4j"
 
-            # Build connection URI
             uri = f"bolt://{host}:{port}"
 
-            # Create driver with authentication
             auth = None
             if self._config.username and self._config.password:
                 auth = basic_auth(self._config.username, self._config.password)
@@ -77,7 +79,6 @@ class Neo4jAdapter(BaseAdapter):
                 max_connection_lifetime=3600,
             )
 
-            # Test connection
             with self._driver.session(database=database) as session:
                 session.run("RETURN 1")
 
@@ -134,7 +135,7 @@ class Neo4jAdapter(BaseAdapter):
             query: Cypher query to analyze (MATCH, WITH, CALL only)
 
         Returns:
-            QueryAnalysisReport with analysis results
+            QueryAnalysisReport with analysis results (v2 model with Warning/Recommendation objects)
 
         Raises:
             QueryAnalysisError: If query analysis fails
@@ -142,16 +143,13 @@ class Neo4jAdapter(BaseAdapter):
         if not self._is_connected or not self._driver:
             raise QueryAnalysisError("Not connected to database")
 
-        # Validate query is not DDL
         query_upper = query.strip().upper()
 
-        # Reject CREATE, DROP, ALTER (these are DDL)
         if any(query_upper.startswith(pattern) for pattern in ["CREATE", "DROP", "ALTER"]):
             raise QueryAnalysisError(
                 "Cannot analyze DDL statements. Only MATCH, WITH, CALL queries are supported."
             )
 
-        # Reject DELETE that isn't part of a pattern (DELETE without MATCH)
         if query_upper.startswith("DELETE") and "MATCH" not in query_upper:
             raise QueryAnalysisError(
                 "Cannot analyze DDL statements. Only MATCH, WITH, CALL queries are supported."
@@ -161,18 +159,14 @@ class Neo4jAdapter(BaseAdapter):
             database = self._config.database or "neo4j"
 
             with self._driver.session(database=database) as session:
-                # Wrap with PROFILE
                 profile_query = f"PROFILE {query}"
 
-                # Execute PROFILE query
                 start_time = time.time()
                 result = session.run(profile_query)
 
-                # Get result and consume it to populate profile data
                 summary = result.consume()
                 execution_time_ms = (time.time() - start_time) * 1000
 
-                # Extract profile info from summary
                 profile_info = self._extract_profile_info(summary)
 
                 # Parse metrics
@@ -187,19 +181,28 @@ class Neo4jAdapter(BaseAdapter):
                 detector = AntiPatternDetector()
                 detection_result = detector.analyze(normalized_plan, query)
 
-                # Use detector's score and recommendations
-                warnings = [ap.description for ap in detection_result.anti_patterns]
-                recommendations = detection_result.recommendations
-                score = detection_result.score
+                # Convert to v2 models using migration helper
+                warnings, recommendations = detection_result_to_warnings_and_recommendations(
+                    detection_result
+                )
 
-                # Build report
+                # Build PlanNode tree from Neo4j plan
+                plan_tree = self._build_plan_tree_from_neo4j(plan_root)
+
+                # Ensure execution_time_ms is valid
+                if execution_time_ms <= 0:
+                    execution_time_ms = 1.0
+
+                # Build v2 report
                 return QueryAnalysisReport(
                     engine="neo4j",
                     query=query,
-                    score=score,
+                    score=detection_result.score,
                     execution_time_ms=execution_time_ms,
-                    warnings=warnings,  # type: ignore[arg-type]
-                    recommendations=recommendations,  # type: ignore[arg-type]
+                    warnings=warnings,
+                    recommendations=recommendations,
+                    plan_tree=plan_tree,
+                    analyzed_at=datetime.now(UTC),
                     raw_plan=profile_info,
                     metrics=metrics,
                 )
@@ -208,6 +211,52 @@ class Neo4jAdapter(BaseAdapter):
             raise
         except Exception as e:
             raise QueryAnalysisError(f"Failed to analyze query with PROFILE: {e}") from e
+
+    def _build_plan_tree_from_neo4j(self, plan_root: dict[str, Any]) -> PlanNode | None:
+        """Build PlanNode tree from Neo4j profile plan.
+
+        Maps Neo4j operators (ProduceResults, NodeIndexSeek, AllNodesScan, etc.)
+        to generic PlanNode structure.
+
+        Args:
+            plan_root: Root of Neo4j plan tree from PROFILE result
+
+        Returns:
+            PlanNode tree or None if plan is empty
+        """
+        if not plan_root:
+            return None
+
+        operator_type = plan_root.get("operatorType", "Unknown")
+        rows = plan_root.get("rows", 0)
+        db_hits = plan_root.get("dbHits", 0)
+
+        # Extract operator-specific properties
+        properties: dict[str, Any] = {}
+        for key, value in plan_root.items():
+            if key not in {"operatorType", "rows", "children"}:
+                properties[key] = value
+
+        # Add dbHits explicitly to properties
+        properties["dbHits"] = db_hits
+
+        # Recursively build children
+        children: list[PlanNode] = []
+        for child_plan in plan_root.get("children", []):
+            if isinstance(child_plan, dict):
+                child_node = self._build_plan_tree_from_neo4j(child_plan)
+                if child_node:
+                    children.append(child_node)
+
+        return PlanNode(
+            node_type=operator_type,
+            cost=None,  # Neo4j doesn't provide cost estimates in PROFILE
+            estimated_rows=None,  # Neo4j doesn't provide estimated rows
+            actual_rows=rows,
+            actual_time_ms=None,  # Neo4j PROFILE doesn't give per-operator time
+            children=children,
+            properties=properties,
+        )
 
     def _extract_profile_info(self, summary: Any) -> dict[str, Any]:
         """Extract profile information from result summary.

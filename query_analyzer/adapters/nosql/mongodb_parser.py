@@ -1,6 +1,9 @@
 """Parse MongoDB executionStats output."""
 
+import json
 from typing import Any
+
+from ..models import PlanNode
 
 
 class MongoExplainParser:
@@ -33,16 +36,13 @@ class MongoExplainParser:
         exec_stats = explain_json.get("executionStats", {})
         query_planner = explain_json.get("queryPlanner", {})
 
-        # Traverse winning plan tree
         stages = MongoExplainParser._traverse_stages(query_planner.get("winningPlan", {}), depth=0)
 
-        # Extract metrics
         nreturned = exec_stats.get("nReturned", 0)
         docs_examined = exec_stats.get("totalDocsExamined", 0)
         keys_examined = exec_stats.get("totalKeysExamined", 0)
         exec_time_ms = exec_stats.get("executionTimeMillis", 0)
 
-        # Detect stage types
         stage_types = [s.get("stage") for s in stages if s.get("stage")]
         has_collscan = "COLLSCAN" in stage_types
         has_ixscan = "IXSCAN" in stage_types
@@ -63,6 +63,117 @@ class MongoExplainParser:
             "has_index": has_ixscan,
             "raw": explain_json,
         }
+
+    @staticmethod
+    def build_plan_tree(explain_json: dict) -> PlanNode | None:
+        """Build PlanNode hierarchy from MongoDB explain output.
+
+        Args:
+            explain_json: Full explain output from collection.find().explain()
+
+        Returns:
+            PlanNode tree or None if no plan available
+        """
+        query_planner = explain_json.get("queryPlanner", {})
+        winning_plan = query_planner.get("winningPlan", {})
+
+        if not winning_plan:
+            return None
+
+        return MongoExplainParser._build_node_tree(winning_plan, 0)
+
+    @staticmethod
+    def _build_node_tree(plan_node: dict, depth: int = 0) -> PlanNode | None:
+        """Recursively build PlanNode tree from MongoDB plan.
+
+        Args:
+            plan_node: Current stage node
+            depth: Recursion depth
+
+        Returns:
+            PlanNode or None if invalid
+        """
+        if not plan_node:
+            return None
+
+        stage_name = plan_node.get("stage", "Unknown")
+
+        properties: dict[str, Any] = {
+            "depth": depth,
+        }
+
+        if "indexName" in plan_node:
+            properties["index_name"] = plan_node["indexName"]
+
+        if "keyPattern" in plan_node:
+            properties["key_pattern"] = plan_node["keyPattern"]
+
+        if "filter" in plan_node:
+            properties["filter"] = (
+                json.dumps(plan_node["filter"])
+                if isinstance(plan_node["filter"], dict)
+                else plan_node["filter"]
+            )
+
+        if "direction" in plan_node:
+            properties["direction"] = plan_node["direction"]
+
+        children: list[PlanNode] = []
+
+        if "inputStage" in plan_node:
+            input_stage = plan_node["inputStage"]
+            child_node = MongoExplainParser._build_node_tree(input_stage, depth + 1)
+            if child_node:
+                children.append(child_node)
+
+        if "stages" in plan_node:
+            for stage in plan_node["stages"]:
+                child_node = MongoExplainParser._build_node_tree(stage, depth + 1)
+                if child_node:
+                    children.append(child_node)
+
+        node_type = MongoExplainParser._map_stage_to_node_type(stage_name)
+
+        return PlanNode(
+            node_type=node_type,
+            cost=None,
+            estimated_rows=None,
+            actual_rows=None,
+            actual_time_ms=None,
+            children=children,
+            properties=properties,
+        )
+
+    @staticmethod
+    def _map_stage_to_node_type(stage_name: str) -> str:
+        """Map MongoDB stage name to generic node type.
+
+        Args:
+            stage_name: MongoDB stage name (COLLSCAN, IXSCAN, FETCH, etc.)
+
+        Returns:
+            Generic node type for display
+        """
+        mapping = {
+            "COLLSCAN": "Collection Scan",
+            "IXSCAN": "Index Scan",
+            "FETCH": "Fetch",
+            "SORT": "Sort",
+            "LIMIT": "Limit",
+            "SKIP": "Skip",
+            "PROJECTION": "Projection",
+            "SHARDING_FILTER": "Sharding Filter",
+            "COUNT": "Count",
+            "COUNT_SCAN": "Count Scan",
+            "DISTINCT": "Distinct",
+            "DISTINCT_SCAN": "Distinct Scan",
+            "MULTI_PLAN": "Multi Plan",
+            "TEXT": "Text Search",
+            "FLOW_CONTROL": "Flow Control",
+            "SHARD_MERGE": "Shard Merge",
+            "UNKNOWN": "Unknown",
+        }
+        return mapping.get(stage_name, f"Unknown ({stage_name})")
 
     @staticmethod
     def _traverse_stages(plan_node: dict, depth: int = 0) -> list[dict]:

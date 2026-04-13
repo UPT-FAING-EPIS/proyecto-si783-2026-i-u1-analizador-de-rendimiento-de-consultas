@@ -1,5 +1,6 @@
 """Unit tests for Neo4j adapter."""
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ from query_analyzer.adapters import (
     ConnectionConfig,
     Neo4jAdapter,
 )
+from query_analyzer.adapters.models import Recommendation, Warning
 
 # ============================================================================
 # FIXTURES
@@ -224,15 +226,13 @@ class TestNeo4jQueryValidation:
             "operatorType": "ProduceResults",
             "dbHits": 0,
             "children": [],
+            "rows": 0,
         }
-        mock_summary.counters = MagicMock()
-        mock_summary.counters.rows_written = 0
-        mock_summary.result_available_after = 0
-        mock_summary.result_consumed_after = 5
 
         mock_result.consume.return_value = mock_summary
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value = mock_session
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=None)
         mock_driver_factory.return_value = mock_driver
 
         adapter = Neo4jAdapter(neo4j_config)
@@ -303,3 +303,229 @@ class TestNeo4jMetrics:
 
         assert isinstance(slow_queries, list)
         assert len(slow_queries) == 0
+
+
+# ============================================================================
+# TESTS - V2 Model Validation (execute_explain returns proper objects)
+# ============================================================================
+
+
+class TestNeo4jAdapterV2Models:
+    """Tests for v2 QueryAnalysisReport structure with proper Warning/Recommendation objects."""
+
+    @pytest.fixture
+    def mock_profile_result(self) -> dict:
+        """Mock Neo4j PROFILE result with plan tree structure."""
+        return {
+            "profile": {
+                "plan": {
+                    "operatorType": "ProduceResults",
+                    "dbHits": 0,
+                    "rows": 100,
+                    "children": [
+                        {
+                            "operatorType": "NodeIndexSeek",
+                            "dbHits": 50,
+                            "rows": 100,
+                            "indexName": "idx_user_email",
+                            "children": [],
+                        }
+                    ],
+                },
+                "stats": {"rows": 100, "time": 5, "dbHits": 50},
+            }
+        }
+
+    @patch("query_analyzer.adapters.graph.neo4j.GraphDatabase.driver")
+    def test_execute_explain_returns_v2_report_structure(
+        self,
+        mock_driver_factory: MagicMock,
+        neo4j_config: ConnectionConfig,
+        mock_profile_result: dict,
+    ) -> None:
+        """execute_explain returns QueryAnalysisReport with v2 structure."""
+        mock_driver = MagicMock()
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_summary = MagicMock()
+
+        mock_summary.profile = mock_profile_result["profile"]
+        mock_result.consume.return_value = mock_summary
+        mock_session.run.return_value = mock_result
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=None)
+        mock_driver_factory.return_value = mock_driver
+
+        adapter = Neo4jAdapter(neo4j_config)
+        adapter.connect()
+
+        report = adapter.execute_explain("MATCH (n:User {email: 'test@example.com'}) RETURN n")
+
+        # Verify v2 report structure
+        assert report.engine == "neo4j"
+        assert isinstance(report.query, str)
+        assert 0 <= report.score <= 100
+        assert isinstance(report.execution_time_ms, (int, float))
+        assert report.execution_time_ms > 0
+        assert isinstance(report.warnings, list)
+        assert isinstance(report.recommendations, list)
+        assert hasattr(report, "plan_tree")
+        assert hasattr(report, "analyzed_at")
+
+    @patch("query_analyzer.adapters.graph.neo4j.GraphDatabase.driver")
+    def test_execute_explain_warnings_are_warning_objects(
+        self,
+        mock_driver_factory: MagicMock,
+        neo4j_config: ConnectionConfig,
+        mock_profile_result: dict,
+    ) -> None:
+        """execute_explain returns warnings as Warning objects (not strings)."""
+        mock_driver = MagicMock()
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_summary = MagicMock()
+
+        # COLLSCAN plan (no index) to trigger warning
+        collscan_plan = {
+            "operatorType": "ProduceResults",
+            "dbHits": 0,
+            "rows": 100,
+            "children": [
+                {
+                    "operatorType": "AllNodesScan",
+                    "dbHits": 100,
+                    "rows": 100,
+                    "children": [],
+                }
+            ],
+        }
+
+        mock_summary.profile = {
+            "plan": collscan_plan,
+            "stats": {"rows": 100, "time": 5, "dbHits": 100},
+        }
+        mock_result.consume.return_value = mock_summary
+        mock_session.run.return_value = mock_result
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=None)
+        mock_driver_factory.return_value = mock_driver
+
+        adapter = Neo4jAdapter(neo4j_config)
+        adapter.connect()
+
+        report = adapter.execute_explain("MATCH (n:User) RETURN n")
+
+        # Verify warnings are Warning objects
+        for warning in report.warnings:
+            assert isinstance(warning, Warning), f"Expected Warning object, got {type(warning)}"
+            assert hasattr(warning, "message"), "Warning missing 'message' field"
+            assert hasattr(warning, "severity"), "Warning missing 'severity' field"
+            assert warning.severity in ("critical", "high", "medium", "low")
+            assert isinstance(warning.message, str)
+
+    @patch("query_analyzer.adapters.graph.neo4j.GraphDatabase.driver")
+    def test_execute_explain_recommendations_are_recommendation_objects(
+        self,
+        mock_driver_factory: MagicMock,
+        neo4j_config: ConnectionConfig,
+        mock_profile_result: dict,
+    ) -> None:
+        """execute_explain returns recommendations as Recommendation objects (not strings)."""
+        mock_driver = MagicMock()
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_summary = MagicMock()
+
+        mock_summary.profile = mock_profile_result["profile"]
+        mock_result.consume.return_value = mock_summary
+        mock_session.run.return_value = mock_result
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=None)
+        mock_driver_factory.return_value = mock_driver
+
+        adapter = Neo4jAdapter(neo4j_config)
+        adapter.connect()
+
+        report = adapter.execute_explain("MATCH (n:User) RETURN n")
+
+        # Verify recommendations are Recommendation objects
+        for rec in report.recommendations:
+            assert isinstance(rec, Recommendation), (
+                f"Expected Recommendation object, got {type(rec)}"
+            )
+            assert hasattr(rec, "title"), "Recommendation missing 'title' field"
+            assert hasattr(rec, "description"), "Recommendation missing 'description' field"
+            assert hasattr(rec, "priority"), "Recommendation missing 'priority' field"
+            assert isinstance(rec.title, str)
+            assert isinstance(rec.description, str)
+            assert 1 <= rec.priority <= 10
+
+    @patch("query_analyzer.adapters.graph.neo4j.GraphDatabase.driver")
+    def test_execute_explain_plan_tree_structure(
+        self,
+        mock_driver_factory: MagicMock,
+        neo4j_config: ConnectionConfig,
+        mock_profile_result: dict,
+    ) -> None:
+        """execute_explain builds PlanNode tree from Neo4j plan."""
+        mock_driver = MagicMock()
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_summary = MagicMock()
+
+        # Properly set up the mock to return our profile result dict
+        mock_summary.profile = mock_profile_result["profile"]
+        mock_result.consume.return_value = mock_summary
+        mock_session.run.return_value = mock_result
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=None)
+        mock_driver_factory.return_value = mock_driver
+
+        adapter = Neo4jAdapter(neo4j_config)
+        adapter.connect()
+
+        report = adapter.execute_explain("MATCH (n:User) RETURN n")
+
+        # Verify plan_tree exists and has PlanNode structure
+        assert report.plan_tree is not None
+        assert hasattr(report.plan_tree, "node_type")
+        assert hasattr(report.plan_tree, "children")
+        assert hasattr(report.plan_tree, "properties")
+        assert report.plan_tree.node_type in (
+            "ProduceResults",
+            "NodeIndexSeek",
+            "AllNodesScan",
+            "Filter",
+        )
+        # Root should have children
+        assert isinstance(report.plan_tree.children, list)
+
+    @patch("query_analyzer.adapters.graph.neo4j.GraphDatabase.driver")
+    def test_execute_explain_analyzed_at_is_utc(
+        self,
+        mock_driver_factory: MagicMock,
+        neo4j_config: ConnectionConfig,
+        mock_profile_result: dict,
+    ) -> None:
+        """execute_explain sets analyzed_at with UTC timezone."""
+        mock_driver = MagicMock()
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_summary = MagicMock()
+
+        mock_summary.profile = mock_profile_result["profile"]
+        mock_result.consume.return_value = mock_summary
+        mock_session.run.return_value = mock_result
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=None)
+        mock_driver_factory.return_value = mock_driver
+
+        adapter = Neo4jAdapter(neo4j_config)
+        adapter.connect()
+
+        report = adapter.execute_explain("MATCH (n:User) RETURN n")
+
+        # Verify analyzed_at is set and is UTC
+        assert report.analyzed_at is not None
+        assert isinstance(report.analyzed_at, datetime)
+        assert report.analyzed_at.tzinfo == UTC

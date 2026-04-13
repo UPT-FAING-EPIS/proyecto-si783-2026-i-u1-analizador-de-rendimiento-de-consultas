@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 from pymongo import MongoClient
@@ -14,6 +15,7 @@ from pymongo.errors import (
 from ..base import BaseAdapter
 from ..exceptions import ConnectionError as AdapterConnectionError
 from ..exceptions import QueryAnalysisError
+from ..migration_helpers import detection_result_to_warnings_and_recommendations
 from ..models import ConnectionConfig, QueryAnalysisReport
 from ..registry import AdapterRegistry
 from .mongodb_parser import MongoExplainParser
@@ -112,7 +114,7 @@ class MongoDBAdapter(BaseAdapter):
                 }
 
         Returns:
-            QueryAnalysisReport with metrics and anti-patterns
+            QueryAnalysisReport v2 with metrics and anti-patterns
 
         Raises:
             QueryAnalysisError: If query execution fails
@@ -150,23 +152,40 @@ class MongoDBAdapter(BaseAdapter):
             # Parse explain output
             parsed_explain = MongoExplainParser.parse(explain_result)
 
-            # Detect anti-patterns
-            from ...core.anti_pattern_detector import MongoDBAntiPatternDetector
+            # Build PlanNode tree from MongoDB stages
+            plan_tree = MongoExplainParser.build_plan_tree(explain_result)
 
-            detection = MongoDBAntiPatternDetector.detect(parsed_explain)
+            # Detect anti-patterns using unified AntiPatternDetector
+            from ...core.anti_pattern_detector import AntiPatternDetector
 
-            # Build report
+            detector = AntiPatternDetector()
+            detection_result = detector.analyze_mongodb_patterns(parsed_explain, query)
+
+            # Convert detection result to v2 models (Warning, Recommendation objects)
+            warnings, recommendations = detection_result_to_warnings_and_recommendations(
+                detection_result
+            )
+
+            # Extract metrics
             docs_returned = parsed_explain["metrics"]["documents_returned"]
             docs_examined = parsed_explain["metrics"]["documents_examined"]
             examination_ratio = docs_examined / max(1, docs_returned)
+            execution_time_ms = parsed_explain["metrics"]["execution_time_ms"]
 
+            # Ensure execution_time_ms > 0 (validation requirement)
+            if execution_time_ms <= 0:
+                execution_time_ms = 1.0
+
+            # Build report with v2 models
             report = QueryAnalysisReport(
                 engine="mongodb",
                 query=query,
-                score=detection["final_score"],
-                execution_time_ms=parsed_explain["metrics"]["execution_time_ms"],
-                warnings=[ap["description"] for ap in detection["anti_patterns"]],
-                recommendations=[ap["recommendation"] for ap in detection["anti_patterns"]],
+                score=detection_result.score,
+                execution_time_ms=execution_time_ms,
+                warnings=warnings,
+                recommendations=recommendations,
+                plan_tree=plan_tree,
+                analyzed_at=datetime.now(UTC),
                 raw_plan=explain_result,
                 metrics={
                     "documents_returned": docs_returned,
@@ -174,7 +193,7 @@ class MongoDBAdapter(BaseAdapter):
                     "keys_examined": parsed_explain["metrics"]["keys_examined"],
                     "execution_stages": parsed_explain["metrics"]["execution_stages"],
                     "examination_ratio": examination_ratio,
-                    "anti_patterns_count": len(detection["anti_patterns"]),
+                    "anti_patterns_count": len(detection_result.anti_patterns),
                 },
             )
 

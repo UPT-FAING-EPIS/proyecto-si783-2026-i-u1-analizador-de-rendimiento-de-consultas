@@ -17,6 +17,7 @@ from .models import (
     Recommendation,
     Warning,
 )
+from .nosql import MongoDBAdapter
 from .registry import AdapterRegistry
 from .sql import (
     CockroachDBAdapter,

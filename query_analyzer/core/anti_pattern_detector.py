@@ -290,6 +290,84 @@ class RecommendationEngine:
 
         return rec
 
+    @staticmethod
+    def mongodb_collection_scan(collection_name: str, docs_examined: int) -> str:
+        """Recomendación para collection scan en MongoDB.
+
+        Args:
+            collection_name: Nombre de la colección
+            docs_examined: Número de documentos examinados
+
+        Returns:
+            Texto de recomendación
+        """
+        return (
+            f"Crear índice en campos consultados de la colección '{collection_name}' "
+            f"({docs_examined:,} documentos examinados). Analizar las condiciones de filtro "
+            f"para identificar campos candidatos a indexar."
+        )
+
+    @staticmethod
+    def mongodb_high_doc_ratio(collection_name: str, ratio: float, docs_examined: int) -> str:
+        """Recomendación para alto ratio de examinación de documentos.
+
+        Args:
+            collection_name: Nombre de la colección
+            ratio: Ratio de docs_examined / docs_returned
+            docs_examined: Número de documentos examinados
+
+        Returns:
+            Texto de recomendación
+        """
+        return (
+            f"Crear índice más selectivo en colección '{collection_name}'. "
+            f"Query examinó {ratio:.1f}x más documentos ({docs_examined:,}) de los que retornó. "
+            f"Considerar índice compuesto en campos de filtro + sort."
+        )
+
+    @staticmethod
+    def mongodb_sort_without_index(collection_name: str, sort_field: str | None = None) -> str:
+        """Recomendación para sort en memoria.
+
+        Args:
+            collection_name: Nombre de la colección
+            sort_field: Campo de ordenamiento (si aplica)
+
+        Returns:
+            Texto de recomendación
+        """
+        rec = f"Crear índice para evitar sort en memoria en colección '{collection_name}'. "
+
+        if sort_field:
+            rec += f"Indexar campo '{sort_field}' para ORDER BY. "
+        else:
+            rec += "Indexar campos de ordenamiento. "
+
+        rec += "Considerar índice compuesto si se combina con filtros."
+
+        return rec
+
+    @staticmethod
+    def mongodb_regex_without_prefix(field_name: str, pattern: str | None = None) -> str:
+        """Recomendación para regex sin anclaje.
+
+        Args:
+            field_name: Nombre del campo con regex
+            pattern: Patrón regex (si aplica)
+
+        Returns:
+            Texto de recomendación
+        """
+        rec = (
+            f"Usar regex anclado (ej: /^prefix/) en campo '{field_name}' para aprovechar índices. "
+        )
+        rec += "Patrones sin anclaje requieren full collection scan."
+
+        if pattern:
+            rec += f" Patrón actual: {pattern}"
+
+        return rec
+
 
 class AntiPatternDetector:
     """Detector agnóstico de anti-patrones en planes de ejecución.
@@ -851,6 +929,216 @@ class AntiPatternDetector:
                 rec = (
                     "Add field selection to limit returned fields: "
                     'use select(columns: ["field1", "field2"])'
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+        return recommendations
+
+    def analyze_mongodb_patterns(
+        self, normalized_plan: dict[str, Any], query: str = ""
+    ) -> DetectionResult:
+        """Analiza anti-patrones específicos de MongoDB.
+
+        Args:
+            normalized_plan: Plan normalizado de MongoExplainParser.parse()
+            query: Query MongoDB original (para detecciones que lo requieren)
+
+        Returns:
+            DetectionResult con score, anti-patterns y recomendaciones
+        """
+        # Reset scoring para nuevo análisis
+        self.scoring_engine = ScoringEngine()
+
+        anti_patterns: list[AntiPattern] = []
+
+        # Ejecuta todos los detectores MongoDB
+        anti_patterns.extend(self._detect_mongodb_collection_scan(normalized_plan))
+        anti_patterns.extend(self._detect_mongodb_high_doc_ratio(normalized_plan))
+        anti_patterns.extend(self._detect_mongodb_sort_without_index(normalized_plan))
+        anti_patterns.extend(self._detect_mongodb_regex_without_prefix(normalized_plan, query))
+
+        # Genera recomendaciones específicas
+        recommendations = self._generate_mongodb_recommendations(anti_patterns)
+
+        return DetectionResult(
+            score=self.scoring_engine.get_score(),
+            anti_patterns=anti_patterns,
+            recommendations=recommendations,
+        )
+
+    def _detect_mongodb_collection_scan(self, normalized_plan: dict[str, Any]) -> list[AntiPattern]:
+        """Detecta COLLSCAN (collection scan completo).
+
+        Severidad: ALTA (-25 puntos)
+        """
+        patterns: list[AntiPattern] = []
+
+        if normalized_plan.get("has_collection_scan", False):
+            docs_examined = normalized_plan.get("metrics", {}).get("documents_examined", 0)
+
+            pattern = AntiPattern(
+                name="collection_scan",
+                severity=Severity.HIGH,
+                description="Query realiza un collection scan completo (COLLSCAN)",
+                affected_table=None,  # MongoDB no tiene tabla explícita
+                affected_column=None,
+                metadata={
+                    "docs_examined": docs_examined,
+                    "execution_time_ms": normalized_plan.get("metrics", {}).get(
+                        "execution_time_ms", 0
+                    ),
+                },
+            )
+            patterns.append(pattern)
+            self.scoring_engine.deduct("collection_scan", Severity.HIGH)
+
+        return patterns
+
+    def _detect_mongodb_high_doc_ratio(self, normalized_plan: dict[str, Any]) -> list[AntiPattern]:
+        """Detecta alto ratio de documentos examinados vs retornados.
+
+        Condición: docs_examined / docs_returned > 10
+        Severidad: MEDIA (-15 puntos)
+        """
+        patterns: list[AntiPattern] = []
+
+        metrics = normalized_plan.get("metrics", {})
+        docs_returned = metrics.get("documents_returned", 0)
+        docs_examined = metrics.get("documents_examined", 0)
+
+        if docs_returned > 0 and docs_examined > 0:
+            ratio = docs_examined / docs_returned
+
+            if ratio > 10:
+                pattern = AntiPattern(
+                    name="high_doc_examination_ratio",
+                    severity=Severity.MEDIUM,
+                    description=(
+                        f"Query examinó {docs_examined:,} documentos "
+                        f"para retornar {docs_returned:,} ({ratio:.1f}x ratio)"
+                    ),
+                    affected_table=None,
+                    affected_column=None,
+                    metadata={
+                        "ratio": ratio,
+                        "docs_examined": docs_examined,
+                        "docs_returned": docs_returned,
+                    },
+                )
+                patterns.append(pattern)
+                self.scoring_engine.deduct("high_doc_examination_ratio", Severity.MEDIUM)
+
+        return patterns
+
+    def _detect_mongodb_sort_without_index(
+        self, normalized_plan: dict[str, Any]
+    ) -> list[AntiPattern]:
+        """Detecta sort en memoria (sin índice de soporte).
+
+        Condición: has_sort=True AND has_index=False
+        Severidad: MEDIA (-15 puntos)
+        """
+        patterns: list[AntiPattern] = []
+
+        has_sort = normalized_plan.get("has_sort", False)
+        has_index = normalized_plan.get("has_index", False)
+
+        if has_sort and not has_index:
+            pattern = AntiPattern(
+                name="sort_without_index",
+                severity=Severity.MEDIUM,
+                description="Sort realizado en memoria (sin índice de soporte)",
+                affected_table=None,
+                affected_column=None,
+                metadata={
+                    "has_sort": True,
+                    "has_index": False,
+                },
+            )
+            patterns.append(pattern)
+            self.scoring_engine.deduct("sort_without_index", Severity.MEDIUM)
+
+        return patterns
+
+    def _detect_mongodb_regex_without_prefix(
+        self, normalized_plan: dict[str, Any], query: str = ""
+    ) -> list[AntiPattern]:
+        """Detecta regex sin anclaje de prefijo.
+
+        Condición: query contiene operador $regex sin ^ al inicio
+        Severidad: MEDIA (-15 puntos)
+        """
+        patterns: list[AntiPattern] = []
+
+        if not query:
+            return patterns
+
+        # Búsqueda simple de $regex sin ancla
+        import re
+
+        regex_pattern = r"\$regex\s*:\s*['\"]([^'\"]+)['\"]"
+        matches = re.findall(regex_pattern, query)
+
+        for match in matches:
+            # Si el regex no comienza con ^, es potencialmente problemático
+            if not match.startswith("^"):
+                pattern = AntiPattern(
+                    name="regex_without_prefix",
+                    severity=Severity.MEDIUM,
+                    description=(
+                        f"Regex sin anclaje de prefijo: '{match}' (requiere full collection scan)"
+                    ),
+                    affected_table=None,
+                    affected_column=None,
+                    metadata={
+                        "regex_pattern": match,
+                        "has_prefix_anchor": False,
+                    },
+                )
+                patterns.append(pattern)
+                self.scoring_engine.deduct("regex_without_prefix", Severity.MEDIUM)
+                break  # Solo una advertencia por query
+
+        return patterns
+
+    def _generate_mongodb_recommendations(self, anti_patterns: list[AntiPattern]) -> list[str]:
+        """Genera recomendaciones específicas para MongoDB.
+
+        Args:
+            anti_patterns: Lista de patrones detectados
+
+        Returns:
+            Lista de recomendaciones sin duplicados
+        """
+        recommendations: list[str] = []
+
+        for ap in anti_patterns:
+            if ap.name == "collection_scan":
+                rec = RecommendationEngine.mongodb_collection_scan(
+                    "collection",
+                    ap.metadata.get("docs_examined", 0),
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+            elif ap.name == "high_doc_examination_ratio":
+                rec = RecommendationEngine.mongodb_high_doc_ratio(
+                    "collection",
+                    ap.metadata.get("ratio", 1.0),
+                    ap.metadata.get("docs_examined", 0),
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+            elif ap.name == "sort_without_index":
+                rec = RecommendationEngine.mongodb_sort_without_index("collection", None)
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
+            elif ap.name == "regex_without_prefix":
+                rec = RecommendationEngine.mongodb_regex_without_prefix(
+                    "field", ap.metadata.get("regex_pattern")
                 )
                 if rec not in recommendations:
                     recommendations.append(rec)
