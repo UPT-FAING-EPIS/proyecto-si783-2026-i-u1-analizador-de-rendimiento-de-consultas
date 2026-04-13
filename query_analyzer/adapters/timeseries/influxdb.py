@@ -215,8 +215,8 @@ class InfluxDBAdapter(BaseAdapter):
             start_time = time.time()
             logger.debug(f"Query with org={self._org_id}")
             result_str = ""
-            execution_time_ms = 0
-            metrics = {"records_returned": 0, "measurements_scanned": 1}
+            execution_time_ms = 0.0
+            metrics: dict[str, Any] = {"records_returned": 0, "measurements_scanned": 1}
 
             try:
                 result = self._query_api.query_raw(org=self._org_id or "", query=query)
