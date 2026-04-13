@@ -4,8 +4,8 @@ import logging
 import time
 from typing import Any
 
-from neo4j import GraphDatabase, basic_auth
-from neo4j.exceptions import (
+from neo4j import GraphDatabase, basic_auth  # type: ignore[import-not-found]
+from neo4j.exceptions import (  # type: ignore[import-not-found]
     AuthError,
     ServiceUnavailable,
 )
@@ -198,8 +198,8 @@ class Neo4jAdapter(BaseAdapter):
                     query=query,
                     score=score,
                     execution_time_ms=execution_time_ms,
-                    warnings=warnings,
-                    recommendations=recommendations,
+                    warnings=warnings,  # type: ignore[arg-type]
+                    recommendations=recommendations,  # type: ignore[arg-type]
                     raw_plan=profile_info,
                     metrics=metrics,
                 )

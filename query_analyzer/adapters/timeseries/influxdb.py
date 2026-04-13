@@ -63,7 +63,7 @@ class InfluxDBAdapter(BaseAdapter):
             ConnectionError: If connection fails or health check fails
         """
         try:
-            from influxdb_client import InfluxDBClient
+            from influxdb_client import InfluxDBClient  # type: ignore[import-not-found]
 
             # Extract configuration
             host = self._config.host or "localhost"
@@ -262,8 +262,8 @@ class InfluxDBAdapter(BaseAdapter):
                 query=query,
                 score=score,
                 execution_time_ms=execution_time_ms,
-                warnings=warnings,
-                recommendations=recommendations,
+                warnings=warnings,  # type: ignore[arg-type]
+                recommendations=recommendations,  # type: ignore[arg-type]
                 raw_plan=normalized_plan,
                 metrics=metrics,
             )

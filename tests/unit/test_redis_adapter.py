@@ -278,16 +278,14 @@ class TestRedisAdapterConnection:
 
     def test_connect_requires_host_port(self):
         """Test connect() raises error if host/port missing."""
-        config = ConnectionConfig(
-            engine="redis",
-            host="",  # Empty host
-            port=6379,
-            database="0",
-        )
-        adapter = RedisAdapter(config)
-
-        with pytest.raises(Exception):
-            adapter.connect()
+        # Empty host is rejected by ConnectionConfig validator
+        with pytest.raises(ValueError, match="host no puede estar vacío"):
+            ConnectionConfig(
+                engine="redis",
+                host="",  # Empty host
+                port=6379,
+                database="0",
+            )
 
     def test_is_connected_false_initially(self, adapter):
         """Test is_connected() returns False initially."""

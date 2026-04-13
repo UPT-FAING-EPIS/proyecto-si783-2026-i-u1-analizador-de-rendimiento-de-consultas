@@ -10,7 +10,8 @@ and use CockroachDBParser for CRDB-specific optimizations:
 
 import json
 import logging
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Literal, cast
 
 import psycopg2
 from psycopg2 import OperationalError
@@ -20,6 +21,10 @@ from query_analyzer.adapters.exceptions import (
     ConnectionError as AdapterConnectionError,
 )
 from query_analyzer.adapters.exceptions import QueryAnalysisError
+from query_analyzer.adapters.migration_helpers import (
+    build_plan_tree,
+    detection_result_to_warnings_and_recommendations,
+)
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
 from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
@@ -223,11 +228,38 @@ class CockroachDBAdapter(BaseAdapter):
                 detector = AntiPatternDetector()
                 detection_result = detector.analyze(normalized_plan, query)
 
-                # Use detector's score and recommendations (single source of truth)
-                # Convert anti-pattern descriptions to warnings
-                warnings = [ap.description for ap in detection_result.anti_patterns]
-                recommendations = detection_result.recommendations
-                score = detection_result.score
+                # Convert v1 data (strings) to v2 models (Warning, Recommendation)
+                warnings, recommendations = detection_result_to_warnings_and_recommendations(
+                    detection_result
+                )
+
+                # If text fallback was used, extract CRDB-specific warnings from text
+                if explain_text and not explain_json:
+                    text_warnings = self._detect_crdb_specific_issues(explain_text, metrics)
+                    # Import Warning here to avoid circular imports
+                    from query_analyzer.adapters.models import Warning
+
+                    for warning_msg in text_warnings:
+                        # Parse severity from message (critical or high)
+                        severity_str = "critical" if "CRITICAL" in warning_msg else "high"
+                        severity: Literal["critical", "high", "medium", "low"] = cast(
+                            Literal["critical", "high", "medium", "low"], severity_str
+                        )
+                        warnings.append(
+                            Warning(
+                                message=warning_msg,
+                                severity=severity,
+                                node_type="Seq Scan",
+                                affected_object=None,
+                                metadata={},
+                            )
+                        )
+
+                # Build plan tree from raw EXPLAIN output
+                plan_tree = None
+                if explain_json:
+                    root_plan = explain_json.get("Plan", {})
+                    plan_tree = build_plan_tree(root_plan)
 
                 # Build report (ensure raw_plan is None if text-only)
                 raw_plan = explain_json if explain_json else None
@@ -235,10 +267,12 @@ class CockroachDBAdapter(BaseAdapter):
                 return QueryAnalysisReport(
                     engine="cockroachdb",
                     query=query,
-                    score=score,
-                    execution_time_ms=metrics.get("execution_time_ms", 0.0),
+                    score=detection_result.score,
+                    execution_time_ms=metrics.get("execution_time_ms", 1.0),
                     warnings=warnings,
                     recommendations=recommendations,
+                    plan_tree=plan_tree,
+                    analyzed_at=datetime.now(UTC),
                     raw_plan=raw_plan,  # Only include JSON, not text fallback
                     metrics=metrics,
                 )
@@ -290,7 +324,7 @@ class CockroachDBAdapter(BaseAdapter):
         """
         return {
             "planning_time_ms": 0.0,
-            "execution_time_ms": 0.0,
+            "execution_time_ms": 1.0,
             "total_cost": 0.0,
             "actual_rows_total": 0,
             "plan_rows_total": 0,

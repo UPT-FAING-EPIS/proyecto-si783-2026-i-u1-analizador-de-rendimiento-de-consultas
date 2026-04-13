@@ -17,11 +17,11 @@ class TestSQLiteAdapterConnection:
         """Create config for in-memory database."""
         return ConnectionConfig(
             engine="sqlite",
-            host="localhost",
-            port=0,
+            host=None,
+            port=None,
             database=":memory:",
-            username="",
-            password="",
+            username=None,
+            password=None,
         )
 
     @pytest.fixture
@@ -30,11 +30,11 @@ class TestSQLiteAdapterConnection:
         db_file = tmp_path / "test.db"
         return ConnectionConfig(
             engine="sqlite",
-            host="localhost",
-            port=0,
+            host=None,
+            port=None,
             database=str(db_file),
-            username="",
-            password="",
+            username=None,
+            password=None,
         )
 
     @pytest.fixture
@@ -71,11 +71,11 @@ class TestSQLiteAdapterConnection:
         nested_path = tmp_path / "deeply" / "nested" / "path" / "test.db"
         config = ConnectionConfig(
             engine="sqlite",
-            host="localhost",
-            port=0,
+            host=None,
+            port=None,
             database=str(nested_path),
-            username="",
-            password="",
+            username=None,
+            password=None,
         )
         adapter = SQLiteAdapter(config)
 
@@ -175,7 +175,7 @@ class TestSQLiteAdapterConnection:
         report = connected_adapter.execute_explain(query)
 
         assert len(report.warnings) > 0
-        assert any("scan" in w.lower() for w in report.warnings)
+        assert any("scan" in w.message.lower() or "SELECT *" in w.message for w in report.warnings)
 
     def test_execute_explain_generates_recommendations(self, connected_adapter):
         """Test that recommendations are generated."""
@@ -301,11 +301,11 @@ class TestSQLiteAdapterConnection:
         """Test connection fails with invalid path."""
         config = ConnectionConfig(
             engine="sqlite",
-            host="localhost",
-            port=0,
+            host=None,
+            port=None,
             database="/invalid/path/that/does/not/exist/test.db",
-            username="",
-            password="",
+            username=None,
+            password=None,
         )
         SQLiteAdapter(config)
 

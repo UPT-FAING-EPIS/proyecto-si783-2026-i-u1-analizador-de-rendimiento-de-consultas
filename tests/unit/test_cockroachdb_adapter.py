@@ -21,7 +21,7 @@ class TestCockroachDBAdapterInit:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
 
@@ -41,7 +41,7 @@ class TestCockroachDBAdapterInit:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         assert isinstance(adapter, BaseAdapter)
@@ -62,7 +62,7 @@ class TestCockroachDBAdapterConnection:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter.connect()
@@ -84,7 +84,7 @@ class TestCockroachDBAdapterConnection:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
 
@@ -101,7 +101,7 @@ class TestCockroachDBAdapterConnection:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
 
@@ -124,7 +124,7 @@ class TestCockroachDBAdapterConnection:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
 
@@ -151,7 +151,7 @@ class TestCockroachDBAdapterConnection:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = False
@@ -172,7 +172,7 @@ class TestCockroachDBAdapterExplain:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = False
@@ -188,7 +188,7 @@ class TestCockroachDBAdapterExplain:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -204,7 +204,7 @@ class TestCockroachDBAdapterExplain:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -220,7 +220,7 @@ class TestCockroachDBAdapterExplain:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -263,18 +263,19 @@ class TestCockroachDBAdapterExplain:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
 
-        # Mock cursor: first call (JSON) fails, second call (text) succeeds
+        # Mock cursor: first call (DISTSQL) fails, second call (JSON) fails, third call (text) succeeds
         mock_cursor = MagicMock()
         mock_cursor.execute.side_effect = [
+            Exception("DISTSQL not supported"),  # DISTSQL fails
             Exception("JSON format not supported"),  # JSON fails
             None,  # Text succeeds
         ]
-        mock_cursor.fetchone.return_value = ([{"Plan": {}}],)
+        mock_cursor.fetchone.return_value = None  # No JSON result
         mock_cursor.fetchall.return_value = [("Seq Scan",), ("Full scan",)]
 
         mock_conn = MagicMock()
@@ -287,8 +288,8 @@ class TestCockroachDBAdapterExplain:
         report = adapter.execute_explain("SELECT * FROM test")
 
         assert isinstance(report, QueryAnalysisReport)
-        # Verify fallback happened by checking execute called twice
-        assert mock_cursor.execute.call_count == 2
+        # Verify fallback happened by checking execute called three times (DISTSQL, JSON, ANALYZE)
+        assert mock_cursor.execute.call_count == 3
 
     def test_execute_explain_detects_full_scan_warning(self):
         """execute_explain() detects full scan in text output."""
@@ -298,7 +299,7 @@ class TestCockroachDBAdapterExplain:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -330,7 +331,9 @@ class TestCockroachDBAdapterExplain:
         # Should have at least one warning
         assert len(report.warnings) > 0
         # At least one should mention "full" or "scan"
-        assert any("full" in w.lower() or "scan" in w.lower() for w in report.warnings)
+        assert any(
+            "full" in w.message.lower() or "scan" in w.message.lower() for w in report.warnings
+        )
 
     def test_execute_explain_detects_cross_region_warning(self):
         """execute_explain() detects cross-region full scan (CRITICAL)."""
@@ -340,7 +343,7 @@ class TestCockroachDBAdapterExplain:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -374,7 +377,7 @@ class TestCockroachDBAdapterExplain:
         # Should have cross-region warning
         assert len(report.warnings) > 0
         # Check for CRITICAL warning
-        assert any("critical" in w.lower() for w in report.warnings)
+        assert any("critical" in w.message.lower() for w in report.warnings)
 
 
 class TestCockroachDBAdapterMetrics:
@@ -388,7 +391,7 @@ class TestCockroachDBAdapterMetrics:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -416,7 +419,7 @@ class TestCockroachDBAdapterMetrics:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -445,7 +448,7 @@ class TestCockroachDBAdapterMetrics:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = False
@@ -462,7 +465,7 @@ class TestCockroachDBAdapterMetrics:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = True
@@ -490,7 +493,7 @@ class TestCockroachDBAdapterMetrics:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
         adapter._is_connected = False
@@ -507,7 +510,7 @@ class TestCockroachDBAdapterMetrics:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = CockroachDBAdapter(config)
 
@@ -536,7 +539,7 @@ class TestCockroachDBAdapterRegistry:
             port=26257,
             database="defaultdb",
             username="root",
-            password="",
+            password=None,
         )
         adapter = AdapterRegistry.create("cockroachdb", config)
 

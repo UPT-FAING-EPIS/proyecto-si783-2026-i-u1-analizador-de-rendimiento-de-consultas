@@ -10,6 +10,8 @@ from query_analyzer.adapters import (
     ConnectionConfig,
     ConnectionError,
     QueryAnalysisReport,
+    Recommendation,
+    Warning,
 )
 
 # ============================================================================
@@ -41,8 +43,22 @@ class MockAdapter(BaseAdapter):
             query=query,
             score=85,
             execution_time_ms=123.45,
-            warnings=["No índice en column X"],
-            recommendations=["Crear índice en column X"],
+            warnings=[
+                Warning(
+                    severity="medium",
+                    message="No índice en column X",
+                    node_type="Seq Scan",
+                    affected_object="column X",
+                )
+            ],
+            recommendations=[
+                Recommendation(
+                    priority=3,
+                    title="Crear índice en column X",
+                    description="Un índice en column X mejorará performance",
+                    affected_object="column X",
+                )
+            ],
             raw_plan={"type": "mock_plan", "rows": 1000},
             metrics={"rows": 1000, "cost": 100.5},
         )
@@ -348,8 +364,21 @@ def test_query_analysis_report_valid() -> None:
         query="SELECT * FROM users WHERE id = 1",
         score=90,
         execution_time_ms=45.5,
-        warnings=["No índice en id"],
-        recommendations=["Crear índice"],
+        warnings=[
+            Warning(
+                severity="low",
+                message="No índice en id",
+                affected_object="id",
+            )
+        ],
+        recommendations=[
+            Recommendation(
+                priority=5,
+                title="Crear índice",
+                description="Crear un índice en la columna id",
+                affected_object="id",
+            )
+        ],
         raw_plan={"plan": "scan"},
         metrics={"rows": 100},
     )
@@ -468,7 +497,7 @@ def test_query_analysis_report_invalid_engine() -> None:
     """Verifica que rechaza motores no soportados."""
     with pytest.raises(ValidationError) as exc_info:
         QueryAnalysisReport(
-            engine="sqlite",
+            engine="oracle",
             query="SELECT 1",
             score=50,
             execution_time_ms=10.0,

@@ -6,6 +6,7 @@ Supports both in-memory and file-based databases.
 
 import logging
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,10 @@ from query_analyzer.adapters.exceptions import (
 from query_analyzer.adapters.exceptions import (
     DisconnectionError,
     QueryAnalysisError,
+)
+from query_analyzer.adapters.migration_helpers import (
+    build_plan_tree,
+    detection_result_to_warnings_and_recommendations,
 )
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
@@ -168,21 +173,25 @@ class SQLiteAdapter(BaseAdapter):
             detector = AntiPatternDetector()
             detection_result = detector.analyze(normalized_plan, query)
 
-            # Use detector's score and recommendations (single source of truth)
-            # Convert anti-pattern descriptions to warnings
-            warnings = [ap.description for ap in detection_result.anti_patterns]
-            recommendations = detection_result.recommendations
-            score = detection_result.score
+            # Convert v1 data (strings) to v2 models (Warning, Recommendation)
+            warnings, recommendations = detection_result_to_warnings_and_recommendations(
+                detection_result
+            )
+
+            # Build plan tree from parsed plan
+            plan_tree = build_plan_tree(parsed_plan)
 
             metrics = self._get_query_metrics()
 
             report = QueryAnalysisReport(
                 engine="sqlite",
                 query=query,
-                score=score,
-                execution_time_ms=0.0,
+                score=detection_result.score,
+                execution_time_ms=1.0,
                 warnings=warnings,
                 recommendations=recommendations,
+                plan_tree=plan_tree,
+                analyzed_at=datetime.now(UTC),
                 raw_plan=parsed_plan,
                 metrics=metrics,
             )

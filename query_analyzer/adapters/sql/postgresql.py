@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import psycopg2
@@ -12,6 +13,10 @@ from query_analyzer.adapters.exceptions import (
     ConnectionError as AdapterConnectionError,
 )
 from query_analyzer.adapters.exceptions import QueryAnalysisError
+from query_analyzer.adapters.migration_helpers import (
+    build_plan_tree,
+    detection_result_to_warnings_and_recommendations,
+)
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
 from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
@@ -140,7 +145,7 @@ class PostgreSQLAdapter(BaseAdapter):
 
                 # Parse plan and extract metrics
                 metrics = self.parser.parse(explain_json)
-                execution_time = metrics.get("execution_time_ms", 0.0)
+                execution_time = metrics.get("execution_time_ms", 1.0)
 
                 # Normalize plan to engine-agnostic format for AntiPatternDetector
                 root_plan = explain_json.get("Plan", {})
@@ -150,20 +155,24 @@ class PostgreSQLAdapter(BaseAdapter):
                 detector = AntiPatternDetector()
                 detection_result = detector.analyze(normalized_plan, query)
 
-                # Use detector's score and recommendations (single source of truth)
-                # Convert anti-pattern descriptions to warnings
-                warnings = [ap.description for ap in detection_result.anti_patterns]
-                recommendations = detection_result.recommendations
-                score = detection_result.score
+                # Convert v1 data (strings) to v2 models (Warning, Recommendation)
+                warnings, recommendations = detection_result_to_warnings_and_recommendations(
+                    detection_result
+                )
 
-                # Build report
+                # Build plan tree from raw EXPLAIN output
+                plan_tree = build_plan_tree(root_plan)
+
+                # Build v2 report with structured models
                 return QueryAnalysisReport(
                     engine="postgresql",
                     query=query,
-                    score=score,
+                    score=detection_result.score,
                     execution_time_ms=execution_time,
                     warnings=warnings,
                     recommendations=recommendations,
+                    plan_tree=plan_tree,
+                    analyzed_at=datetime.now(UTC),
                     raw_plan=explain_json,
                     metrics=metrics,
                 )

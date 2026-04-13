@@ -10,8 +10,13 @@ from .exceptions import (
     UnsupportedEngineError,
 )
 from .graph import Neo4jAdapter
-from .models import ConnectionConfig, QueryAnalysisReport
-from .nosql import MongoDBAdapter
+from .models import (
+    ConnectionConfig,
+    PlanNode,
+    QueryAnalysisReport,
+    Recommendation,
+    Warning,
+)
 from .registry import AdapterRegistry
 from .sql import (
     CockroachDBAdapter,
@@ -28,7 +33,10 @@ from .timeseries import InfluxDBAdapter
 __all__ = [
     # Models
     "ConnectionConfig",
+    "PlanNode",
     "QueryAnalysisReport",
+    "Warning",
+    "Recommendation",
     # Base
     "BaseAdapter",
     # Registry

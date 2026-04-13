@@ -360,7 +360,7 @@ class AntiPatternDetector:
 
             # Detecta Seq Scan (PostgreSQL)
             if node_type == "Seq Scan":
-                actual_rows = node.get("actual_rows", 0)
+                actual_rows = node.get("actual_rows") or 0
                 table_name = node.get("table_name", "unknown")
 
                 if actual_rows > self.config.seq_scan_row_threshold:
@@ -477,7 +477,7 @@ class AntiPatternDetector:
         patterns: list[AntiPattern] = []
 
         # Obtiene filas del nodo raíz
-        actual_rows = plan.get("actual_rows", 0)
+        actual_rows = plan.get("actual_rows") or 0
         table_name = plan.get("table_name", "unknown")
 
         if actual_rows > self.config.max_result_rows:
