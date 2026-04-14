@@ -15,6 +15,25 @@ Analizador de rendimiento de consultas para **SQL**, **NoSQL** y **TimeSeries** 
 - 🖥️ Interfaz de terminal moderna (TUI) con Textual
 - 🐳 Orquestación con Docker Compose
 
+## 🗄️ Motores de Bases de Datos Soportados
+
+### SQL
+- **PostgreSQL** - Con análisis de execution plans
+- **MySQL** - Con soporte para EXPLAIN FORMAT=JSON
+- **SQLite** - Para testing local
+- **CockroachDB** - Base de datos distribuida
+- **YugabyteDB** - PostgreSQL compatible distribuido
+
+### NoSQL
+- **MongoDB** - Análisis de queries de agregación
+- **DynamoDB** - Análisis de queries de clave-valor con 8 anti-patterns detectados
+
+Para documentación detallada sobre DynamoDB, ver [docs/adapters/DYNAMODB.md](docs/adapters/DYNAMODB.md).
+
+### TimeSeries
+- **InfluxDB** - Base de datos de series temporales
+- **Neo4j** - Base de datos de grafos
+
 ## 📋 Requisitos Previos
 
 - **Python 3.14+**
