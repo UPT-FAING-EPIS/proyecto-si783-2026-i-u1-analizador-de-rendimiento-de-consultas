@@ -15,6 +15,7 @@ def _ensure_all_adapters_registered() -> None:
     """
     from query_analyzer.adapters import (  # noqa: F401
         CockroachDBAdapter,
+        DynamoDBAdapter,
         InfluxDBAdapter,
         MongoDBAdapter,
         MySQLAdapter,
@@ -43,7 +44,8 @@ def pytest_runtest_setup(item) -> None:
             ("query_analyzer.adapters.sql.postgresql", "PostgreSQLAdapter", "postgresql"),
             ("query_analyzer.adapters.sql.yugabytedb", "YugabyteDBAdapter", "yugabytedb"),
             ("query_analyzer.adapters.sql.sqlite", "SQLiteAdapter", "sqlite"),
-            ("query_analyzer.adapters.document.mongodb", "MongoDBAdapter", "mongodb"),
+            ("query_analyzer.adapters.nosql.dynamodb", "DynamoDBAdapter", "dynamodb"),
+            ("query_analyzer.adapters.nosql.mongodb", "MongoDBAdapter", "mongodb"),
             ("query_analyzer.adapters.graph.neo4j", "Neo4jAdapter", "neo4j"),
             ("query_analyzer.adapters.timeseries.influxdb", "InfluxDBAdapter", "influxdb"),
         ]

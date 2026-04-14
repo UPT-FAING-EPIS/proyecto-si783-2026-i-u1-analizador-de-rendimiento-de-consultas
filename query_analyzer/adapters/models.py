@@ -62,6 +62,7 @@ class ConnectionConfig(BaseModel):
             "cockroachdb",
             "yugabytedb",
             "influxdb",
+            "dynamodb",
         }
 
         if engine_lower not in valid_engines:
@@ -187,6 +188,8 @@ class ConnectionConfig(BaseModel):
         elif engine == "neo4j":
             return 7687
         elif engine == "sqlite":
+            return None
+        elif engine == "dynamodb":
             return None
         return v
 
@@ -500,6 +503,7 @@ class QueryAnalysisReport(BaseModel):
             "cockroachdb",
             "yugabytedb",
             "influxdb",
+            "dynamodb",
         }
 
         if engine_lower not in valid_engines:
