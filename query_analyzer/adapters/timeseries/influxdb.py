@@ -2,6 +2,7 @@
 
 import logging
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 from query_analyzer.adapters.base import BaseAdapter
@@ -9,6 +10,9 @@ from query_analyzer.adapters.exceptions import (
     ConnectionError as AdapterConnectionError,
 )
 from query_analyzer.adapters.exceptions import QueryAnalysisError
+from query_analyzer.adapters.migration_helpers import (
+    detection_result_to_warnings_and_recommendations,
+)
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.registry import AdapterRegistry
 from query_analyzer.core.anti_pattern_detector import AntiPatternDetector
@@ -65,7 +69,6 @@ class InfluxDBAdapter(BaseAdapter):
         try:
             from influxdb_client import InfluxDBClient  # type: ignore[import-not-found]
 
-            # Extract configuration
             host = self._config.host or "localhost"
             port = self._config.port or 8086
             token = self._config.password or "invalid_token"  # API token for InfluxDB 2.x
@@ -74,31 +77,24 @@ class InfluxDBAdapter(BaseAdapter):
 
             logger.debug(f"Connect: org={org!r}, extra={self._config.extra}")
 
-            # Build connection URL
             url = f"http://{host}:{port}"
 
-            # Create InfluxDB client
             self._connection = InfluxDBClient(url=url, token=token, org=org, timeout=timeout)
 
-            # Verify connectivity with health check
             health = self._connection.health()
             if health.status != "pass":
                 raise AdapterConnectionError(f"InfluxDB health check failed: {health.message}")
 
-            # Fetch and store org ID for query_raw() calls
-            # If org is empty or not provided, try to find the first available org
             if org:
                 self._org_id = org  # Default to org name if we can't fetch ID
                 try:
                     orgs_api = self._connection.organizations_api()
                     orgs = orgs_api.find_organizations()
-                    # Find org by name
                     for org_obj in orgs:
                         if org_obj.name == org:
                             self._org_id = org_obj.id
                             break
                 except Exception as e:
-                    # Check if this is an authentication error (401)
                     error_str = str(e).lower()
                     if "401" in error_str or "unauthorized" in error_str:
                         raise AdapterConnectionError(
@@ -106,7 +102,6 @@ class InfluxDBAdapter(BaseAdapter):
                         ) from e
                     logger.warning(f"Failed to fetch org ID, using org name: {e}")
             else:
-                # If no org specified, try to find the default or first org
                 try:
                     orgs_api = self._connection.organizations_api()
                     orgs = orgs_api.find_organizations()
@@ -114,7 +109,6 @@ class InfluxDBAdapter(BaseAdapter):
                         self._org_id = orgs[0].id  # Use first available org
                         logger.debug(f"Using first org: {orgs[0].name}")
                 except Exception as e:
-                    # Check if this is an authentication error (401)
                     error_str = str(e).lower()
                     if "401" in error_str or "unauthorized" in error_str:
                         raise AdapterConnectionError(
@@ -122,7 +116,6 @@ class InfluxDBAdapter(BaseAdapter):
                         ) from e
                     logger.warning(f"Failed to fetch default org: {e}")
 
-            # Get query API for later use
             self._query_api = self._connection.query_api()
             self._is_connected = True
             logger.info(f"Connected to InfluxDB {host}:{port}")
@@ -251,10 +244,15 @@ class InfluxDBAdapter(BaseAdapter):
             detector = AntiPatternDetector()
             detection_result = detector.analyze_influxdb_patterns(normalized_plan, query)
 
-            # Convert anti-patterns to warnings
-            warnings = [ap.description for ap in detection_result.anti_patterns]
-            recommendations = detection_result.recommendations
+            # Convert anti-patterns to v2 Warning/Recommendation objects
+            warnings, recommendations = detection_result_to_warnings_and_recommendations(
+                detection_result
+            )
             score = detection_result.score
+
+            # Ensure execution_time_ms is > 0
+            if execution_time_ms <= 0:
+                execution_time_ms = 0.1
 
             # STEP 6: REPORT BUILDING
             return QueryAnalysisReport(
@@ -262,8 +260,10 @@ class InfluxDBAdapter(BaseAdapter):
                 query=query,
                 score=score,
                 execution_time_ms=execution_time_ms,
-                warnings=warnings,  # type: ignore[arg-type]
-                recommendations=recommendations,  # type: ignore[arg-type]
+                warnings=warnings,
+                recommendations=recommendations,
+                plan_tree=None,  # Flux pipelines are sequential, not tree-structured
+                analyzed_at=datetime.now(UTC),
                 raw_plan=normalized_plan,
                 metrics=metrics,
             )

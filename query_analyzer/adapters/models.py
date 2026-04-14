@@ -5,19 +5,22 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 
 class ConnectionConfig(BaseModel):
     """Configuración de conexión a una base de datos.
 
     Attributes:
-        engine: Motor de base de datos (postgresql, mysql, sqlite, mongodb)
+        engine: Motor de base de datos (postgresql, mysql, sqlite, mongodb, etc.)
         host: Dirección del servidor (optional for SQLite)
         port: Puerto de conexión (optional for SQLite)
         database: Nombre o ruta de la base de datos
         username: Usuario para autenticación (optional for SQLite)
-        password: Contraseña para autenticación (optional for SQLite)
+        password: Contraseña para autenticación. Puede ser vacío para:
+                 - CockroachDB (root sin contraseña en docker)
+                 - SQLite (file-based, no auth)
+                 Otros engines requieren password no-vacío si se proporciona.
         extra: Parámetros adicionales específicos del motor
     """
 
@@ -114,15 +117,43 @@ class ConnectionConfig(BaseModel):
     @field_validator("password", mode="before")
     @classmethod
     def strip_password(cls, v: str | None) -> str | None:
-        """Strip whitespace from password."""
+        """Strip whitespace from password.
+
+        Note: Password validation is now delegated to model_validator
+        to handle engine-specific rules (e.g., CockroachDB allows empty).
+        """
         if v is None:
             return None
 
         stripped = v.strip()
-        if stripped == "":
+        return stripped if stripped else ""
+
+    @model_validator(mode="after")
+    def validate_password_by_engine(self) -> ConnectionConfig:
+        """Validate password based on engine type.
+
+        CockroachDB allows empty password (uses root without auth in docker).
+        Other engines require non-empty password.
+
+        Raises:
+            ValueError: If password is empty for engines that require it
+        """
+        engine = (self.engine or "").lower()
+
+        # CockroachDB allows empty password (typical in docker/local dev)
+        if engine in {"cockroachdb", "cockroach"}:
+            return self
+
+        # SQLite also allows empty/None password (file-based, no auth)
+        if engine == "sqlite":
+            return self
+
+        # For other engines, enforce non-empty password if username is provided
+        # (password might be None for no-auth scenarios, but if provided, can't be empty)
+        if self.password is not None and self.password == "":
             raise ValueError("password no puede estar vacío")
 
-        return stripped
+        return self
 
     @field_validator("port", mode="before")
     @classmethod
