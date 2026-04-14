@@ -86,6 +86,92 @@ class DynamoDBScoringEngine:
         return max(0, score)
 
 
+class DynamoDBRecommendationEngine:
+    """Generate context-specific recommendations for DynamoDB anti-patterns.
+
+    Each anti-pattern triggers specific, actionable recommendations with:
+    - Why the issue matters (performance impact)
+    - How to fix it (concrete steps)
+    - Expected benefits (estimated improvement)
+    """
+
+    @staticmethod
+    def generate_recommendations(
+        anti_patterns: list[AntiPattern], query_dict: dict[str, Any]
+    ) -> list[str]:
+        """Generate actionable recommendations for detected anti-patterns.
+
+        Args:
+            anti_patterns: List of detected AntiPattern objects
+            query_dict: Original parsed query for context
+
+        Returns:
+            List of recommendation strings
+        """
+        recommendations: list[str] = []
+
+        for ap in anti_patterns:
+            if ap.name == "full_table_scan":
+                recommendations.append(
+                    "Replace Scan with Query: Add KeyConditionExpression to query by partition key. "
+                    "This reduces RCU consumption from scanning all items to only fetching matching items. "
+                    "Expected improvement: 10-100x reduction in RCU."
+                )
+            elif ap.name == "missing_partition_key":
+                recommendations.append(
+                    "Add partition key condition to KeyConditionExpression. "
+                    "Every Query must include partition_key = value. "
+                    "This is a required DynamoDB best practice."
+                )
+            elif ap.name == "high_capacity_consumption":
+                rcu = ap.metadata.get("read_capacity_units", 0)
+                threshold = ap.metadata.get("threshold", 1000)
+                recommendations.append(
+                    f"Reduce RCU consumption from {rcu:.0f} (threshold: {threshold}): "
+                    "Consider using ProjectionExpression to fetch fewer attributes, "
+                    "add FilterExpression to filter server-side, or paginate with Limit."
+                )
+            elif ap.name == "large_result_set":
+                item_count = ap.metadata.get("item_count", 0)
+                recommendations.append(
+                    f"Add Limit to paginate results ({item_count} items without pagination). "
+                    "Use pagination with ExclusiveStartKey to fetch data in chunks. "
+                    "This prevents loading entire result sets and reduces RCU."
+                )
+            elif ap.name == "high_scan_ratio":
+                scanned = ap.metadata.get("scanned_count", 0)
+                returned = ap.metadata.get("item_count", 0)
+                ratio = ap.metadata.get("scan_ratio", 0)
+                recommendations.append(
+                    f"Inefficient filtering: {scanned} items scanned, only {returned} returned (ratio {ratio:.1f}x). "
+                    "Move filter conditions from FilterExpression to KeyConditionExpression, "
+                    "or create a GSI with better key design to reduce scanned items."
+                )
+            elif ap.name == "full_attribute_projection":
+                item_count = ap.metadata.get("item_count", 0)
+                rcu = ap.metadata.get("read_capacity_units", 0)
+                recommendations.append(
+                    f"Add ProjectionExpression to fetch only needed attributes ({item_count} items, {rcu:.0f} RCU). "
+                    "Specifying only required columns reduces RCU and improves performance. "
+                    "Example: ProjectionExpression: 'user_id, email' instead of all attributes."
+                )
+            elif ap.name == "inefficient_pagination":
+                recommendations.append(
+                    "Add pagination to query: Include Limit to control result set size, "
+                    "and use ExclusiveStartKey for subsequent requests. "
+                    "Pagination prevents unbounded queries and reduces RCU waste."
+                )
+            elif ap.name == "gsi_without_range_key":
+                index_name = ap.metadata.get("index_name", "unknown")
+                recommendations.append(
+                    f"GSI '{index_name}' query lacks range key condition. "
+                    "Add range key to KeyConditionExpression (e.g., 'gsi_pk = :pk AND gsi_sk > :date') "
+                    "to reduce scanned items. If no range key exists, consider adding one to the GSI."
+                )
+
+        return recommendations
+
+
 class DynamoDBAntiPatternDetector:
     """Detect anti-patterns specific to DynamoDB queries."""
 
@@ -452,8 +538,10 @@ class DynamoDBAntiPatternDetector:
         # Calculate score
         score = DynamoDBScoringEngine.calculate_score(anti_patterns)
 
-        # Generate recommendations (stub for now)
-        recommendations = [f"{ap.description}" for ap in anti_patterns]
+        # Generate context-specific recommendations
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            anti_patterns, query_dict
+        )
 
         return DetectionResult(
             score=score, anti_patterns=anti_patterns, recommendations=recommendations

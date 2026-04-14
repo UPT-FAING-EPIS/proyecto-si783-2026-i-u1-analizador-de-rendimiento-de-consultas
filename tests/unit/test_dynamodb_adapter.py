@@ -12,7 +12,7 @@ from query_analyzer.adapters.exceptions import QueryAnalysisError
 from query_analyzer.adapters.models import ConnectionConfig, QueryAnalysisReport
 from query_analyzer.adapters.nosql.dynamodb import DynamoDBAdapter
 from query_analyzer.adapters.registry import AdapterRegistry
-from query_analyzer.core.anti_pattern_detector import AntiPattern
+from query_analyzer.core.anti_pattern_detector import AntiPattern, Severity
 from query_analyzer.core.dynamodb_anti_pattern_detector import (
     DynamoDBAntiPatternDetector,
 )
@@ -764,3 +764,245 @@ class TestDynamoDBExecuteExplain:
 
         with pytest.raises(QueryAnalysisError, match="Not connected"):
             adapter.execute_explain(query_json)
+
+
+class TestDynamoDBRecommendationEngine:
+    """Test recommendations generation for anti-patterns."""
+
+    def test_full_table_scan_recommendation(self) -> None:
+        """Generate recommendation for full table scan."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="full_table_scan",
+            severity=Severity.HIGH,
+            description="Full table scan",
+        )
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        assert len(recommendations) == 1
+        assert "Query" in recommendations[0]
+        assert "KeyConditionExpression" in recommendations[0]
+
+    def test_high_capacity_consumption_recommendation(self) -> None:
+        """Generate recommendation for high RCU."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="high_capacity_consumption",
+            severity=Severity.MEDIUM,
+            description="High RCU",
+            metadata={"read_capacity_units": 2000, "threshold": 1000},
+        )
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        assert len(recommendations) == 1
+        assert "2000" in recommendations[0]
+        assert "ProjectionExpression" in recommendations[0]
+
+    def test_large_result_set_recommendation(self) -> None:
+        """Generate recommendation for large result set."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="large_result_set",
+            severity=Severity.MEDIUM,
+            description="Large result set",
+            metadata={"item_count": 15000},
+        )
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        assert len(recommendations) == 1
+        assert "Limit" in recommendations[0]
+        assert "pagination" in recommendations[0]
+
+    def test_high_scan_ratio_recommendation(self) -> None:
+        """Generate recommendation for high scan ratio."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="high_scan_ratio",
+            severity=Severity.MEDIUM,
+            description="High scan ratio",
+            metadata={"scanned_count": 5000, "item_count": 100, "scan_ratio": 50.0},
+        )
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        assert len(recommendations) == 1
+        assert "5000" in recommendations[0]
+        assert "100" in recommendations[0]
+        assert "KeyConditionExpression" in recommendations[0]
+
+    def test_full_attribute_projection_recommendation(self) -> None:
+        """Generate recommendation for full attribute projection."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="full_attribute_projection",
+            severity=Severity.LOW,
+            description="Full projection",
+            metadata={"item_count": 150, "read_capacity_units": 20},
+        )
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        assert len(recommendations) == 1
+        assert "ProjectionExpression" in recommendations[0]
+        assert "150" in recommendations[0]
+
+    def test_inefficient_pagination_recommendation(self) -> None:
+        """Generate recommendation for inefficient pagination."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="inefficient_pagination",
+            severity=Severity.LOW,
+            description="No pagination",
+        )
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        assert len(recommendations) == 1
+        assert "Limit" in recommendations[0]
+        assert "ExclusiveStartKey" in recommendations[0]
+
+    def test_gsi_without_range_key_recommendation(self) -> None:
+        """Generate recommendation for GSI without range key."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="gsi_without_range_key",
+            severity=Severity.LOW,
+            description="GSI without range",
+            metadata={"index_name": "email_index"},
+        )
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        assert len(recommendations) == 1
+        assert "email_index" in recommendations[0]
+        assert "range key" in recommendations[0]
+
+    def test_multiple_recommendations(self) -> None:
+        """Generate multiple recommendations for multiple anti-patterns."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        patterns = [
+            AntiPattern(
+                name="full_table_scan",
+                severity=Severity.HIGH,
+                description="Scan",
+            ),
+            AntiPattern(
+                name="large_result_set",
+                severity=Severity.MEDIUM,
+                description="Large results",
+                metadata={"item_count": 10000},
+            ),
+        ]
+        query_dict = {"TableName": "Products"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            patterns, query_dict
+        )
+
+        assert len(recommendations) == 2
+        assert any("Query" in r for r in recommendations)
+        assert any("Limit" in r for r in recommendations)
+
+    def test_recommendation_order(self) -> None:
+        """Recommendations appear in same order as anti-patterns."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        patterns = [
+            AntiPattern(
+                name="inefficient_pagination",
+                severity=Severity.LOW,
+                description="No pagination",
+            ),
+            AntiPattern(
+                name="full_table_scan",
+                severity=Severity.HIGH,
+                description="Scan",
+            ),
+        ]
+        query_dict = {"TableName": "Users"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            patterns, query_dict
+        )
+
+        # First recommendation should be about pagination (first pattern)
+        assert "Limit" in recommendations[0] or "pagination" in recommendations[0]
+        # Second recommendation should be about scanning (second pattern)
+        assert "Query" in recommendations[1]
+
+    def test_recommendation_includes_context(self) -> None:
+        """Recommendations include specific context from metadata."""
+        from query_analyzer.core.dynamodb_anti_pattern_detector import (
+            DynamoDBRecommendationEngine,
+        )
+
+        pattern = AntiPattern(
+            name="high_scan_ratio",
+            severity=Severity.MEDIUM,
+            description="High scan ratio",
+            metadata={
+                "scanned_count": 10000,
+                "item_count": 50,
+                "scan_ratio": 200.0,
+            },
+        )
+        query_dict = {"TableName": "Orders"}
+
+        recommendations = DynamoDBRecommendationEngine.generate_recommendations(
+            [pattern], query_dict
+        )
+
+        rec = recommendations[0]
+        assert "10000" in rec  # Scanned count
+        assert "50" in rec  # Item count
+        assert "200.0" in rec  # Ratio
