@@ -44,6 +44,8 @@ dev = [
     "types-PyYAML>=6.0.12.20240917",
     "types-redis>=4.6.0",
     "moto[dynamodb]>=4.2.0",
+    # Cassandra driver (optional - Windows build issues on Python 3.14)
+    # For local Cassandra integration testing: pip install cassandra-driver==3.29.3
 ]
 
 [tool.ruff]
@@ -104,4 +106,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "botocore.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "cassandra.*"
 ignore_missing_imports = true

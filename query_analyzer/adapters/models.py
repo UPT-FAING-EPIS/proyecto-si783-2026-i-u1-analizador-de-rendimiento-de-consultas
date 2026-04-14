@@ -63,6 +63,7 @@ class ConnectionConfig(BaseModel):
             "yugabytedb",
             "influxdb",
             "dynamodb",
+            "cassandra",
         }
 
         if engine_lower not in valid_engines:

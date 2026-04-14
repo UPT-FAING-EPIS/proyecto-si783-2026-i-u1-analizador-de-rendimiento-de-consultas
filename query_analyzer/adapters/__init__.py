@@ -17,7 +17,7 @@ from .models import (
     Recommendation,
     Warning,
 )
-from .nosql import DynamoDBAdapter, MongoDBAdapter
+from .nosql import CassandraAdapter, DynamoDBAdapter, MongoDBAdapter
 from .registry import AdapterRegistry
 from .sql import (
     CockroachDBAdapter,
@@ -52,6 +52,7 @@ __all__ = [
     "YugabyteDBAdapter",
     "YugabyteDBParser",
     # NoSQL Adapters
+    "CassandraAdapter",
     "DynamoDBAdapter",
     "MongoDBAdapter",
     # TimeSeries Adapters
