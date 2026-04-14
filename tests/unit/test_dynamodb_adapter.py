@@ -1006,3 +1006,244 @@ class TestDynamoDBRecommendationEngine:
         assert "10000" in rec  # Scanned count
         assert "50" in rec  # Item count
         assert "200.0" in rec  # Ratio
+
+
+class TestDynamoDBEndToEndIntegration:
+    """Test end-to-end flow: Query → Analysis → Report with v2 models."""
+
+    def test_full_flow_scan_operation(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Scan operation triggers warnings and recommendations."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="Products",
+            KeySchema=[{"AttributeName": "product_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "product_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        for i in range(5):
+            dynamodb_adapter._dynamodb_client.put_item(
+                TableName="Products",
+                Item={"product_id": {"S": f"prod_{i}"}, "price": {"N": str(100 + i)}},
+            )
+
+        query_json = json.dumps({"TableName": "Products"})
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert isinstance(report, QueryAnalysisReport)
+        assert report.engine == "dynamodb"
+        assert report.score < 100  # Scan reduces score
+        assert len(report.warnings) > 0  # Should have scan warning
+        assert len(report.recommendations) > 0  # Should have recommendations
+
+        scan_warning = report.warnings[0]
+        assert scan_warning.severity == "critical"
+        assert "Scan" in scan_warning.message or "scan" in scan_warning.message
+        assert scan_warning.node_type == "full_table_scan"
+
+        rec = report.recommendations[0]
+        assert 1 <= rec.priority <= 10
+        assert "Query" in rec.title or "Query" in rec.description
+
+    def test_full_flow_optimized_query(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Well-optimized query → high score, no warnings."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="Users",
+            KeySchema=[{"AttributeName": "user_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "user_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        dynamodb_adapter._dynamodb_client.put_item(
+            TableName="Users",
+            Item={"user_id": {"S": "user_123"}, "email": {"S": "user@example.com"}},
+        )
+
+        query_json = json.dumps(
+            {
+                "TableName": "Users",
+                "KeyConditionExpression": "user_id = :uid",
+                "ExpressionAttributeValues": {":uid": {"S": "user_123"}},
+                "ProjectionExpression": "user_id, email",
+                "Limit": 100,
+            }
+        )
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert report.engine == "dynamodb"
+        assert report.score == 100  # Perfect score
+        assert len(report.warnings) == 0  # No warnings
+        assert len(report.recommendations) == 0  # No recommendations
+
+    def test_full_flow_high_rcu_consumption(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: High RCU consumption triggers medium severity warning."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="LargeTable",
+            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        for i in range(200):
+            dynamodb_adapter._dynamodb_client.put_item(
+                TableName="LargeTable",
+                Item={"pk": {"S": f"item_{i:04d}"}, "data": {"S": "x" * 1000}},
+            )
+
+        query_json = json.dumps({"TableName": "LargeTable"})
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert len(report.warnings) >= 1
+        assert report.score < 100
+
+        severities = [w.severity for w in report.warnings]
+        assert any(s in ["critical", "high"] for s in severities)
+
+    def test_full_flow_metrics_in_report(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Metrics are correctly captured in report."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="TestTable",
+            KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        for i in range(10):
+            dynamodb_adapter._dynamodb_client.put_item(
+                TableName="TestTable",
+                Item={"id": {"S": f"id_{i}"}, "value": {"N": str(i)}},
+            )
+
+        query_json = json.dumps(
+            {
+                "TableName": "TestTable",
+                "KeyConditionExpression": "id = :id",
+                "ExpressionAttributeValues": {":id": {"S": "id_0"}},
+            }
+        )
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert "consumed_read_capacity" in report.metrics
+        assert "item_count" in report.metrics
+        assert "scanned_count" in report.metrics
+
+        assert report.metrics["item_count"] >= 0
+        assert report.metrics["scanned_count"] >= 0
+        assert report.metrics["consumed_read_capacity"] >= 0
+
+    def test_full_flow_execution_time_measured(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Execution time is measured and positive."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="Users",
+            KeySchema=[{"AttributeName": "user_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "user_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        query_json = json.dumps(
+            {
+                "TableName": "Users",
+                "KeyConditionExpression": "user_id = :uid",
+                "ExpressionAttributeValues": {":uid": {"S": "test"}},
+            }
+        )
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert report.execution_time_ms > 0
+        assert report.analyzed_at is not None
+
+    def test_full_flow_raw_plan_preserved(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Original query is preserved in raw_plan and query fields."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="TestTable",
+            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        original_query = {
+            "TableName": "TestTable",
+            "KeyConditionExpression": "pk = :pk",
+            "ExpressionAttributeValues": {":pk": {"S": "value"}},
+            "ProjectionExpression": "pk",
+            "Limit": 50,
+        }
+        query_json = json.dumps(original_query)
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert report.query == query_json
+        assert report.raw_plan is not None
+        assert isinstance(report.raw_plan, dict)
+
+    def test_full_flow_multiple_antipatterns(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Multiple anti-patterns detected simultaneously."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="Products",
+            KeySchema=[{"AttributeName": "product_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "product_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        for i in range(300):
+            dynamodb_adapter._dynamodb_client.put_item(
+                TableName="Products",
+                Item={
+                    "product_id": {"S": f"prod_{i:04d}"},
+                    "name": {"S": f"Product {i}"},
+                    "price": {"N": str(100 + i)},
+                    "description": {"S": "x" * 500},
+                },
+            )
+
+        query_json = json.dumps({"TableName": "Products"})
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert len(report.warnings) >= 2  # At least scan + another
+        assert len(report.recommendations) >= 2
+
+        assert report.score < 80
+
+    def test_full_flow_recommendation_priority(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Recommendations have valid priority values."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="Data",
+            KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        for i in range(50):
+            dynamodb_adapter._dynamodb_client.put_item(
+                TableName="Data",
+                Item={"id": {"S": f"id_{i}"}, "data": {"S": "x" * 100}},
+            )
+
+        query_json = json.dumps({"TableName": "Data"})
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        for rec in report.recommendations:
+            assert 1 <= rec.priority <= 10
+            assert rec.title is not None and len(rec.title) > 0
+            assert rec.description is not None and len(rec.description) > 0
+
+    def test_full_flow_warning_metadata(self, moto_dynamodb_env, dynamodb_adapter) -> None:
+        """Full flow: Warning metadata includes relevant context."""
+        dynamodb_adapter._dynamodb_client.create_table(
+            TableName="TestTable",
+            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        for i in range(20):
+            dynamodb_adapter._dynamodb_client.put_item(
+                TableName="TestTable",
+                Item={"pk": {"S": f"key_{i}"}, "value": {"N": str(i)}},
+            )
+
+        query_json = json.dumps({"TableName": "TestTable"})
+        report = dynamodb_adapter.execute_explain(query_json)
+
+        assert len(report.warnings) > 0
+        for warning in report.warnings:
+            assert warning.metadata is not None
+            assert isinstance(warning.metadata, dict)
