@@ -67,7 +67,7 @@ class InfluxDBAdapter(BaseAdapter):
             ConnectionError: If connection fails or health check fails
         """
         try:
-            from influxdb_client import InfluxDBClient  # type: ignore[import-not-found]
+            from influxdb_client import InfluxDBClient
 
             host = self._config.host or "localhost"
             port = self._config.port or 8086

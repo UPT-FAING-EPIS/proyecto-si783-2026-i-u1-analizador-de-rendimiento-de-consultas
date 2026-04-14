@@ -5,8 +5,8 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from neo4j import GraphDatabase, basic_auth  # type: ignore[import-not-found]
-from neo4j.exceptions import (  # type: ignore[import-not-found]
+from neo4j import GraphDatabase, basic_auth
+from neo4j.exceptions import (
     AuthError,
     ServiceUnavailable,
 )

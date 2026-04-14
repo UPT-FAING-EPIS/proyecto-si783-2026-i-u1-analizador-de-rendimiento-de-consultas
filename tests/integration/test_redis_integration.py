@@ -99,7 +99,7 @@ class TestRedisAdapterExecuteExplainIntegration:
 
         # Verify warning and recommendation for SCAN
         assert len(report.warnings) > 0, "KEYS * should generate at least one warning"
-        recommendations_text = " ".join(report.recommendations).upper()
+        recommendations_text = " ".join(rec.title for rec in report.recommendations).upper()
         assert "SCAN" in recommendations_text, (
             f"Recommendations should suggest SCAN. Got: {report.recommendations}"
         )
@@ -124,7 +124,7 @@ class TestRedisAdapterExecuteExplainIntegration:
         report = adapter.execute_explain("FLUSHDB")
 
         assert report.score < 100
-        assert any("caution" in rec.lower() for rec in report.recommendations)
+        assert any("del" in (rec.title or "").lower() for rec in report.recommendations)
 
 
 class TestRedisAdapterGetSlowQueriesIntegration:

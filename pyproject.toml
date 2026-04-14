@@ -87,3 +87,11 @@ exclude = [
 [[tool.mypy.overrides]]
 module = "pymongo.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "neo4j.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "influxdb_client.*"
+ignore_missing_imports = true

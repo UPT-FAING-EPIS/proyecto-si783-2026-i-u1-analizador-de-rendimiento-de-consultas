@@ -177,7 +177,10 @@ class TestPostgreSQLIntegrationExplain:
             # Validate expected recommendation keywords
             if anti_pattern_query.get("expected_recommendation_keywords"):
                 for keyword in anti_pattern_query["expected_recommendation_keywords"]:
-                    assert any(keyword.lower() in rec.lower() for rec in report.recommendations), (
+                    assert any(
+                        keyword.lower() in (rec.title or "").lower()
+                        for rec in report.recommendations
+                    ), (
                         f"Expected recommendation keyword '{keyword}' not found "
                         f"in {report.recommendations} for {anti_pattern_query['name']}"
                     )
@@ -197,7 +200,7 @@ class TestPostgreSQLIntegrationExplain:
             assert any("Búsqueda secuencial" in w for w in report.warnings), (
                 "Should warn about sequential scan"
             )
-            assert any("índice" in r.lower() for r in report.recommendations), (
+            assert any("índice" in (r.title or "").lower() for r in report.recommendations), (
                 "Should recommend index creation"
             )
         except Exception as e:

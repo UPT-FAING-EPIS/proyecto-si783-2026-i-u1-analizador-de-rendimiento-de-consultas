@@ -202,7 +202,10 @@ class TestSQLiteIntegrationExplain:
             # Validate expected recommendation keywords
             if anti_pattern_query.get("expected_recommendation_keywords"):
                 for keyword in anti_pattern_query["expected_recommendation_keywords"]:
-                    assert any(keyword.lower() in rec.lower() for rec in report.recommendations), (
+                    assert any(
+                        keyword.lower() in (rec.title or "").lower()
+                        for rec in report.recommendations
+                    ), (
                         f"Expected recommendation keyword '{keyword}' not found "
                         f"in {report.recommendations} for {anti_pattern_query['name']}"
                     )

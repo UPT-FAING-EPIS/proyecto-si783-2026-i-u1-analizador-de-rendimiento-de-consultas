@@ -144,7 +144,7 @@ class TestInfluxDBIntegrationQueryAnalysis:
         ), f"Expected time filter warning, got: {report.warnings}"
 
         # Should recommend adding time filter
-        assert any("range" in r.lower() for r in report.recommendations), (
+        assert any("range" in (r.title or "").lower() for r in report.recommendations), (
             f"Expected range recommendation, got: {report.recommendations}"
         )
 
@@ -205,7 +205,7 @@ class TestInfluxDBIntegrationQueryAnalysis:
         report = influxdb_adapter.execute_explain(flux_query)
 
         # Should recommend simplification
-        assert any("simplif" in rec.lower() for rec in report.recommendations), (
+        assert any("simplif" in (rec.title or "").lower() for rec in report.recommendations), (
             f"Expected simplification recommendation, got: {report.recommendations}"
         )
 
