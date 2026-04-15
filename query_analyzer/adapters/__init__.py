@@ -1,6 +1,17 @@
 """Adapters module - Drivers por motor de base de datos."""
 
+from typing import TYPE_CHECKING
+
 from .base import BaseAdapter
+
+try:
+    from .elasticsearch import ElasticsearchAdapter
+except ImportError:
+    ElasticsearchAdapter = None  # type: ignore[assignment,misc]
+
+if TYPE_CHECKING:
+    from .elasticsearch import ElasticsearchAdapter as ElasticsearchAdapterType  # noqa: F401
+
 from .exceptions import (
     AdapterError,
     ConnectionConfigError,
@@ -57,6 +68,8 @@ __all__ = [
     "MongoDBAdapter",
     # TimeSeries Adapters
     "InfluxDBAdapter",
+    # Search Adapters
+    *(["ElasticsearchAdapter"] if ElasticsearchAdapter is not None else []),
     # Graph Adapters
     "Neo4jAdapter",
     # Exceptions

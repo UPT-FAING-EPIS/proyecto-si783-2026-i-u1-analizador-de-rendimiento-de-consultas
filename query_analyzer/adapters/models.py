@@ -64,6 +64,7 @@ class ConnectionConfig(BaseModel):
             "influxdb",
             "dynamodb",
             "cassandra",
+            "elasticsearch",
         }
 
         if engine_lower not in valid_engines:
@@ -188,6 +189,8 @@ class ConnectionConfig(BaseModel):
             return 6379
         elif engine == "neo4j":
             return 7687
+        elif engine == "elasticsearch":
+            return 9200
         elif engine == "sqlite":
             return None
         elif engine == "dynamodb":
@@ -505,6 +508,8 @@ class QueryAnalysisReport(BaseModel):
             "yugabytedb",
             "influxdb",
             "dynamodb",
+            "cassandra",
+            "elasticsearch",
         }
 
         if engine_lower not in valid_engines:

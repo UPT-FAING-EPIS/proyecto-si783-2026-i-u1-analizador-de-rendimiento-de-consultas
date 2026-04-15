@@ -23,6 +23,13 @@ def ensure_adapters_registered() -> None:
         YugabyteDBAdapter,
     )
 
+    try:
+        from query_analyzer.adapters.elasticsearch import ElasticsearchAdapter  # noqa: F401
+
+        has_elasticsearch = True
+    except ImportError:
+        has_elasticsearch = False
+
     # Optional: Re-register if not already registered (for tests that clear registry)
     adapters_to_check = [
         ("postgresql", PostgreSQLAdapter),
@@ -33,6 +40,9 @@ def ensure_adapters_registered() -> None:
         ("yugabytedb", YugabyteDBAdapter),
         ("neo4j", Neo4jAdapter),
     ]
+
+    if has_elasticsearch:
+        adapters_to_check.append(("elasticsearch", ElasticsearchAdapter))
 
     for engine_name, adapter_class in adapters_to_check:
         if not AdapterRegistry.is_registered(engine_name):

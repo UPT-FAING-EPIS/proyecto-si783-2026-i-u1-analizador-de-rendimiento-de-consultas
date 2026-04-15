@@ -1,4 +1,4 @@
-.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb health clean ps wait-healthy test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-verbose test-clean
+.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb logs-elasticsearch health clean ps wait-healthy test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-es test-verbose test-clean
 
 help:
 	@echo "🔍 Query Analyzer - Docker Management"
@@ -29,7 +29,7 @@ help:
 	@echo "  make test-verbose    - Run all tests with verbose output"
 	@echo "  make test-clean      - Remove pytest cache and coverage artifacts"
 	@echo ""
-	@echo "Services: postgres, mysql, mongodb, redis, influxdb, neo4j, cockroachdb"
+	@echo "Services: postgres, mysql, mongodb, redis, influxdb, neo4j, cockroachdb, elasticsearch"
 	@echo ""
 
 up:
@@ -98,6 +98,9 @@ logs-neo4j:
 logs-cockroachdb:
 	docker compose -f docker/compose.yml logs -f cockroachdb
 
+logs-elasticsearch:
+	docker compose -f docker/compose.yml logs -f elasticsearch
+
 clean:
 	@echo "🧹 Cleaning up unused Docker images..."
 	docker image prune -f
@@ -151,6 +154,11 @@ test-yugabyte: wait-healthy seed
 	@echo "🌊 Running YugabyteDB integration tests..."
 	@uv run python -m pytest tests/integration/test_yugabytedb_integration.py -v
 	@echo "✅ YugabyteDB tests completed!"
+
+test-es: wait-healthy seed
+	@echo "🔍 Running Elasticsearch integration tests..."
+	@uv run python -m pytest tests/integration/test_elasticsearch_integration.py -v
+	@echo "✅ Elasticsearch tests completed!"
 
 test-verbose: wait-healthy seed
 	@echo "🗣️  Running all tests with verbose output..."

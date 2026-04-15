@@ -22,6 +22,7 @@ dependencies = [
     "neo4j>=5.0.0",
     "influxdb-client>=1.36.0",
     "boto3>=1.34.0",
+    "elasticsearch>=8.0.0,<9.0.0",
 ]
 
 [tool.setuptools]
@@ -110,4 +111,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "cassandra.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "elasticsearch.*"
 ignore_missing_imports = true
