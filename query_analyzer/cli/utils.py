@@ -1,11 +1,22 @@
 """Utilidades para la interfaz CLI."""
 
+from io import StringIO
+
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
+from query_analyzer.adapters import QueryAnalysisReport
 from query_analyzer.config import ProfileConfig
 
 console = Console()
+
+
+def truncate_text(text: str, max_width: int = 80) -> str:
+    """Truncate text with ellipsis if too long."""
+    if len(text) <= max_width:
+        return text
+    return text[: max_width - 1] + "…"
 
 
 class OutputFormatter:
@@ -109,3 +120,189 @@ class OutputFormatter:
             )
 
         return table
+
+    @staticmethod
+    def format_report(
+        report: QueryAnalysisReport,
+        format: str = "rich",
+        profile_name: str = "",
+        is_default: bool = False,
+        verbose: bool = False,
+    ) -> str:
+        """Format query analysis report.
+
+        Args:
+            report: QueryAnalysisReport to format
+            format: Output format ('rich', 'json', 'text')
+            profile_name: Profile name used (optional)
+            is_default: Whether profile is default (optional)
+            verbose: Verbose output (optional)
+
+        Returns:
+            Formatted report string
+        """
+        if format == "rich":
+            return OutputFormatter._format_report_rich(report)
+        elif format == "json":
+            import json
+
+            return json.dumps(
+                report.to_dict() if hasattr(report, "to_dict") else str(report), indent=2
+            )
+        else:
+            return str(report)
+
+    @staticmethod
+    def _format_report_rich(report: QueryAnalysisReport) -> str:
+        """Format report using Rich with Panel header.
+
+        Args:
+            report: QueryAnalysisReport to format
+
+        Returns:
+            Rich-formatted string
+        """
+        lines = []
+
+        # Header panel - let Rich handle wrapping naturally
+        score_emoji = "🟢" if report.score >= 70 else "🟡" if report.score >= 50 else "🔴"
+        header_content = (
+            f"[cyan]Engine:[/cyan] [bold]{report.engine}[/bold]\n"
+            f"[cyan]Score:[/cyan] [bold]{score_emoji} {report.score}/100[/bold]\n"
+            f"[cyan]Execution Time:[/cyan] {report.execution_time_ms:.2f} ms\n"
+            f"[cyan]Query:[/cyan] {report.query}"
+        )
+
+        panel = Panel(header_content, title="QUERY ANALYSIS REPORT", expand=True)
+        buffer = StringIO()
+        panel_console = Console(file=buffer, force_terminal=True, width=80)
+        panel_console.print(panel)
+        lines.append(buffer.getvalue().rstrip())
+
+        # Warnings section
+        if report.warnings:
+            lines.append("")
+            lines.append(f"[bold yellow]⚠️  WARNINGS ({len(report.warnings)})[/bold yellow]")
+            warnings_table = Table(show_header=True, header_style="bold")
+            warnings_table.add_column("Severity", width=10)
+            warnings_table.add_column("Message", no_wrap=False)
+            for w in report.warnings:
+                warnings_table.add_row(w.severity.upper(), w.message)
+            buffer = StringIO()
+            table_console = Console(file=buffer, force_terminal=True, width=80)
+            table_console.print(warnings_table)
+            lines.append(buffer.getvalue().rstrip())
+
+        # Recommendations section
+        if report.recommendations:
+            lines.append("")
+            lines.append(
+                f"[bold cyan]💡 RECOMMENDATIONS ({len(report.recommendations)})[/bold cyan]"
+            )
+            recs_table = Table(show_header=True, header_style="bold")
+            recs_table.add_column("Priority", width=10)
+            recs_table.add_column("Action", no_wrap=False)
+            for r in report.recommendations:
+                priority_emoji = "🔴" if r.priority <= 3 else "🟡" if r.priority <= 7 else "🔵"
+                recs_table.add_row(f"{priority_emoji} {r.priority}", r.title)
+            buffer = StringIO()
+            table_console = Console(file=buffer, force_terminal=True, width=80)
+            table_console.print(recs_table)
+            lines.append(buffer.getvalue().rstrip())
+
+        # Metrics section
+        if report.metrics:
+            lines.append("")
+            lines.append("[bold blue]📊 METRICS[/bold blue]")
+            metrics_table = Table(show_header=True, header_style="bold")
+            metrics_table.add_column("Metric", width=20)
+            metrics_table.add_column("Value", width=15)
+            for key, value in list(report.metrics.items())[:5]:
+                metrics_table.add_row(key, str(value))
+            buffer = StringIO()
+            table_console = Console(file=buffer, force_terminal=True, width=80)
+            table_console.print(metrics_table)
+            lines.append(buffer.getvalue().rstrip())
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def print_report(
+        report: QueryAnalysisReport,
+        format: str = "rich",
+        profile_name: str = "",
+        is_default: bool = False,
+        verbose: bool = False,
+        console_instance: Console | None = None,
+    ) -> None:
+        """Print formatted report.
+
+        Args:
+            report: QueryAnalysisReport to print
+            format: Output format ('rich', 'json', 'text')
+            profile_name: Profile name used (optional)
+            is_default: Whether profile is default (optional)
+            verbose: Verbose output (optional)
+            console_instance: Rich console instance to use (optional)
+        """
+        target_console = console_instance if console_instance else console
+
+        if format == "rich":
+            # Header panel
+            score_emoji = "🟢" if report.score >= 70 else "🟡" if report.score >= 50 else "🔴"
+            header_content = (
+                f"[cyan]Engine:[/cyan] [bold]{report.engine}[/bold]\n"
+                f"[cyan]Score:[/cyan] [bold]{score_emoji} {report.score}/100[/bold]\n"
+                f"[cyan]Execution Time:[/cyan] {report.execution_time_ms:.2f} ms\n"
+                f"[cyan]Query:[/cyan] {report.query}"
+            )
+            panel = Panel(header_content, title="QUERY ANALYSIS REPORT", expand=True)
+            target_console.print(panel)
+
+            # Warnings section
+            if report.warnings:
+                target_console.print()
+                target_console.print(
+                    f"[bold yellow]⚠️  WARNINGS ({len(report.warnings)})[/bold yellow]"
+                )
+                warnings_table = Table(show_header=True, header_style="bold")
+                warnings_table.add_column("Severity", width=10)
+                warnings_table.add_column("Message", no_wrap=False)
+                for w in report.warnings:
+                    warnings_table.add_row(w.severity.upper(), w.message)
+                target_console.print(warnings_table)
+
+            # Recommendations section
+            if report.recommendations:
+                target_console.print()
+                target_console.print(
+                    f"[bold cyan]💡 RECOMMENDATIONS ({len(report.recommendations)})[/bold cyan]"
+                )
+                recs_table = Table(show_header=True, header_style="bold")
+                recs_table.add_column("Priority", width=10)
+                recs_table.add_column("Action", no_wrap=False)
+                for r in report.recommendations:
+                    priority_emoji = "🔴" if r.priority <= 3 else "🟡" if r.priority <= 7 else "🔵"
+                    recs_table.add_row(f"{priority_emoji} {r.priority}", r.title)
+                target_console.print(recs_table)
+
+            # Metrics section
+            if report.metrics:
+                target_console.print()
+                target_console.print("[bold blue]📊 METRICS[/bold blue]")
+                metrics_table = Table(show_header=True, header_style="bold")
+                metrics_table.add_column("Metric", width=20)
+                metrics_table.add_column("Value", width=15)
+                for key, value in list(report.metrics.items())[:5]:
+                    metrics_table.add_row(key, str(value))
+                target_console.print(metrics_table)
+        elif format == "json":
+            import json
+
+            output = json.dumps(
+                report.to_dict() if hasattr(report, "to_dict") else str(report),
+                indent=2,
+            )
+            target_console.print(output)
+        else:
+            target_console.print(str(report))

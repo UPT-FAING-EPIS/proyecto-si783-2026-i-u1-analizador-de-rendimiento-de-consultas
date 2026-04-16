@@ -29,6 +29,7 @@ dependencies = [
 packages = ["query_analyzer"]
 
 [project.scripts]
+qa = "query_analyzer.cli.main:main"
 query_analyzer = "query_analyzer.cli.main:main"
 
 [dependency-groups]
@@ -68,6 +69,7 @@ ignore = ["E501"]  # Ignorar line-length (lo maneja ruff-format)
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "B017"]
+"query_analyzer/cli/*" = ["B008"]  # B008: Typer options designed for use in defaults
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

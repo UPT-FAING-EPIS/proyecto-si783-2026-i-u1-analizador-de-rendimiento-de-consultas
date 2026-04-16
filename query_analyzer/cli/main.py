@@ -6,7 +6,7 @@ support for PostgreSQL, MySQL, and SQLite databases.
 
 import typer
 
-from .commands import profile
+from .commands import analyze, profile
 
 app = typer.Typer(
     name="qa",
@@ -14,8 +14,9 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-# Agregar grupo de comandos
+# Register command groups
 app.add_typer(profile.app, name="profile", help="Gestionar perfiles de conexión")
+app.add_typer(analyze.app, name="analyze", help="Analizar rendimiento de consultas")
 
 
 def main() -> None:
