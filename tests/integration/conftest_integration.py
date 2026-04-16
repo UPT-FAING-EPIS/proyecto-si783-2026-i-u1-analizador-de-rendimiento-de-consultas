@@ -101,7 +101,7 @@ def docker_yugabytedb_config() -> ConnectionConfig:
         engine="yugabytedb",
         host=os.getenv("DB_YUGABYTE_HOST", "localhost"),
         port=int(os.getenv("DB_YUGABYTE_PORT", "5433")),
-        database=os.getenv("DB_YUGABYTE_NAME", "yugabyte"),
+        database=os.getenv("DB_YUGABYTE_NAME", "query_analyzer"),
         username=os.getenv("DB_YUGABYTE_USER", "yugabyte"),
         password=os.getenv("DB_YUGABYTE_PASSWORD", "yugabyte"),
         extra={"seq_scan_threshold": 10000, "connection_timeout": 10},

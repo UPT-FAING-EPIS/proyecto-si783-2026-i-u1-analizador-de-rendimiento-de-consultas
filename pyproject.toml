@@ -108,10 +108,6 @@ module = "boto3.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "botocore.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = "cassandra.*"
 ignore_missing_imports = true
 

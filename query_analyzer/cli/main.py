@@ -4,6 +4,8 @@ Provides command-line interface for database query performance analysis with
 support for PostgreSQL, MySQL, and SQLite databases.
 """
 
+from pathlib import Path
+
 import typer
 
 from .commands import analyze, profile
@@ -16,7 +18,24 @@ app = typer.Typer(
 
 # Register command groups
 app.add_typer(profile.app, name="profile", help="Gestionar perfiles de conexión")
-app.add_typer(analyze.app, name="analyze", help="Analizar rendimiento de consultas")
+
+
+# Register analyze as a direct command (not a command group)
+@app.command(name="analyze", help="Analizar rendimiento de consultas")
+def analyze_command(
+    query: str | None = typer.Argument(None, help="SQL query string (or use --file or stdin)"),
+    profile: str | None = typer.Option(
+        None, "--profile", "-p", help="Profile name (uses default if omitted)"
+    ),
+    file: str | None = typer.Option(None, "--file", "-f", help="Read query from file"),
+    output: str = typer.Option("rich", "--output", "-o", help="Output format: rich|json|markdown"),
+    timeout: int = typer.Option(
+        30, "--timeout", "-t", help="Query timeout in seconds (default: 30)"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output for debugging"),
+) -> None:
+    """Analyze database query performance using EXPLAIN."""
+    analyze.analyze(query, profile, Path(file) if file else None, output, timeout, verbose)
 
 
 def main() -> None:

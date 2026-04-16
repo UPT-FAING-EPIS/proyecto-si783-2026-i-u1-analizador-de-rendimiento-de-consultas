@@ -4,7 +4,6 @@ import pytest
 
 from query_analyzer.adapters.graph.neo4j_parser import Neo4jExplainParser
 
-
 # ============================================================================
 # FIXTURES
 # ============================================================================

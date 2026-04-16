@@ -9,21 +9,21 @@ class ProfileConfig(BaseModel):
     """Configuración de un perfil de conexión.
 
     Attributes:
-        engine: Motor de base de datos (postgresql, mysql)
-        host: Dirección del servidor
-        port: Puerto de conexión
+        engine: Motor de base de datos (postgresql, mysql, sqlite, mongodb, redis, etc.)
+        host: Dirección del servidor (opcional para SQLite, Redis, Elasticsearch)
+        port: Puerto de conexión (opcional para SQLite, Redis, Elasticsearch)
         database: Nombre de la base de datos
-        username: Usuario para autenticación
-        password: Contraseña (será cifrada en disco)
+        username: Usuario para autenticación (opcional para SQLite, Redis, Elasticsearch, CockroachDB)
+        password: Contraseña (será cifrada en disco) (opcional para algunos engines)
         extra: Parámetros adicionales específicos del motor
     """
 
     engine: str
-    host: str
-    port: int
+    host: str | None = None
+    port: int | None = None
     database: str
-    username: str
-    password: str
+    username: str | None = None
+    password: str | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(validate_assignment=True)
@@ -32,16 +32,31 @@ class ProfileConfig(BaseModel):
     @classmethod
     def validate_engine(cls, v: str) -> str:
         """Valida que el engine sea soportado."""
-        valid_engines = {"postgresql", "mysql", "mongodb"}
+        valid_engines = {
+            "postgresql",
+            "mysql",
+            "sqlite",
+            "mongodb",
+            "redis",
+            "cockroachdb",
+            "yugabytedb",
+            "neo4j",
+            "influxdb",
+            "elasticsearch",
+        }
         engine_lower = v.lower()
         if engine_lower not in valid_engines:
-            raise ValueError(f"Engine no soportado: {v}. Válidos: {', '.join(valid_engines)}")
+            raise ValueError(
+                f"Engine no soportado: {v}. Válidos: {', '.join(sorted(valid_engines))}"
+            )
         return engine_lower
 
     @field_validator("port")
     @classmethod
-    def validate_port(cls, v: int) -> int:
-        """Valida que el puerto esté en rango válido."""
+    def validate_port(cls, v: int | None) -> int | None:
+        """Valida que el puerto esté en rango válido (si está presente)."""
+        if v is None:
+            return None
         if not (1 <= v <= 65535):
             raise ValueError(f"Puerto debe estar entre 1 y 65535, recibido: {v}")
         return v

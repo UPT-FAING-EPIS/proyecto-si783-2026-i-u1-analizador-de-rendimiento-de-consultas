@@ -1,7 +1,8 @@
-.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb logs-elasticsearch health clean ps wait-healthy test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-es test-verbose test-clean
+.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb logs-elasticsearch health clean ps wait-healthy test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-es test-verbose test-clean create-profiles profiles-force profiles-check profiles-reset profiles-list profiles-validate
 
 help:
 	@echo "🔍 Query Analyzer - Docker Management"
+	@echo "Services: postgres, mysql, mongodb, redis, influxdb, neo4j, cockroachdb, elasticsearch"
 	@echo ""
 	@echo "Available commands:"
 	@echo "  make up              - Start all database services (non-blocking)"
@@ -16,6 +17,13 @@ help:
 	@echo "  make logs-[service]  - View logs for specific service"
 	@echo "  make clean           - Clean up Docker images (unused)"
 	@echo ""
+	@echo "Profile Management:"
+	@echo "  make create-profiles - Create DB profiles from docker-compose.yml (skip if exist)"
+	@echo "  make profiles-force  - Create/overwrite all DB profiles"
+	@echo "  make profiles-check  - List all configured profiles"
+	@echo "  make profiles-reset  - Delete all profiles (with confirmation)"
+	@echo "  make profiles-list   - Alias to: qa profile list"
+	@echo ""
 	@echo "Testing commands:"
 	@echo "  make test            - Run all 126 integration tests (starts Docker)"
 	@echo "  make test-unit       - Run unit tests only (no Docker needed)"
@@ -29,9 +37,6 @@ help:
 	@echo "  make test-verbose    - Run all tests with verbose output"
 	@echo "  make test-clean      - Remove pytest cache and coverage artifacts"
 	@echo ""
-	@echo "Services: postgres, mysql, mongodb, redis, influxdb, neo4j, cockroachdb, elasticsearch"
-	@echo ""
-
 up:
 	@echo "🚀 Starting all services..."
 	docker compose -f docker/compose.yml up -d
@@ -170,3 +175,27 @@ test-clean:
 	@rm -rf .pytest_cache .coverage htmlcov *.coverage
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@echo "✅ Test artifacts cleaned!"
+
+# ========================================
+# Profile Management Targets
+# ========================================
+
+create-profiles:
+	@echo "Creating database profiles from docker-compose.yml..."
+	@uv run python scripts/create_db_profiles.py
+
+profiles-force:
+	@echo "Overwriting database profiles..."
+	@uv run python scripts/create_db_profiles.py --force
+
+profiles-check:
+	@uv run python scripts/create_db_profiles.py --check
+
+profiles-reset:
+	@uv run python scripts/create_db_profiles.py --reset
+
+profiles-list:
+	@uv run python -m query_analyzer profile list
+
+profiles-validate: profiles-check
+	@echo "Profiles validated successfully!"

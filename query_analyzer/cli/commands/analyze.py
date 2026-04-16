@@ -19,7 +19,6 @@ from query_analyzer.config import (
     ProfileNotFoundError,
 )
 
-app = typer.Typer(help="Analizar rendimiento de consultas")
 console = Console()
 err_console = Console(file=sys.stderr)
 
@@ -313,7 +312,6 @@ def print_error_details(
 # ═══════════════════════════════════════════════════════════════
 
 
-@app.command()
 def analyze(
     query: str | None = typer.Argument(None, help="SQL query string (or use --file or stdin)"),
     profile: str | None = typer.Option(

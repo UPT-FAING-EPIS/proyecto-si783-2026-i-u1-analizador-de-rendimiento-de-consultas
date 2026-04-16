@@ -9,13 +9,13 @@ services:
     image: postgres:16-alpine
     container_name: query-analyzer-postgres
     environment:
-      POSTGRES_USER: ${DB_POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_USER: ${DB_POSTGRES_USER:-qa}
+      POSTGRES_PASSWORD: ${DB_POSTGRES_PASSWORD:-QAnalyze}
       POSTGRES_DB: ${DB_POSTGRES_NAME:-query_analyzer}
     ports:
       - "${DB_POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_POSTGRES_USER:-qa}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,10 +31,10 @@ services:
     image: mysql:8
     container_name: query-analyzer-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_MYSQL_PASSWORD:-mysql123}
+      MYSQL_ROOT_PASSWORD: ${DB_MYSQL_PASSWORD:-QAnalyze}
       MYSQL_DATABASE: ${DB_MYSQL_NAME:-query_analyzer}
-      MYSQL_USER: ${DB_MYSQL_USER:-analyst}
-      MYSQL_PASSWORD: ${DB_MYSQL_PASSWORD:-mysql123}
+      MYSQL_USER: ${DB_MYSQL_USER:-qa}
+      MYSQL_PASSWORD: ${DB_MYSQL_PASSWORD:-QAnalyze}
     ports:
       - "${DB_MYSQL_PORT:-3306}:3306"
     healthcheck:
@@ -163,6 +163,51 @@ services:
       resources:
         limits:
           cpus: '0.5'
+          memory: 1024M
+    networks:
+      - query-analyzer-net
+
+  yugabytedb:
+    image: yugabytedb/yugabyte:latest
+    container_name: query-analyzer-yugabytedb
+    ports:
+      - "${DB_YUGABYTE_PORT:-5433}:5433"
+      - "${DB_YUGABYTE_UI_PORT:-7000}:7000"
+    command: >
+      bash -c "
+        bin/yugabyted start --daemon=false --advertise_address=0.0.0.0 &
+        YUGABYTE_PID=\$!;
+        for i in {1..60}; do
+          if [ -f /root/var/data/pg_data/ysql_pg.conf ]; then
+            echo 'Config file ready, adding listen_addresses...';
+            if ! grep -q \"^listen_addresses = '\\*'\" /root/var/data/pg_data/ysql_pg.conf; then
+              echo \"listen_addresses = '*'\" >> /root/var/data/pg_data/ysql_pg.conf;
+              echo 'Modified listen_addresses configuration';
+            fi;
+            break;
+          fi;
+          sleep 1;
+        done;
+        for i in {1..60}; do
+          if bin/ysqlsh -U yugabyte -d yugabyte -c '\\dt' >/dev/null 2>&1; then
+            echo 'YugabyteDB ready, creating query_analyzer database...';
+            bin/ysqlsh -U yugabyte -d yugabyte -c 'CREATE DATABASE query_analyzer;' 2>/dev/null || echo 'Database already exists';
+            break;
+          fi;
+          sleep 1;
+        done;
+        wait \$YUGABYTE_PID;
+      "
+    healthcheck:
+      test: ["CMD", "bash", "-c", "ysqlsh -U yugabyte -d query_analyzer -c '\\dt' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
           memory: 1024M
     networks:
       - query-analyzer-net

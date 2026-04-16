@@ -57,7 +57,7 @@ class OutputFormatter:
         """
         default_marker = " [bold green](default)[/bold green]" if is_default else ""
         password_display = (
-            OutputFormatter.mask_password(profile.password) if mask_pwd else profile.password
+            OutputFormatter.mask_password(profile.password or "") if mask_pwd else profile.password
         )
 
         return (
