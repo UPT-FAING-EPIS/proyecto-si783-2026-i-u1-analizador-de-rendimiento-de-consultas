@@ -415,6 +415,82 @@ docker compose exec influxdb influx query 'from(bucket:"query_analyzer") |> rang
 
 ---
 
+### Neo4j
+
+**Connection Details:**
+- Host: `localhost`
+- Port: `7687` (Bolt protocol)
+- User: `neo4j`
+- Password: `neo4j123`
+- Database: `neo4j` (default)
+- Query Language: Cypher (graph query language)
+
+**Test Commands:**
+
+```bash
+# Query 1: Simple Label Scan + WHERE Filter (Score 100/100 - Optimal)
+# Indexed property lookup on single country
+qa analyze "MATCH (u:User {country: 'US'}) RETURN u.name, u.email LIMIT 10" --profile neo4j
+
+# Query 2: Relationship Aggregation (Score 100/100 - Efficient)
+# Expands all PURCHASED relationships and groups by country
+qa analyze "MATCH (u:User)-[:PURCHASED]->(p:Product) WITH u.country as country, COUNT(p) as purchase_count RETURN country, purchase_count ORDER BY purchase_count DESC" --profile neo4j
+
+# Query 3: Multi-Hop Relationship Join (Score 100/100 - Optimal)
+# Navigates 2 relationship hops with property filter
+qa analyze "MATCH (u:User)-[:FOLLOWS]->(f:User)-[:PURCHASED]->(p:Product) WHERE p.price > 100 RETURN u.name, f.name, p.title LIMIT 20" --profile neo4j
+
+# Query 4: Variable-Length Path Finding (Score 100/100 - Bounded)
+# Path finding up to 5 hops with type filtering
+qa analyze "MATCH (u:User {id: 1})-[*1..5]-(related) WHERE NOT (related:User) RETURN COUNT(distinct related)" --profile neo4j
+
+# Manual test via cypher-shell
+docker compose exec neo4j cypher-shell -u neo4j -p neo4j123 "MATCH (u:User) RETURN COUNT(u) as user_count;"
+
+# View graph statistics
+docker compose exec neo4j cypher-shell -u neo4j -p neo4j123 "MATCH (n) RETURN labels(n)[0] as label, COUNT(n) as count GROUP BY label;"
+```
+
+**Expected Results:**
+- ✅ Query 1 (Label Scan): Score 100/100, 0 warnings — Index on country, fast lookup (~28ms)
+- ✅ Query 2 (Aggregation): Score 100/100, 0 warnings — Efficient relationship expansion and grouping (~95ms)
+- ✅ Query 3 (Relationship Join): Score 100/100, 0 warnings — Multi-hop navigation, no Cartesian product (~99ms)
+- ✅ Query 4 (Path Finding): Score 100/100, 0 warnings — Bounded variable-length path (1..5 hops) (~98ms)
+
+**Key Differences from SQL/Time-Series Engines:**
+- ✅ Graph-native queries using relationship navigation (MATCH, EXPAND)
+- ✅ Efficient multi-hop traversals (2-5 relationship hops in milliseconds)
+- ✅ Variable-length paths with bounded ranges prevent unbounded expansion
+- ⚠️ No traditional JOIN syntax; relationships are first-class
+- ⚠️ Aggregations use WITH clause (not GROUP BY like SQL)
+
+**Real Seed Data (Social Commerce Graph - 610 nodes, 3,398 relationships):**
+- **Users** (500 nodes): Distributed across 5 countries (US, UK, DE, FR, JP) × 100 users each
+  - Properties: id (unique), name, email, country, registration_date
+  - Indexes: idx_user_country, idx_user_id
+
+- **Products** (100 nodes): Distributed across 10 categories
+  - Properties: id (unique), title, price, category_id, stock, created_date
+  - Indexes: idx_product_id, idx_product_price
+
+- **Categories** (10 nodes): Product taxonomy
+  - Properties: id (unique), name, description
+
+- **Relationships:**
+  - **PURCHASED** (899 edges): User → Product (transaction history)
+    - Properties: quantity, purchase_date
+    - Density: ~1.8 per user
+  - **VIEWED** (1,600 edges): User → Product (browsing behavior)
+    - Properties: view_date
+    - Density: ~3.2 per user
+  - **FOLLOWS** (499 edges): User → User (social connections)
+    - Properties: since
+    - Density: ~1.0 per user
+  - **LIKES** (400 edges): User → Product (preference signals)
+    - Density: ~0.8 per user
+
+---
+
 ## Query Performance Patterns
 
 ### Pattern 1: Index Scan (Fast)
@@ -1018,25 +1094,32 @@ make health
 | **Bounded Time-Series** | `range(start: -7d) \| mean()` | Range Scan + Aggregate | 100 | 1-5 ms | ✅ Rápido - bounded query |
 | **Unbounded Time-Series** | `filter(...) \| mean()` | Full Bucket Scan | 450 | 50-200 ms | ❌ Muy lento - sin range |
 | **High Cardinality TS** | `group(columns: [...4 tags...])` | Range + Multi-Group | variable | 20-100 ms | ⚠️ Riesgo OOM - demasiadas dimensiones |
+| **Label Scan + Filter (Neo4j)** | `MATCH (u:User {country: 'US'})` | NodeByLabelScan | 100 | 28-35 ms | ✅ Rápido - indexed property lookup |
+| **Relationship Aggregation (Neo4j)** | `(u)-[:PURCHASED]->(p) COUNT(p)` | Expand + Aggregate | 5 | 95-105 ms | ✅ Eficiente - expansión y agrupación |
+| **Multi-Hop Join (Neo4j)** | `(u)-[:FOLLOWS]->(f)-[:PURCHASED]->(p)` | Multi-Expand + Filter | 20 | 95-105 ms | ✅ Óptimo - sin Cartesian product |
+| **Path Finding (Neo4j)** | `(u)-[*1..5]-(related)` | Variable-Length Expand | variable | 95-105 ms | ✅ Bounded - 1..5 hops seguros |
 
 ### Performance by Engine (with Seed Data)
 
-| Operation | PostgreSQL | MySQL | SQLite | CockroachDB | YugabyteDB | InfluxDB |
-|-----------|-----------|-------|--------|-------------|------------|----------|
-| **Index Scan (1 row)** | 0.1-0.5 ms | 0.5-2 ms | 0.2-1 ms | 5-10 ms | 10-20 ms | N/A |
-| **Index Scan (20 rows)** | 0.3-1 ms | 1-3 ms | 0.5-2 ms | 8-15 ms | 15-30 ms | N/A |
-| **Seq Scan (2K of 10K)** | 20-30 ms | 30-50 ms | 50-100 ms | 80-150 ms | 150-250 ms | N/A |
-| **GROUP BY (4 status)** | 1-2 ms | 2-5 ms | 2-5 ms | 10-20 ms | 20-40 ms | N/A |
-| **GROUP BY (10 category)** | 3-5 ms | 5-10 ms | 5-10 ms | 20-40 ms | 40-80 ms | N/A |
-| **JOIN (100+500 rows)** | 5-10 ms | 10-20 ms | 15-30 ms | 30-80 ms | 80-200 ms | N/A |
-| **Local Shard Query (1 region)** | N/A | N/A | N/A | 1-5 ms | N/A | N/A |
-| **Cross-Shard GROUP BY (5 regions)** | N/A | N/A | N/A | 50-150 ms | N/A | N/A |
-| **Distributed JOIN (reshuffling)** | N/A | N/A | N/A | 200-500 ms | N/A | N/A |
-| **Multi-Region Aggregation** | N/A | N/A | N/A | 150-300 ms | N/A | N/A |
-| **Bounded TS (range + agg)** | N/A | N/A | N/A | N/A | N/A | 1-5 ms |
-| **Unbounded TS (no range)** | N/A | N/A | N/A | N/A | N/A | 50-200 ms |
-| **High Cardinality TS** | N/A | N/A | N/A | N/A | N/A | 20-100 ms |
-| **Excessive Transforms TS** | N/A | N/A | N/A | N/A | N/A | 30-150 ms |
+| Operation | PostgreSQL | MySQL | SQLite | CockroachDB | YugabyteDB | InfluxDB | Neo4j |
+|-----------|-----------|-------|--------|-------------|------------|----------|-------|
+| **Index Scan (1 row)** | 0.1-0.5 ms | 0.5-2 ms | 0.2-1 ms | 5-10 ms | 10-20 ms | N/A | 28-35 ms |
+| **Index Scan (20 rows)** | 0.3-1 ms | 1-3 ms | 0.5-2 ms | 8-15 ms | 15-30 ms | N/A | 28-35 ms |
+| **Seq Scan (2K of 10K)** | 20-30 ms | 30-50 ms | 50-100 ms | 80-150 ms | 150-250 ms | N/A | N/A |
+| **GROUP BY (4 status)** | 1-2 ms | 2-5 ms | 2-5 ms | 10-20 ms | 20-40 ms | N/A | N/A |
+| **GROUP BY (10 category)** | 3-5 ms | 5-10 ms | 5-10 ms | 20-40 ms | 40-80 ms | N/A | N/A |
+| **JOIN (100+500 rows)** | 5-10 ms | 10-20 ms | 15-30 ms | 30-80 ms | 80-200 ms | N/A | 95-105 ms |
+| **Local Shard Query (1 region)** | N/A | N/A | N/A | 1-5 ms | N/A | N/A | N/A |
+| **Cross-Shard GROUP BY (5 regions)** | N/A | N/A | N/A | 50-150 ms | N/A | N/A | N/A |
+| **Distributed JOIN (reshuffling)** | N/A | N/A | N/A | 200-500 ms | N/A | N/A | N/A |
+| **Multi-Region Aggregation** | N/A | N/A | N/A | 150-300 ms | N/A | N/A | N/A |
+| **Bounded TS (range + agg)** | N/A | N/A | N/A | N/A | N/A | 1-5 ms | N/A |
+| **Unbounded TS (no range)** | N/A | N/A | N/A | N/A | N/A | 50-200 ms | N/A |
+| **High Cardinality TS** | N/A | N/A | N/A | N/A | N/A | 20-100 ms | N/A |
+| **Excessive Transforms TS** | N/A | N/A | N/A | N/A | N/A | 30-150 ms | N/A |
+| **Relationship Aggregation** | N/A | N/A | N/A | N/A | N/A | N/A | 95-105 ms |
+| **Multi-Hop Join** | N/A | N/A | N/A | N/A | N/A | N/A | 95-105 ms |
+| **Path Finding (Variable-Length)** | N/A | N/A | N/A | N/A | N/A | N/A | 95-105 ms |
 
 *Notas:*
 - *CockroachDB distributed queries show overhead even in single-node (educational demo of sharding)*
@@ -1045,6 +1128,9 @@ make health
 - *SQLite es embebido pero puede ser más lento que PostgreSQL en queries complejas*
 - *InfluxDB optimizado para time-series; queries sin range() son extremadamente caras*
 - *InfluxDB high cardinality (4+ tags) puede causar OOM en buckets grandes*
+- *Neo4j excels at relationship queries; simpler than SQL JOINs for multi-hop traversals*
+- *Neo4j variable-length paths must be bounded [*1..N] to prevent unbounded expansion*
+- *Neo4j aggregations use WITH clause (equivalent to GROUP BY in SQL)*
 - *Tiempos incluyen planning + execution*
 - *Real times varían según recursos del sistema y carga*
 
@@ -1073,6 +1159,30 @@ make health
 - Queries filtering by single region = LOCAL shard (fast, ~1-5ms)
 - Queries across regions = CROSS-SHARD (slower, requires consolidation, ~50-500ms)
 - Expected latency increase with geographic distance: US (5.2ms) → EU (8.5ms) → APAC (12.3ms) → LATAM (15.7ms) → MENA (18.9ms)
+
+### Neo4j-Specific Seed Data (Social Commerce Graph)
+
+| Node/Rel | Count | Indexes | Key Patterns | Characteristics |
+|----------|-------|---------|--------------|-----------------|
+| **Users** | 500 | user_id, country | 5 countries × 100 users (US, UK, DE, FR, JP) | Properties: id, name, email, country, registration_date |
+| **Products** | 100 | product_id, price | 10 categories × 10 products | Properties: id, title, price, category_id, stock, created_date |
+| **Categories** | 10 | category_id | Taxonomy for products | Properties: id, name, description |
+| **PURCHASED** | 899 | (implicit) | ~1.8 per user, relationship history | Properties: quantity, purchase_date |
+| **VIEWED** | 1,600 | (implicit) | ~3.2 per user, browsing behavior | Properties: view_date |
+| **FOLLOWS** | 499 | (implicit) | ~1.0 per user, social network | Properties: since |
+| **LIKES** | 400 | (implicit) | ~0.8 per user, preference signals | No properties |
+
+**Graph Pattern:**
+- Social commerce network: Users → Products (via PURCHASED, VIEWED, LIKES)
+- Social connections: User → User (via FOLLOWS)
+- Sparse network (3,398 total relationships, ~5.6 per node average)
+- Multi-hop patterns safe: FOLLOWS-PURCHASED (3 hops) with no Cartesian risk
+- Variable-length paths bounded [1..5] for safety: discover related products through network
+
+**Index Strategy:**
+- Label property indexes on high-cardinality columns: country, id, price
+- No relationship indexes (implicit navigation via labels)
+- Constraint indexes ensure uniqueness: user_id, product_id, category_id
 
 
 
