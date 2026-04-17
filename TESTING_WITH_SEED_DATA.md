@@ -428,21 +428,23 @@ docker compose exec influxdb influx query 'from(bucket:"query_analyzer") |> rang
 **Test Commands:**
 
 ```bash
-# Query 1: Simple Label Scan + WHERE Filter (Score 100/100 - Optimal)
-# Indexed property lookup on single country
-qa analyze "MATCH (u:User {country: 'US'}) RETURN u.name, u.email LIMIT 10" --profile neo4j
+# Query 1: Simple Indexed Lookup (Score ~100/100 - OPTIMAL)
+# Uses index on country property, minimal result set
+qa analyze "MATCH (u:User {country: 'US'}) RETURN u.id, u.name, u.email LIMIT 5" --profile neo4j
 
-# Query 2: Relationship Aggregation (Score 100/100 - Efficient)
-# Expands all PURCHASED relationships and groups by country
-qa analyze "MATCH (u:User)-[:PURCHASED]->(p:Product) WITH u.country as country, COUNT(p) as purchase_count RETURN country, purchase_count ORDER BY purchase_count DESC" --profile neo4j
+# Query 2: Relationship Expansion without Bounds (Score ~70/100 - MODERATE)
+# Expands relationships across entire dataset without filtering
+# Traverses: 500 users × ~6 FOLLOWS per user = large expansion
+qa analyze "MATCH (u:User)-[:FOLLOWS]->(f:User) RETURN DISTINCT u.country, f.country, COUNT(*) as follows_per_pair" --profile neo4j
 
-# Query 3: Multi-Hop Relationship Join (Score 100/100 - Optimal)
-# Navigates 2 relationship hops with property filter
-qa analyze "MATCH (u:User)-[:FOLLOWS]->(f:User)-[:PURCHASED]->(p:Product) WHERE p.price > 100 RETURN u.name, f.name, p.title LIMIT 20" --profile neo4j
+# Query 3: Multiple Relationship Hops (Score ~55/100 - INEFFICIENT)
+# Multi-hop without property-level filtering causes Cartesian expansion
+# u->f->p->c creates many intermediate results
+qa analyze "MATCH (u:User)-[:FOLLOWS]->(f:User)-[:PURCHASED]->(p:Product)-[:COMMENTED]->(c:User) RETURN COUNT(DISTINCT p) as product_count" --profile neo4j
 
-# Query 4: Variable-Length Path Finding (Score 100/100 - Bounded)
-# Path finding up to 5 hops with type filtering
-qa analyze "MATCH (u:User {id: 1})-[*1..5]-(related) WHERE NOT (related:User) RETURN COUNT(distinct related)" --profile neo4j
+# Query 4: High-Cardinality Aggregation (Score ~40/100 - POOR)
+# Groups on many dimensions without early filtering, full graph scan pattern
+qa analyze "MATCH (a:User)-[:COMMENTED]->(p:Product)<-[:COMMENTED]-(b:User) WHERE a.country = b.country RETURN a.country, COUNT(DISTINCT a) as users, COUNT(DISTINCT p) as products" --profile neo4j
 
 # Manual test via cypher-shell
 docker compose exec neo4j cypher-shell -u neo4j -p neo4j123 "MATCH (u:User) RETURN COUNT(u) as user_count;"
@@ -452,10 +454,10 @@ docker compose exec neo4j cypher-shell -u neo4j -p neo4j123 "MATCH (n) RETURN la
 ```
 
 **Expected Results:**
-- ✅ Query 1 (Label Scan): Score 100/100, 0 warnings — Index on country, fast lookup (~28ms)
-- ✅ Query 2 (Aggregation): Score 100/100, 0 warnings — Efficient relationship expansion and grouping (~95ms)
-- ✅ Query 3 (Relationship Join): Score 100/100, 0 warnings — Multi-hop navigation, no Cartesian product (~99ms)
-- ✅ Query 4 (Path Finding): Score 100/100, 0 warnings — Bounded variable-length path (1..5 hops) (~98ms)
+- ✅ Query 1 (Index Lookup): Score ~100/100, 0 warnings — Indexed property lookup, minimal traversal (~8-10ms)
+- ⚠️ Query 2 (Expansion): Score ~70/100, warnings — Relationship expansion without early filtering (~80-120ms)
+- ⚠️ Query 3 (Multi-Hop): Score ~55/100, multiple warnings — 4-hop traversal causes result explosion (~150-250ms)
+- ❌ Query 4 (Aggregation): Score ~40/100, critical warnings — High-cardinality joins without filtering (~300-500ms)
 
 **Key Differences from SQL/Time-Series Engines:**
 - ✅ Graph-native queries using relationship navigation (MATCH, EXPAND)

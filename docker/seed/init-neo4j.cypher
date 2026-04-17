@@ -1,7 +1,7 @@
 // Neo4j Social Commerce Graph Seed Data
 // Structure: 500 Users, 100 Products, 10 Categories
-// Relationships: FOLLOWS (1000), PURCHASED (1500), VIEWED (2000), LIKES (800)
-// Total: ~500 nodes, ~5300 relationships
+// Relationships: FOLLOWS (2500), PURCHASED (1500), VIEWED (2000), LIKES (800), COMMENTED (5000)
+// Total: ~500 nodes, ~12000 relationships - larger dataset to show performance issues
 
 // ===== CATEGORIES =====
 // 10 product categories
@@ -60,10 +60,10 @@ WHERE (u.id * 11 + p.id * 13) % 125 < 4
 CREATE (u)-[:VIEWED {view_date: date({year: 2024, month: 1, day: 1})}]->(p);
 
 // ===== FOLLOWS RELATIONSHIPS =====
-// 1000 social follows: sparse network, ~2 follows per user
+// 2500 social follows: denser network than before for anti-pattern testing (~5 follows per user)
 MATCH (u1:User), (u2:User)
 WHERE u1.id < u2.id
-  AND (u1.id * 19 + u2.id * 23) % 500 < 2
+  AND (u1.id * 19 + u2.id * 23) % 200 < 5
 CREATE (u1)-[:FOLLOWS {since: date({year: 2023, month: 6, day: 1})}]->(u2);
 
 // ===== LIKES RELATIONSHIPS =====
@@ -71,6 +71,13 @@ CREATE (u1)-[:FOLLOWS {since: date({year: 2023, month: 6, day: 1})}]->(u2);
 MATCH (u:User), (p:Product)
 WHERE (u.id * 17 + p.id * 19) % 250 < 1.6
 CREATE (u)-[:LIKES]->(p);
+
+// ===== COMMENTED RELATIONSHIPS (NEW) =====
+// 5000 comments: high cardinality relationship for anti-pattern testing
+// Creates many paths u->p where comments exist, leading to relationship explosion
+MATCH (u:User), (p:Product)
+WHERE (u.id * 23 + p.id * 29) % 50 < 5
+CREATE (u)-[:COMMENTED {comment: 'Nice product!', timestamp: datetime()}]->(p);
 
 // ===== CREATE INDEXES FOR BETTER QUERY PERFORMANCE =====
 CREATE INDEX idx_user_country IF NOT EXISTS FOR (u:User) ON (u.country);
