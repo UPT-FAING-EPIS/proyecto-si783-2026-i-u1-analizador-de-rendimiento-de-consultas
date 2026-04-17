@@ -87,22 +87,42 @@ class ConnectionConfig(BaseModel):
 
     @field_validator("database", mode="before")
     @classmethod
-    def strip_and_validate_database(cls, v: str) -> str:
+    def strip_and_validate_database(cls, v: str, info: ValidationInfo) -> str:
         """Strip whitespace and validate database name.
 
         Args:
             v: Database name
+            info: Validation context with engine information
 
         Returns:
-            Stripped database name
+            Stripped database name (may be empty for some engines)
 
         Raises:
-            ValueError: If database is empty after stripping
+            ValueError: If database is empty for engines that require it
         """
-        if not v or not v.strip():
+        if not v:
+            v = ""
+
+        stripped = v.strip() if isinstance(v, str) else ""
+
+        # Engines that don't require a database name
+        engine = info.data.get("engine", "").lower()
+        no_database_required = {
+            "elasticsearch",
+            "dynamodb",
+            "redis",
+            "cassandra",
+        }
+
+        # Allow empty database for engines that don't use the concept
+        if engine in no_database_required:
+            return stripped
+
+        # Other engines require non-empty database
+        if not stripped:
             raise ValueError("database no puede estar vacío")
 
-        return v.strip()
+        return stripped
 
     @field_validator("username", mode="before")
     @classmethod
