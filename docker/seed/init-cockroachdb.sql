@@ -1,199 +1,177 @@
 -- ============================================================================
--- Query Analyzer - CockroachDB Test Data
+-- Query Analyzer - CockroachDB Distributed Test Data (REGIONAL SHARDING)
 -- ============================================================================
--- This script creates test tables and data for demonstrating query performance
--- patterns: index scans, sequential scans, nested loops, etc.
---
--- CockroachDB is PostgreSQL-compatible, so we use PostgreSQL syntax.
+-- This script demonstrates CockroachDB's distributed capabilities with
+-- data partitioned by region and demonstrates sharding patterns.
 --
 -- Tables:
---   - customers (100 rows) - Small table for JOINs
---   - orders (100 rows) - Small table with some indexes
---   - order_items (500 rows) - Medium table for nested loops
---   - large_table (10000 rows) - Large table for sequential scans
---   - slow_queries_log (1000 rows) - Sample slow query logs
+--   - regional_users (1000 rows) - Users distributed across 5 regions
+--   - regional_transactions (5000 rows) - Transactions with regional affinity
+--   - shard_distribution (5 rows) - Meta-info about sharding
+--   - hot_keys_log (500 rows) - Hotspot monitoring
+--
+-- Key Features:
+--   - Demonstrates LOCAL SHARD queries (Query 1: single region = fast)
+--   - Demonstrates CROSS-SHARD queries (Query 2-4: multiple regions = slower)
+--   - Shows distributed GROUP BY, JOIN, and AGGREGATION overhead
 -- ============================================================================
 
 -- Drop existing tables if they exist
-DROP TABLE IF EXISTS slow_queries_log CASCADE;
-DROP TABLE IF EXISTS order_items CASCADE;
-DROP TABLE IF EXISTS orders CASCADE;
-DROP TABLE IF EXISTS customers CASCADE;
-DROP TABLE IF EXISTS large_table CASCADE;
+DROP TABLE IF EXISTS hot_keys_log CASCADE;
+DROP TABLE IF EXISTS shard_distribution CASCADE;
+DROP TABLE IF EXISTS regional_transactions CASCADE;
+DROP TABLE IF EXISTS regional_users CASCADE;
 
 -- ============================================================================
--- Customers Table (100 rows)
+-- Regional Users Table (1000 rows)
+-- Distributed: 5 regions × 200 users each
 -- ============================================================================
-CREATE TABLE customers (
-    id SERIAL PRIMARY KEY,
+CREATE TABLE regional_users (
+    user_id SERIAL PRIMARY KEY,
+    region VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    country VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    email VARCHAR(100) NOT NULL,
+    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_customers_email ON customers(email);
-CREATE INDEX idx_customers_country ON customers(country);
+CREATE INDEX idx_regional_users_region ON regional_users(region);
+CREATE INDEX idx_regional_users_email ON regional_users(email);
 
-INSERT INTO customers (name, email, country)
+INSERT INTO regional_users (region, name, email)
 SELECT
-    'Customer ' || i,
-    'customer' || i || '@example.com',
     CASE (i % 5)
+        WHEN 0 THEN 'US'
+        WHEN 1 THEN 'EU'
+        WHEN 2 THEN 'APAC'
+        WHEN 3 THEN 'LATAM'
+        ELSE 'MENA'
+    END as region,
+    'User_' || i || '_' || CASE (i % 5)
         WHEN 0 THEN 'USA'
-        WHEN 1 THEN 'UK'
-        WHEN 2 THEN 'Canada'
-        WHEN 3 THEN 'Germany'
-        ELSE 'France'
+        WHEN 1 THEN 'Europe'
+        WHEN 2 THEN 'AsiaPacific'
+        WHEN 3 THEN 'LatinAmerica'
+        ELSE 'MiddleEastNorthAfrica'
+    END,
+    'user' || i || '@' || CASE (i % 5)
+        WHEN 0 THEN 'us-company.com'
+        WHEN 1 THEN 'eu-company.com'
+        WHEN 2 THEN 'apac-company.com'
+        WHEN 3 THEN 'latam-company.com'
+        ELSE 'mena-company.com'
     END
-FROM generate_series(1, 100) AS t(i);
+FROM generate_series(1, 1000) AS t(i);
 
 -- ============================================================================
--- Orders Table (100 rows) - WITH indexes
+-- Regional Transactions Table (5000 rows)
+-- ~5 transactions per user, with regional affinity
 -- ============================================================================
-CREATE TABLE orders (
-    id SERIAL PRIMARY KEY,
-    customer_id INTEGER NOT NULL REFERENCES customers(id),
-    order_date DATE DEFAULT CURRENT_DATE,
-    total_amount DECIMAL(10, 2),
-    status VARCHAR(50)
+CREATE TABLE regional_transactions (
+    txn_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES regional_users(user_id),
+    region VARCHAR(50) NOT NULL,
+    amount DECIMAL(12, 2) NOT NULL,
+    status VARCHAR(50),
+    txn_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_orders_customer_id ON orders(customer_id);
-CREATE INDEX idx_orders_order_date ON orders(order_date);
-CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_regional_transactions_region ON regional_transactions(region);
+CREATE INDEX idx_regional_transactions_status ON regional_transactions(status);
+CREATE INDEX idx_regional_transactions_user_id ON regional_transactions(user_id);
 
-WITH customer_list AS (
-    SELECT id, ROW_NUMBER() OVER (ORDER BY id) as rn FROM customers
+WITH user_list AS (
+    SELECT user_id, region, ROW_NUMBER() OVER (PARTITION BY region ORDER BY user_id) as rn
+    FROM regional_users
 )
-INSERT INTO orders (customer_id, order_date, total_amount, status)
+INSERT INTO regional_transactions (user_id, region, amount, status)
 SELECT
-    (SELECT id FROM customer_list WHERE rn = (t.i % 100) + 1),
-    CURRENT_DATE - (t.i % 30 || ' days')::INTERVAL,
-    ROUND((RANDOM() * 9990 + 10)::NUMERIC, 2),
+    ru.user_id,
+    ru.region,
+    ROUND((RANDOM() * 9999.99 + 0.01)::NUMERIC, 2),
     CASE (t.i % 4)
         WHEN 0 THEN 'pending'
-        WHEN 1 THEN 'processing'
-        WHEN 2 THEN 'shipped'
-        ELSE 'delivered'
+        WHEN 1 THEN 'completed'
+        WHEN 2 THEN 'failed'
+        ELSE 'refunded'
     END
-FROM generate_series(1, 100) AS t(i);
+FROM generate_series(1, 5000) AS t(i)
+CROSS JOIN (SELECT COUNT(*) as user_count FROM regional_users) cnt
+JOIN regional_users ru ON ru.user_id = ((t.i % cnt.user_count) + 1);
 
 -- ============================================================================
--- Order Items Table (500 rows) - For nested loops demonstrations
+-- Shard Distribution Table (5 rows)
+-- Meta-information about how data is distributed
 -- ============================================================================
-CREATE TABLE order_items (
-    id SERIAL PRIMARY KEY,
-    order_id INTEGER NOT NULL REFERENCES orders(id),
-    product_id INTEGER,
-    quantity INTEGER,
-    unit_price DECIMAL(10, 2)
+CREATE TABLE shard_distribution (
+    shard_id SERIAL PRIMARY KEY,
+    region VARCHAR(50) NOT NULL UNIQUE,
+    user_count INTEGER,
+    transaction_count INTEGER,
+    avg_latency_ms DECIMAL(8, 2)
 );
 
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
--- Intentionally NO index on product_id to force sequential scans
-
-WITH order_list AS (
-    SELECT id, ROW_NUMBER() OVER (ORDER BY id) as rn FROM orders
-)
-INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-SELECT
-    (SELECT id FROM order_list WHERE rn = (t.i % 100) + 1),
-    FLOOR(RANDOM() * 1000)::INT,
-    FLOOR(RANDOM() * 10 + 1)::INT,
-    ROUND((RANDOM() * 99 + 1)::NUMERIC, 2)
-FROM generate_series(1, 500) AS t(i);
+INSERT INTO shard_distribution (region, user_count, transaction_count, avg_latency_ms)
+VALUES
+    ('US', 200, 1000, 5.2),
+    ('EU', 200, 1000, 8.5),
+    ('APAC', 200, 1000, 12.3),
+    ('LATAM', 200, 1000, 15.7),
+    ('MENA', 200, 1000, 18.9);
 
 -- ============================================================================
--- Large Table (10,000 rows) - For sequential scans
+-- Hot Keys Log Table (500 rows)
+-- Simulates hotspot/contention monitoring
 -- ============================================================================
-CREATE TABLE large_table (
-    id SERIAL PRIMARY KEY,
-    data_value VARCHAR(100),
-    numeric_value INTEGER,
-    category VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Intentionally create it WITHOUT many indexes to force seq scans
-CREATE INDEX idx_large_table_category ON large_table(category);
-
-INSERT INTO large_table (data_value, numeric_value, category)
-SELECT
-    'value_' || i || '_' || MD5(i::TEXT),
-    (i * 7 + FLOOR(RANDOM() * 1000)::INT) % 50000,
-    CASE (i % 10)
-        WHEN 0 THEN 'A'
-        WHEN 1 THEN 'B'
-        WHEN 2 THEN 'C'
-        WHEN 3 THEN 'D'
-        WHEN 4 THEN 'E'
-        WHEN 5 THEN 'F'
-        WHEN 6 THEN 'G'
-        WHEN 7 THEN 'H'
-        WHEN 8 THEN 'I'
-        ELSE 'J'
-    END
-FROM generate_series(1, 10000) AS t(i);
-
--- ============================================================================
--- Slow Queries Log Table (1000 rows) - Sample data for analysis
--- ============================================================================
-CREATE TABLE slow_queries_log (
-    id SERIAL PRIMARY KEY,
-    query_text TEXT,
-    execution_time_ms INTEGER,
-    rows_affected INTEGER,
-    query_type VARCHAR(50),
+CREATE TABLE hot_keys_log (
+    log_id SERIAL PRIMARY KEY,
+    region VARCHAR(50) NOT NULL,
+    key_pattern VARCHAR(100),
+    access_count INTEGER,
+    conflict_rate DECIMAL(5, 2),
     logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_slow_queries_log_execution_time ON slow_queries_log(execution_time_ms);
-
-INSERT INTO slow_queries_log (query_text, execution_time_ms, rows_affected, query_type)
+INSERT INTO hot_keys_log (region, key_pattern, access_count, conflict_rate)
 SELECT
-    'SELECT * FROM large_table WHERE category = ''' || CHR(65 + (i % 10)) || ''' AND numeric_value > ' || (i % 40000),
-    FLOOR(RANDOM() * 5000 + 100)::INT,
-    FLOOR(RANDOM() * 5000)::INT,
     CASE (i % 5)
-        WHEN 0 THEN 'SELECT'
-        WHEN 1 THEN 'JOIN'
-        WHEN 2 THEN 'AGGREGATE'
-        WHEN 3 THEN 'UPDATE'
-        ELSE 'DELETE'
-    END
-FROM generate_series(1, 1000) AS t(i);
+        WHEN 0 THEN 'US'
+        WHEN 1 THEN 'EU'
+        WHEN 2 THEN 'APAC'
+        WHEN 3 THEN 'LATAM'
+        ELSE 'MENA'
+    END,
+    'txn_user_' || (i % 50),
+    FLOOR(RANDOM() * 50000 + 100)::INT,
+    ROUND(RANDOM() * 100, 2)
+FROM generate_series(1, 500) AS t(i);
 
 -- ============================================================================
 -- Sample Queries for Testing
 -- ============================================================================
 
--- Query 1: INDEX SCAN (will use idx_customers_email)
--- Expected: Fast, uses index
--- SELECT * FROM customers WHERE email = 'customer1@example.com';
+-- Query 1: LOCAL SHARD QUERY (Fast - single region)
+-- Expected: Score 100/100, ~1-5ms
+-- SELECT user_id, name, email FROM regional_users WHERE region = 'US' AND email LIKE '%@us-company.com' LIMIT 10;
 
--- Query 2: SEQUENTIAL SCAN (no index on numeric_value)
--- Expected: Slower on large_table, full table scan
--- SELECT * FROM large_table WHERE numeric_value > 30000;
+-- Query 2: CROSS-SHARD GROUP BY (Slower - all regions)
+-- Expected: Score 70-80/100, ~50-150ms
+-- SELECT region, COUNT(*) as user_count FROM regional_users GROUP BY region ORDER BY user_count DESC;
 
--- Query 3: NESTED LOOP (JOIN without proper indexes)
--- Expected: Can produce nested loops
--- SELECT o.id, oi.product_id
--- FROM orders o
--- JOIN order_items oi ON o.id = oi.order_id
--- WHERE o.customer_id = 5;
+-- Query 3: DISTRIBUTED JOIN (Heavier - reshuffling)
+-- Expected: Score 60-70/100, ~200-500ms
+-- SELECT u.region, u.name, COUNT(t.txn_id) as txn_count
+-- FROM regional_users u
+-- JOIN regional_transactions t ON u.user_id = t.user_id
+-- WHERE t.status = 'completed'
+-- GROUP BY u.region, u.name
+-- HAVING COUNT(t.txn_id) > 3;
 
--- Query 4: AGGREGATE with GROUP BY
--- Expected: Medium performance, depends on data distribution
--- SELECT category, COUNT(*) FROM large_table GROUP BY category;
-
--- Query 5: Complex JOIN (multiple tables)
--- Expected: Demonstrates query optimizer decisions
--- SELECT c.name, o.total_amount, oi.product_id, oi.quantity
--- FROM customers c
--- JOIN orders o ON c.id = o.customer_id
--- JOIN order_items oi ON o.id = oi.order_id
--- WHERE o.status = 'delivered'
--- ORDER BY o.order_date DESC;
+-- Query 4: MULTI-REGION AGGREGATION (Complex - consolidation)
+-- Expected: Score 75-85/100, ~150-300ms
+-- SELECT region, AVG(amount) as avg_txn_amount, MAX(amount) as max_txn_amount, COUNT(*) as total_txns
+-- FROM regional_transactions
+-- WHERE txn_timestamp > NOW() - INTERVAL '7 days'
+-- GROUP BY region
+-- ORDER BY avg_txn_amount DESC;
 
 -- Done!

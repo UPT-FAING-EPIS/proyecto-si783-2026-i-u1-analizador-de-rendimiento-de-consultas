@@ -263,28 +263,67 @@ qa analyze "SELECT COUNT(*) FROM orders WHERE status = 'delivered';" --profile s
 - Password: `QAnalyze`
 - Database: `query_analyzer`
 - Flag: `--insecure` (for dev/testing)
+- **Architecture:** Single-node deployment (but distributed query simulation)
 
 **Test Commands:**
 
 ```bash
-# Via Query Analyzer CLI - GROUP BY distribuido
-qa analyze "SELECT status, COUNT(*) FROM orders GROUP BY status ORDER BY status;" --profile cockroachdb
+# Query 1: LOCAL SHARD QUERY (Score 100/100 - Optimal)
+# Single region scan, no cross-shard communication
+qa analyze "SELECT user_id, name, email FROM regional_users WHERE region = 'US' AND email LIKE '%@us-company.com' LIMIT 10;" --profile cockroachdb
+
+# Query 2: CROSS-SHARD GROUP BY (Score 70-80/100 - Overhead visible)
+# Scans all 5 regional shards, requires consolidation
+qa analyze "SELECT region, COUNT(*) as user_count FROM regional_users GROUP BY region ORDER BY user_count DESC;" --profile cockroachdb
+
+# Query 3: DISTRIBUTED JOIN (Score 60-70/100 - Heavy)
+# JOIN across shards with reshuffling, HAVING clause adds cost
+qa analyze "SELECT u.region, u.name, COUNT(t.txn_id) as txn_count FROM regional_users u JOIN regional_transactions t ON u.user_id = t.user_id WHERE t.status = 'completed' GROUP BY u.region, u.name HAVING COUNT(t.txn_id) > 3;" --profile cockroachdb
+
+# Query 4: MULTI-REGION AGGREGATION (Score 75-85/100 - Complex)
+# Aggregation per shard + central consolidation
+qa analyze "SELECT region, AVG(amount) as avg_txn_amount, MAX(amount) as max_txn_amount, COUNT(*) as total_txns FROM regional_transactions WHERE txn_timestamp > NOW() - INTERVAL '7 days' GROUP BY region ORDER BY avg_txn_amount DESC;" --profile cockroachdb
 
 # Manual test - Ver plan distribuido
-docker compose exec cockroachdb cockroach sql --insecure -d query_analyzer -e "EXPLAIN SELECT c.name, COUNT(o.id) FROM customers c JOIN orders o ON c.id = o.customer_id GROUP BY c.id, c.name LIMIT 20;"
+docker compose exec cockroachdb cockroach sql --insecure -d query_analyzer -e "EXPLAIN SELECT region, COUNT(*) FROM regional_users GROUP BY region;"
 
-# Búsqueda por país (distribuida)
-qa analyze "SELECT country, COUNT(*) FROM customers GROUP BY country;" --profile cockroachdb
-
-# JOIN distribuido
-qa analyze "SELECT o.id, oi.product_id, oi.quantity FROM orders o JOIN order_items oi ON o.id = oi.order_id WHERE o.status = 'shipped';" --profile cockroachdb
+# Ver datos de distribución
+docker compose exec cockroachdb cockroach sql --insecure -d query_analyzer -e "SELECT region, COUNT(*) FROM regional_users GROUP BY region;"
 ```
 
 **Expected Results:**
-- ✅ Planes de query distribuidos (muestra rangos de scan)
-- ✅ Sintaxis PostgreSQL-compatible (puede usar EXPLAIN)
-- ✅ Uso de índices similar a PostgreSQL
-- ✅ Overhead distribuido visible (incluso en modo single-node)
+- ✅ Query 1 (Local Shard): Score 100/100, 0 warnings — Single region, minimal latency (~1-5ms)
+- ⚠️ Query 2 (Cross-Shard GROUP BY): Score 70-80/100, 1 warning — Multi-region consolidation, observable latency (~50-150ms)
+- ⚠️ Query 3 (Distributed JOIN): Score 60-70/100, 2 warnings — Data reshuffling between regions, high latency (~200-500ms)
+- ⚠️ Query 4 (Multi-Region Aggregation): Score 75-85/100, 1-2 warnings — Per-shard aggregation + consolidation (~150-300ms)
+
+**Key Differences from PostgreSQL:**
+- ✅ CockroachDB distributes data by shard key (region in this case)
+- ⚠️ Local shard queries are fast (similar to PostgreSQL)
+- ⚠️ Cross-shard queries incur network overhead even in single-node
+- ⚠️ GROUP BY, JOIN, and AGGREGATION across shards require data movement
+- ℹ️ Single-node CockroachDB still shows distributed query patterns (educational)
+
+**Real Seed Data (Distributed Sharding Simulation):**
+- **regional_users** (1,000 rows): Distributed across 5 regions (US, EU, APAC, LATAM, MENA) × 200 users each
+  - Indexes: region, email
+  - Shard key: region (determines which node/range owns data)
+  - Regional affinity: user5@us-company.com, user6@eu-company.com, etc.
+
+- **regional_transactions** (5,000 rows): ~5 transactions per user, same region as user
+  - Columns: user_id (FK), region, amount, status (pending/completed/failed/refunded)
+  - Indexes: region, status, user_id
+  - Distributed by: region (same region as owning user)
+  - Status distribution: 25% each (pending, completed, failed, refunded)
+
+- **shard_distribution** (5 rows): Meta-information about shard distribution
+  - Columns: region, user_count (200), transaction_count (1000), avg_latency_ms
+  - Shows expected latency increase with geographic distance: US (5.2ms) → EU (8.5ms) → APAC (12.3ms) → LATAM (15.7ms) → MENA (18.9ms)
+
+- **hot_keys_log** (500 rows): Simulates hotspot monitoring
+  - Tracks per-region contention patterns
+  - Access patterns by key_pattern (txn_user_0 through txn_user_50)
+  - Conflict rates 0-100%
 
 ---
 
@@ -973,6 +1012,9 @@ make health
 | **JOIN (100+500)** | `orders JOIN order_items` | Hash/Nested Loop Join | 500 | 5-15 ms | ✅ Rápido - ambas tablas pequeñas |
 | **Complex JOIN (3 tablas)** | `c JOIN o JOIN oi` | Multiple Joins + GroupAggregate | variable | 20-50 ms | ⚠️ Medio - depende de filters |
 | **Aggregate** | `COUNT(*) FROM orders` | Aggregate | 1 | 0.5-2 ms | ✅ Rápido - agregación simple |
+| **Local Shard Query (CRDB)** | `WHERE region = 'US'` | Index Scan (local) | 10 | 1-5 ms | ✅ Rápido - shard local, sin overhead |
+| **Cross-Shard GROUP BY (CRDB)** | `GROUP BY region` | Dist. Scan + Consolidate | 5 | 50-150 ms | ⚠️ Network overhead - multi-region |
+| **Distributed JOIN (CRDB)** | `u JOIN t ON u.id = t.user_id` | Data Reshuffling | variable | 200-500 ms | ❌ Costoso - data movement entre shards |
 | **Bounded Time-Series** | `range(start: -7d) \| mean()` | Range Scan + Aggregate | 100 | 1-5 ms | ✅ Rápido - bounded query |
 | **Unbounded Time-Series** | `filter(...) \| mean()` | Full Bucket Scan | 450 | 50-200 ms | ❌ Muy lento - sin range |
 | **High Cardinality TS** | `group(columns: [...4 tags...])` | Range + Multi-Group | variable | 20-100 ms | ⚠️ Riesgo OOM - demasiadas dimensiones |
@@ -987,13 +1029,19 @@ make health
 | **GROUP BY (4 status)** | 1-2 ms | 2-5 ms | 2-5 ms | 10-20 ms | 20-40 ms | N/A |
 | **GROUP BY (10 category)** | 3-5 ms | 5-10 ms | 5-10 ms | 20-40 ms | 40-80 ms | N/A |
 | **JOIN (100+500 rows)** | 5-10 ms | 10-20 ms | 15-30 ms | 30-80 ms | 80-200 ms | N/A |
+| **Local Shard Query (1 region)** | N/A | N/A | N/A | 1-5 ms | N/A | N/A |
+| **Cross-Shard GROUP BY (5 regions)** | N/A | N/A | N/A | 50-150 ms | N/A | N/A |
+| **Distributed JOIN (reshuffling)** | N/A | N/A | N/A | 200-500 ms | N/A | N/A |
+| **Multi-Region Aggregation** | N/A | N/A | N/A | 150-300 ms | N/A | N/A |
 | **Bounded TS (range + agg)** | N/A | N/A | N/A | N/A | N/A | 1-5 ms |
 | **Unbounded TS (no range)** | N/A | N/A | N/A | N/A | N/A | 50-200 ms |
 | **High Cardinality TS** | N/A | N/A | N/A | N/A | N/A | 20-100 ms |
 | **Excessive Transforms TS** | N/A | N/A | N/A | N/A | N/A | 30-150 ms |
 
 *Notas:*
-- *CockroachDB y YugabyteDB tienen overhead distribuido incluso en single-node*
+- *CockroachDB distributed queries show overhead even in single-node (educational demo of sharding)*
+- *Local shard queries comparable to PostgreSQL; cross-shard queries show consolidation cost*
+- *YugabyteDB overhead similar but different execution strategy*
 - *SQLite es embebido pero puede ser más lento que PostgreSQL en queries complejas*
 - *InfluxDB optimizado para time-series; queries sin range() son extremadamente caras*
 - *InfluxDB high cardinality (4+ tags) puede causar OOM en buckets grandes*
@@ -1009,6 +1057,22 @@ make health
 | **order_items** | 500 | 5 | order_id (SÍ), NO product_id | ~5 items/orden, product_id: 0-999 random |
 | **large_table** | 10,000 | 5 | category | Category: A-J (~1K c/u), numeric_value: NO tiene índice |
 | **slow_queries_log** | 1,000 | 5 | execution_time | query_type: SELECT/JOIN/AGGREGATE/UPDATE/DELETE |
+
+### CockroachDB-Specific Seed Data (Distributed Sharding)
+
+| Table | Rows | Shard Key | Indexes | Distribution |
+|-------|------|-----------|---------|--------------|
+| **regional_users** | 1,000 | region | email, region | 5 regions × 200 users (US, EU, APAC, LATAM, MENA) |
+| **regional_transactions** | 5,000 | region | status, user_id, region | ~5 txn/user, co-located with user region |
+| **shard_distribution** | 5 | region | region (UNIQUE) | Meta-info: user/txn counts, latency per region |
+| **hot_keys_log** | 500 | (none) | region | Hotspot monitoring, contention simulation |
+
+**Sharding Pattern:**
+- Data partitioned by `region` column (US, EU, APAC, LATAM, MENA)
+- Each region represents a "node" in the distributed system
+- Queries filtering by single region = LOCAL shard (fast, ~1-5ms)
+- Queries across regions = CROSS-SHARD (slower, requires consolidation, ~50-500ms)
+- Expected latency increase with geographic distance: US (5.2ms) → EU (8.5ms) → APAC (12.3ms) → LATAM (15.7ms) → MENA (18.9ms)
 
 
 
