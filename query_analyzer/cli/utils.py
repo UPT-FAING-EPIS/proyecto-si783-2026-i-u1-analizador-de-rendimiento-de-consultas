@@ -248,22 +248,30 @@ class OutputFormatter:
         target_console = console_instance if console_instance else console
 
         if format == "rich":
-            # Header panel
-            score_emoji = "🟢" if report.score >= 70 else "🟡" if report.score >= 50 else "🔴"
-            header_content = (
-                f"[cyan]Engine:[/cyan] [bold]{report.engine}[/bold]\n"
-                f"[cyan]Score:[/cyan] [bold]{score_emoji} {report.score}/100[/bold]\n"
-                f"[cyan]Execution Time:[/cyan] {report.execution_time_ms:.2f} ms\n"
-                f"[cyan]Query:[/cyan] {report.query}"
+            # Header - simplified ASCII output for Windows compatibility
+            if report.score >= 70:
+                score_indicator = "[green]GOOD[/green]"
+            elif report.score >= 50:
+                score_indicator = "[yellow]FAIR[/yellow]"
+            else:
+                score_indicator = "[red]POOR[/red]"
+
+            query_display = truncate_text(report.query, max_width=100)
+
+            target_console.print("[bold cyan]--- QUERY ANALYSIS REPORT ---[/bold cyan]")
+            target_console.print(f"[cyan]Engine:[/cyan] [bold]{report.engine}[/bold]")
+            target_console.print(
+                f"[cyan]Score:[/cyan] {score_indicator} [bold]{report.score}/100[/bold]"
             )
-            panel = Panel(header_content, title="QUERY ANALYSIS REPORT", expand=True)
-            target_console.print(panel)
+            target_console.print(f"[cyan]Execution Time:[/cyan] {report.execution_time_ms:.2f} ms")
+            target_console.print(f"[cyan]Query:[/cyan] {query_display}")
+            target_console.print()
 
             # Warnings section
             if report.warnings:
                 target_console.print()
                 target_console.print(
-                    f"[bold yellow]⚠️  WARNINGS ({len(report.warnings)})[/bold yellow]"
+                    f"[bold yellow]WARNINGS ({len(report.warnings)})[/bold yellow]"
                 )
                 warnings_table = Table(show_header=True, header_style="bold")
                 warnings_table.add_column("Severity", width=10)
@@ -276,20 +284,22 @@ class OutputFormatter:
             if report.recommendations:
                 target_console.print()
                 target_console.print(
-                    f"[bold cyan]💡 RECOMMENDATIONS ({len(report.recommendations)})[/bold cyan]"
+                    f"[bold cyan]RECOMMENDATIONS ({len(report.recommendations)})[/bold cyan]"
                 )
                 recs_table = Table(show_header=True, header_style="bold")
                 recs_table.add_column("Priority", width=10)
                 recs_table.add_column("Action", no_wrap=False)
                 for r in report.recommendations:
-                    priority_emoji = "🔴" if r.priority <= 3 else "🟡" if r.priority <= 7 else "🔵"
-                    recs_table.add_row(f"{priority_emoji} {r.priority}", r.title)
+                    priority_label = (
+                        "HIGH" if r.priority <= 3 else "MED" if r.priority <= 7 else "LOW"
+                    )
+                    recs_table.add_row(f"{priority_label} {r.priority}", r.title)
                 target_console.print(recs_table)
 
             # Metrics section
             if report.metrics:
                 target_console.print()
-                target_console.print("[bold blue]📊 METRICS[/bold blue]")
+                target_console.print("[bold blue]METRICS[/bold blue]")
                 metrics_table = Table(show_header=True, header_style="bold")
                 metrics_table.add_column("Metric", width=20)
                 metrics_table.add_column("Value", width=15)

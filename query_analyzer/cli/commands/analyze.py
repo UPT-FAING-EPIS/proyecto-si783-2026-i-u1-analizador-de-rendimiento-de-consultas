@@ -29,22 +29,32 @@ err_console = Console(file=sys.stderr)
 
 
 def validate_query(query: str) -> None:
-    """Validate SQL query syntax.
+    r"""Validate query syntax for multiple database query languages.
 
     Performs basic validation to catch common errors early:
     - Non-empty after whitespace stripping
-    - Starts with SELECT, UPDATE, DELETE, INSERT, or WITH (case-insensitive)
+    - Starts with recognized query language keyword
     - No obvious multi-statement injection patterns
 
+    Supported query languages:
+    - SQL: SELECT, UPDATE, DELETE, INSERT, WITH
+    - Flux: from(
+    - Cypher (Neo4j): MATCH, CREATE, MERGE, WITH, RETURN
+    - CQL (Cassandra): SELECT, INSERT, UPDATE, DELETE
+    - MongoDB: db.collection or {query}
+    - Elasticsearch: Query DSL starting with {
+    - Redis: Any non-empty string (commands validated by adapter)
+
     Args:
-        query: SQL query string to validate
+        query: Query string to validate (supports multiple languages)
 
     Raises:
         ValueError: If query is invalid with descriptive message
 
     Example:
-        >>> validate_query("SELECT * FROM users")  # OK
-        >>> validate_query("SELEC * FROM users")   # Raises ValueError
+        >>> validate_query("SELECT * FROM users")  # OK (SQL)
+        >>> validate_query("from(bucket: \"db\") |> filter(...)")  # OK (Flux)
+        >>> validate_query("MATCH (u:User) RETURN u")  # OK (Cypher)
         >>> validate_query("")                      # Raises ValueError
     """
     query = query.strip()
@@ -52,13 +62,44 @@ def validate_query(query: str) -> None:
     if not query:
         raise ValueError("Query cannot be empty")
 
-    # Check valid SQL statement start
-    valid_starts = ("SELECT", "UPDATE", "DELETE", "INSERT", "WITH")
     query_upper = query.upper()
 
-    if not query_upper.startswith(valid_starts):
+    # Check for valid query starters across all supported languages
+    valid_starters = (
+        # SQL variants (PostgreSQL, MySQL, SQLite, CockroachDB, YugabyteDB)
+        ("SELECT", "UPDATE", "DELETE", "INSERT", "WITH"),
+        # Flux (InfluxDB)
+        ("from(",),
+        # Cypher (Neo4j)
+        ("MATCH", "CREATE", "MERGE", "RETURN", "OPTIONAL"),
+        # CQL (Cassandra) - same as SQL variants
+        # MongoDB - db.collection or { for query DSL
+        # Elasticsearch - { for query DSL
+        # Redis - any command
+    )
+
+    # Flatten tuples and check if query starts with any valid keyword
+    all_starters: list[str] = []
+    for starter_group in valid_starters:
+        all_starters.extend(starter_group)
+
+    is_valid = (
+        query_upper.startswith(tuple(all_starters))
+        or query.startswith("from(")
+        or query.startswith("db.")
+        or query.startswith("{")
+    )
+
+    if not is_valid:
         raise ValueError(
-            f"Query must start with {', '.join(valid_starts)}\nReceived: {query[:50]}..."
+            f"Query must start with a valid query keyword (SQL, Cypher, Flux, etc.)\n"
+            f"Examples:\n"
+            f"  SQL: SELECT * FROM users\n"
+            f"  Cypher: MATCH (u:User) RETURN u\n"
+            f'  Flux: from(bucket: "db") |> filter(...)\n'
+            f"  Elasticsearch: {'{'}...\n"
+            f"  MongoDB: db.collection.find(...)\n\n"
+            f"Received: {query[:50]}..."
         )
 
     # Basic check for multi-statement injection (semicolon outside string/comment)
