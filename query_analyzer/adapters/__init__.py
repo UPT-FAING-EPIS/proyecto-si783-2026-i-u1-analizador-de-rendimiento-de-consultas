@@ -29,6 +29,7 @@ from .models import (
     Warning,
 )
 from .nosql import CassandraAdapter, DynamoDBAdapter, MongoDBAdapter
+from .redis import RedisAdapter
 from .registry import AdapterRegistry
 from .sql import (
     CockroachDBAdapter,
@@ -68,6 +69,8 @@ __all__ = [
     "MongoDBAdapter",
     # TimeSeries Adapters
     "InfluxDBAdapter",
+    # Cache Adapters
+    "RedisAdapter",
     # Search Adapters
     *(["ElasticsearchAdapter"] if ElasticsearchAdapter is not None else []),
     # Graph Adapters

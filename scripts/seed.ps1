@@ -124,4 +124,33 @@ if ($LASTEXITCODE -eq 0) {
 }
 Write-Host ""
 
+# InfluxDB Seeding
+Write-Host "InfluxDB..." -ForegroundColor Cyan
+
+$env:INFLUXDB_HOST = "localhost"
+$env:INFLUXDB_PORT = "8086"
+$env:INFLUXDB_TOKEN = "influxdb123"
+$env:INFLUXDB_ORG = ""
+$env:INFLUXDB_BUCKET = "query_analyzer"
+
+& python docker/seed/init-influxdb.py
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "InfluxDB seeded!" -ForegroundColor Green
+} else {
+    Write-Host "InfluxDB seeding warning (non-critical)" -ForegroundColor Yellow
+}
+Write-Host ""
+
+# Redis Seeding
+Write-Host "Redis..." -ForegroundColor Cyan
+& python docker/seed/init-redis.py
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Redis seeded!" -ForegroundColor Green
+} else {
+    Write-Host "Redis seeding warning (non-critical)" -ForegroundColor Yellow
+}
+Write-Host ""
+
 Write-Host "All databases seeded successfully!" -ForegroundColor Green

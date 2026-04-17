@@ -122,4 +122,107 @@ else
 fi
 echo ""
 
+# InfluxDB Seeding
+echo "InfluxDB..."
+export INFLUXDB_HOST=localhost
+export INFLUXDB_PORT=8086
+export INFLUXDB_TOKEN=influxdb123
+export INFLUXDB_ORG=""
+export INFLUXDB_BUCKET=query_analyzer
+
+python3 docker/seed/init-influxdb.py
+
+if [ $? -eq 0 ]; then
+    echo "InfluxDB seeded!"
+else
+    echo "InfluxDB seeding warning (non-critical)"
+fi
+echo ""
+
+# Elasticsearch Seeding
+echo "Elasticsearch..."
+
+# Delete existing index if it exists
+curl -s -X DELETE "http://localhost:9200/test_products" -H "Content-Type: application/json" 2>/dev/null
+
+# Create index with mapping
+curl -s -X PUT "http://localhost:9200/test_products" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "properties": {
+        "_id": {"type": "keyword"},
+        "name": {"type": "text"},
+        "status": {"type": "keyword"},
+        "category": {"type": "keyword"},
+        "price": {"type": "float"},
+        "tags": {"type": "keyword"},
+        "created_date": {"type": "date"}
+      }
+    }
+  }' > /dev/null 2>&1
+
+# Load documents from JSON file
+if [ -f "docker/seed/init-elasticsearch.json" ]; then
+    # Read JSON file and insert documents using bulk API
+    python3 << 'EOF'
+import json
+import requests
+
+# Read the JSON file
+with open('docker/seed/init-elasticsearch.json', 'r') as f:
+    documents = json.load(f)
+
+# Bulk insert using Elasticsearch bulk API
+bulk_body = ""
+for doc in documents:
+    # Index metadata
+    bulk_body += json.dumps({"index": {"_index": "test_products", "_id": str(doc.get("_id", ""))}}) + "\n"
+    # Document
+    bulk_body += json.dumps(doc) + "\n"
+
+# Send bulk request
+response = requests.post(
+    "http://localhost:9200/_bulk",
+    headers={"Content-Type": "application/x-ndjson"},
+    data=bulk_body
+)
+
+if response.status_code == 200:
+    result = response.json()
+    if not result.get('errors', False):
+        print(f"Successfully inserted {len(documents)} documents")
+    else:
+        print(f"Some errors occurred during bulk insert")
+        print(response.text)
+else:
+    print(f"Error: {response.status_code}")
+    print(response.text)
+EOF
+
+    if [ $? -eq 0 ]; then
+        echo "Elasticsearch seeded!"
+    else
+        echo "Elasticsearch seeding warning (check above for errors)"
+    fi
+else
+    echo "Elasticsearch seeding warning (init-elasticsearch.json not found)"
+fi
+echo ""
+
+# Redis Seeding
+echo "Redis..."
+python3 docker/seed/init-redis.py
+
+if [ $? -eq 0 ]; then
+    echo "Redis seeded!"
+else
+    echo "Redis seeding warning (non-critical)"
+fi
+echo ""
+
 echo "All databases seeded successfully!"
