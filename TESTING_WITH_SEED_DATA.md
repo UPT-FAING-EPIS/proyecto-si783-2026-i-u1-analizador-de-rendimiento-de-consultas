@@ -322,6 +322,60 @@ qa analyze "SELECT c.name, COUNT(o.id) FROM customers c LEFT JOIN orders o ON c.
 
 ---
 
+### InfluxDB
+
+**Connection Details:**
+- Host: `localhost`
+- Port: `8086`
+- Token: `mytoken`
+- Organization: `myorg`
+- Bucket: `query_analyzer`
+- Query Language: Flux (time-series specific)
+
+**Test Commands:**
+
+```bash
+# Via Query Analyzer CLI - Bounded Query (Good performance)
+qa analyze 'from(bucket:"query_analyzer") |> range(start: -7d) |> filter(fn: (r) => r._measurement == "cpu") |> filter(fn: (r) => r.host == "server1") |> mean()' --profile influxdb
+
+# Via Query Analyzer CLI - Unbounded Query (Poor performance - missing range)
+qa analyze 'from(bucket:"query_analyzer") |> filter(fn: (r) => r._measurement == "memory") |> mean()' --profile influxdb
+
+# Via Query Analyzer CLI - High Cardinality Query
+qa analyze 'from(bucket:"query_analyzer") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "query_latency") |> group(columns: ["host", "region", "service", "endpoint"]) |> mean()' --profile influxdb
+
+# Via Query Analyzer CLI - Excessive Transformations
+qa analyze 'from(bucket:"query_analyzer") |> range(start: -7d) |> filter(fn: (r) => r._measurement == "disk") |> derivative() |> mean() |> sort(columns: ["_value"]) |> limit(n: 100) |> map(fn: (r) => ({r with value_doubled: r._value * 2}))' --profile influxdb
+
+# Manual test via influx CLI
+docker compose exec influxdb influx query 'from(bucket:"query_analyzer") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "cpu") |> limit(n: 10)'
+
+# Ver datos disponibles en bucket
+docker compose exec influxdb influx query 'from(bucket:"query_analyzer") |> range(start: -7d) |> group(columns: ["_measurement"]) |> first()'
+```
+
+**Expected Results:**
+- ✅ Query 1 (Bounded): Score 100/100, 0 warnings — Efficient range, specific filter, proper aggregation
+- ⚠️ Query 2 (Unbounded): Score 70/100, 1 critical warning — Missing time range, scans entire bucket
+- ⚠️ Query 3 (High Cardinality): Score 85/100, 1 high warning — Too many group dimensions, potential memory issues
+- ⚠️ Query 4 (Excessive Transformations): Score 80/100, 2 warnings — Multiple expensive operations, map() can be slow
+
+**Key Differences from SQL Engines:**
+- ✅ Time-series optimized (range queries, aggregations)
+- ✅ Flux is functional programming language (not SQL)
+- ⚠️ Unbounded queries scan entire bucket (very expensive)
+- ⚠️ High cardinality grouping can cause OOM
+- ⚠️ Multiple transformations compound performance cost
+
+**Real Seed Data (450 time-series points):**
+- **cpu** (100 points): host=server1|server2|server3|server4|server5, region=us|eu|asia, values: 20-95%
+- **memory** (100 points): host=server1|server2|server3|server4|server5, region=us|eu|asia, values: 30-85%
+- **disk** (50 points): host=server1|server2|server3|server4|server5, region=us|eu|asia, values: 10-90%
+- **network** (100 points): host=server1|server2|server3|server4|server5, interface=eth0|eth1, region=us|eu|asia, values: 100-9999 Mbps
+- **query_latency** (100 points): service=api|db|cache, endpoint=/search|/users|/orders, region=us|eu|asia, values: 10-5000ms
+
+---
+
 ## Query Performance Patterns
 
 ### Pattern 1: Index Scan (Fast)
@@ -919,21 +973,30 @@ make health
 | **JOIN (100+500)** | `orders JOIN order_items` | Hash/Nested Loop Join | 500 | 5-15 ms | ✅ Rápido - ambas tablas pequeñas |
 | **Complex JOIN (3 tablas)** | `c JOIN o JOIN oi` | Multiple Joins + GroupAggregate | variable | 20-50 ms | ⚠️ Medio - depende de filters |
 | **Aggregate** | `COUNT(*) FROM orders` | Aggregate | 1 | 0.5-2 ms | ✅ Rápido - agregación simple |
+| **Bounded Time-Series** | `range(start: -7d) \| mean()` | Range Scan + Aggregate | 100 | 1-5 ms | ✅ Rápido - bounded query |
+| **Unbounded Time-Series** | `filter(...) \| mean()` | Full Bucket Scan | 450 | 50-200 ms | ❌ Muy lento - sin range |
+| **High Cardinality TS** | `group(columns: [...4 tags...])` | Range + Multi-Group | variable | 20-100 ms | ⚠️ Riesgo OOM - demasiadas dimensiones |
 
 ### Performance by Engine (with Seed Data)
 
-| Operation | PostgreSQL | MySQL | SQLite | CockroachDB | YugabyteDB |
-|-----------|-----------|-------|--------|-------------|------------|
-| **Index Scan (1 row)** | 0.1-0.5 ms | 0.5-2 ms | 0.2-1 ms | 5-10 ms | 10-20 ms |
-| **Index Scan (20 rows)** | 0.3-1 ms | 1-3 ms | 0.5-2 ms | 8-15 ms | 15-30 ms |
-| **Seq Scan (2K of 10K)** | 20-30 ms | 30-50 ms | 50-100 ms | 80-150 ms | 150-250 ms |
-| **GROUP BY (4 status)** | 1-2 ms | 2-5 ms | 2-5 ms | 10-20 ms | 20-40 ms |
-| **GROUP BY (10 category)** | 3-5 ms | 5-10 ms | 5-10 ms | 20-40 ms | 40-80 ms |
-| **JOIN (100+500 rows)** | 5-10 ms | 10-20 ms | 15-30 ms | 30-80 ms | 80-200 ms |
+| Operation | PostgreSQL | MySQL | SQLite | CockroachDB | YugabyteDB | InfluxDB |
+|-----------|-----------|-------|--------|-------------|------------|----------|
+| **Index Scan (1 row)** | 0.1-0.5 ms | 0.5-2 ms | 0.2-1 ms | 5-10 ms | 10-20 ms | N/A |
+| **Index Scan (20 rows)** | 0.3-1 ms | 1-3 ms | 0.5-2 ms | 8-15 ms | 15-30 ms | N/A |
+| **Seq Scan (2K of 10K)** | 20-30 ms | 30-50 ms | 50-100 ms | 80-150 ms | 150-250 ms | N/A |
+| **GROUP BY (4 status)** | 1-2 ms | 2-5 ms | 2-5 ms | 10-20 ms | 20-40 ms | N/A |
+| **GROUP BY (10 category)** | 3-5 ms | 5-10 ms | 5-10 ms | 20-40 ms | 40-80 ms | N/A |
+| **JOIN (100+500 rows)** | 5-10 ms | 10-20 ms | 15-30 ms | 30-80 ms | 80-200 ms | N/A |
+| **Bounded TS (range + agg)** | N/A | N/A | N/A | N/A | N/A | 1-5 ms |
+| **Unbounded TS (no range)** | N/A | N/A | N/A | N/A | N/A | 50-200 ms |
+| **High Cardinality TS** | N/A | N/A | N/A | N/A | N/A | 20-100 ms |
+| **Excessive Transforms TS** | N/A | N/A | N/A | N/A | N/A | 30-150 ms |
 
 *Notas:*
 - *CockroachDB y YugabyteDB tienen overhead distribuido incluso en single-node*
 - *SQLite es embebido pero puede ser más lento que PostgreSQL en queries complejas*
+- *InfluxDB optimizado para time-series; queries sin range() son extremadamente caras*
+- *InfluxDB high cardinality (4+ tags) puede causar OOM en buckets grandes*
 - *Tiempos incluyen planning + execution*
 - *Real times varían según recursos del sistema y carga*
 
