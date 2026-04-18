@@ -10,6 +10,12 @@ import typer
 
 from .commands import analyze, profile
 
+tui_app = typer.Typer(
+    name="tui",
+    help="Abrir interfaz TUI",
+    no_args_is_help=True,
+)
+
 app = typer.Typer(
     name="qa",
     help="Query Analyzer - Herramienta de análisis de rendimiento de consultas",
@@ -20,7 +26,15 @@ app = typer.Typer(
 app.add_typer(profile.app, name="profile", help="Gestionar perfiles de conexión")
 
 
-# Register analyze as a direct command (not a command group)
+# Register tui as a command in main app
+@app.command(name="tui", help="Abrir interfaz TUI interactiva")
+def tui_command() -> None:
+    """Ejecutar la interfaz TUI."""
+    from query_analyzer import tui as tui_module
+
+    tui_module.run()
+
+
 @app.command(name="analyze", help="Analizar rendimiento de consultas")
 def analyze_command(
     query: str | None = typer.Argument(None, help="SQL query string (or use --file or stdin)"),

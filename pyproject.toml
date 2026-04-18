@@ -70,6 +70,8 @@ ignore = ["E501"]  # Ignorar line-length (lo maneja ruff-format)
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "B017"]
 "query_analyzer/cli/*" = ["B008"]  # B008: Typer options designed for use in defaults
+"query_analyzer/tui/*.py" = ["D"]
+"query_analyzer/tui/widgets/*.py" = ["D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -113,4 +115,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "elasticsearch.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "textual.*"
 ignore_missing_imports = true
