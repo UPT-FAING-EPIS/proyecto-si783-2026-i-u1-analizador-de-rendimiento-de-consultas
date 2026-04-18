@@ -147,12 +147,14 @@ class Neo4jExplainParser:
             return {}
 
         node_type = plan_root.get("operatorType", "Unknown")
-        arguments = plan_root.get("arguments", {})
+        # In Neo4j 5.26, arguments are in "args" key
+        arguments = plan_root.get("args", {})
 
         # Normalize node type
         normalized_type = self._normalize_operator_type(node_type)
 
         # Extract metrics
+        # Metrics come from both root level and args dict in Neo4j 5.26
         db_hits = int(plan_root.get("dbHits", 0))
         rows = int(plan_root.get("rows", 0))
         estimated_rows = int(arguments.get("EstimatedRows", 0))
@@ -160,7 +162,7 @@ class Neo4jExplainParser:
         # Determine if index is used
         index_used = "Index" in node_type
 
-        # Get filter info
+        # Get filter info from arguments
         filter_expr = arguments.get("filter", None) or arguments.get("Condition", None)
 
         # Normalize children

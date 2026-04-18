@@ -30,24 +30,7 @@ echo ""
 
 # SQLite Seeding
 echo "SQLite..."
-if command -v sqlite3 &> /dev/null; then
-    sqlite3 query_analyzer.db < docker/seed/init-sqlite.sql
-else
-    # Use Python if sqlite3 CLI not available
-    python3 << 'EOF'
-import sqlite3
-with open('docker/seed/init-sqlite.sql', 'r') as f:
-    sql = f.read()
-conn = sqlite3.connect('query_analyzer.db')
-cursor = conn.cursor()
-for statement in sql.split(';'):
-    if statement.strip():
-        cursor.execute(statement)
-conn.commit()
-conn.close()
-print("SQLite seeded!")
-EOF
-fi
+uv run python scripts/seed_sqlite.py query_analyzer.db docker/seed/init-sqlite.sql
 
 if [ $? -eq 0 ]; then
     echo "SQLite seeded!"
@@ -119,6 +102,17 @@ if [ $? -eq 0 ]; then
     echo "MongoDB seeded!"
 else
     echo "MongoDB seeding warning (non-critical)"
+fi
+echo ""
+
+# Neo4j Seeding
+echo "Neo4j..."
+cat docker/seed/init-neo4j.cypher | docker compose -f docker/compose.yml exec -T neo4j cypher-shell -u neo4j -p neo4j123 -d system --non-interactive
+
+if [ $? -eq 0 ]; then
+    echo "Neo4j seeded!"
+else
+    echo "Neo4j seeding warning (non-critical)"
 fi
 echo ""
 

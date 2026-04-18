@@ -283,7 +283,11 @@ def create_influxdb_profile(env_vars: dict[str, str]) -> tuple[str, ProfileConfi
             port=int(get_env_var(env_vars, "DB_INFLUXDB_PORT", "8086")),
             database=get_env_var(env_vars, "DB_INFLUXDB_NAME", "query_analyzer"),
             username=get_env_var(env_vars, "DB_INFLUXDB_USER", "admin"),
-            password=get_env_var(env_vars, "DB_INFLUXDB_PASSWORD", "influxdb123"),
+            password=get_env_var(env_vars, "DB_INFLUXDB_TOKEN", "mytoken"),
+            extra={
+                "org": get_env_var(env_vars, "DB_INFLUXDB_ORG", "myorg"),
+                "connection_timeout": 30,
+            },
         ),
     )
 

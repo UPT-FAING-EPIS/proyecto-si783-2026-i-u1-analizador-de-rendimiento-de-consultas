@@ -315,25 +315,38 @@ class TestNeo4jAdapterV2Models:
 
     @pytest.fixture
     def mock_profile_result(self) -> dict:
-        """Mock Neo4j PROFILE result with plan tree structure."""
-        return {
-            "profile": {
-                "plan": {
-                    "operatorType": "ProduceResults",
-                    "dbHits": 0,
+        """Mock Neo4j 5.26 PROFILE result (flat structure where profile IS root operator).
+
+        In Neo4j 5.26, summary.profile is the root operator directly, not nested
+        under a "plan" key. This mock simulates that structure.
+        """
+        # The actual Neo4j 5.26 structure: root operator with operatorType, dbHits, rows, children, args, etc.
+        root_operator = {
+            "operatorType": "ProduceResults",
+            "dbHits": 0,
+            "rows": 100,
+            "args": {
+                "GlobalMemory": 64,
+                "Memory": 0,
+                "EstimatedRows": 100,
+            },
+            "children": [
+                {
+                    "operatorType": "NodeIndexSeek",
+                    "dbHits": 50,
                     "rows": 100,
-                    "children": [
-                        {
-                            "operatorType": "NodeIndexSeek",
-                            "dbHits": 50,
-                            "rows": 100,
-                            "indexName": "idx_user_email",
-                            "children": [],
-                        }
-                    ],
-                },
-                "stats": {"rows": 100, "time": 5, "dbHits": 50},
-            }
+                    "args": {
+                        "EstimatedRows": 100,
+                        "indexName": "idx_user_email",
+                    },
+                    "children": [],
+                }
+            ],
+        }
+
+        # Return wrapper structure that matches what _extract_profile_info returns
+        return {
+            "profile": root_operator,  # This is what summary.profile IS
         }
 
     @patch("query_analyzer.adapters.graph.neo4j.GraphDatabase.driver")

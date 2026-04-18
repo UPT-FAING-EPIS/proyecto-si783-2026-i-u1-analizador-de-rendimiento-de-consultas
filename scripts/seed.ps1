@@ -30,21 +30,12 @@ Write-Host ""
 
 # SQLite Seeding
 Write-Host "SQLite..." -ForegroundColor Cyan
+& uv run python scripts/seed_sqlite.py query_analyzer.db docker/seed/init-sqlite.sql
 
-if (Get-Command sqlite3 -ErrorAction SilentlyContinue) {
-    # Use sqlite3 CLI if available
-    $sqliteScript = Get-Content "docker/seed/init-sqlite.sql" -Raw
-    $sqliteScript | & sqlite3 query_analyzer.db
+if ($LASTEXITCODE -eq 0) {
     Write-Host "SQLite seeded!" -ForegroundColor Green
 } else {
-    # Use Python helper script
-    & python scripts/seed_sqlite.py query_analyzer.db docker/seed/init-sqlite.sql
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "SQLite seeded!" -ForegroundColor Green
-    } else {
-        Write-Host "SQLite seeding warning (non-critical)" -ForegroundColor Yellow
-    }
+    Write-Host "SQLite seeding warning (non-critical)" -ForegroundColor Yellow
 }
 Write-Host ""
 
@@ -150,6 +141,18 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "Redis seeded!" -ForegroundColor Green
 } else {
     Write-Host "Redis seeding warning (non-critical)" -ForegroundColor Yellow
+}
+Write-Host ""
+
+# Neo4j Seeding
+Write-Host "Neo4j..." -ForegroundColor Cyan
+$neo4jScript = Get-Content "docker/seed/init-neo4j.cypher" -Raw
+$neo4jScript | docker compose -f docker/compose.yml exec -T neo4j cypher-shell -u neo4j -p neo4j123 -d system --non-interactive
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Neo4j seeded!" -ForegroundColor Green
+} else {
+    Write-Host "Neo4j seeding warning (non-critical)" -ForegroundColor Yellow
 }
 Write-Host ""
 

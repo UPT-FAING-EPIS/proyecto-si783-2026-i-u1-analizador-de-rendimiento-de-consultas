@@ -22,23 +22,27 @@ def parser() -> Neo4jExplainParser:
 
 @pytest.fixture
 def simple_profile_result() -> dict:
-    """Simple PROFILE result with one scan node."""
+    """Simple Neo4j 5.26 PROFILE result with one scan node (flat structure)."""
+    # In Neo4j 5.26, summary.profile IS the root operator
+    root_operator = {
+        "operatorType": "ProduceResults",
+        "dbHits": 0,
+        "rows": 5,
+        "args": {"EstimatedRows": 5},
+        "children": [
+            {
+                "operatorType": "NodeByLabelScan",
+                "dbHits": 100,
+                "rows": 5,
+                "args": {"label": "User", "EstimatedRows": 1000},
+                "children": [],
+            }
+        ],
+    }
+    # _extract_profile_info wraps this in the standard structure for the parser
     return {
         "profile": {
-            "plan": {
-                "operatorType": "ProduceResults",
-                "dbHits": 0,
-                "rows": 5,
-                "children": [
-                    {
-                        "operatorType": "NodeByLabelScan",
-                        "dbHits": 100,
-                        "rows": 5,
-                        "arguments": {"label": "User", "EstimatedRows": 1000},
-                        "children": [],
-                    }
-                ],
-            },
+            "plan": root_operator,
             "stats": {"rows": 5, "time": 10, "dbHits": 100},
         }
     }
@@ -46,70 +50,75 @@ def simple_profile_result() -> dict:
 
 @pytest.fixture
 def expand_profile_result() -> dict:
-    """PROFILE result with Expand node."""
-    return {
-        "profile": {
-            "plan": {
-                "operatorType": "ProduceResults",
-                "dbHits": 0,
+    """Neo4j 5.26 PROFILE result with Expand node (flat structure)."""
+    root_operator = {
+        "operatorType": "ProduceResults",
+        "dbHits": 0,
+        "rows": 10,
+        "args": {"EstimatedRows": 10},
+        "children": [
+            {
+                "operatorType": "Expand(All)",
+                "dbHits": 50,
                 "rows": 10,
+                "args": {"EstimatedRows": 10},
                 "children": [
                     {
-                        "operatorType": "Expand(All)",
-                        "dbHits": 50,
-                        "rows": 10,
-                        "arguments": {},
-                        "children": [
-                            {
-                                "operatorType": "NodeByLabelScan",
-                                "dbHits": 5,
-                                "rows": 1,
-                                "arguments": {"label": "User"},
-                                "children": [],
-                            }
-                        ],
+                        "operatorType": "NodeByLabelScan",
+                        "dbHits": 5,
+                        "rows": 1,
+                        "args": {"label": "User", "EstimatedRows": 100},
+                        "children": [],
                     }
                 ],
-            },
-            "stats": {"rows": 10, "time": 15},
+            }
+        ],
+    }
+    return {
+        "profile": {
+            "plan": root_operator,
+            "stats": {"rows": 10, "time": 15, "dbHits": 55},
         }
     }
 
 
 @pytest.fixture
 def cartesian_product_result() -> dict:
-    """PROFILE result with CartesianProduct."""
-    return {
-        "profile": {
-            "plan": {
-                "operatorType": "ProduceResults",
-                "dbHits": 0,
+    """Neo4j 5.26 PROFILE result with CartesianProduct (flat structure)."""
+    root_operator = {
+        "operatorType": "ProduceResults",
+        "dbHits": 0,
+        "rows": 100,
+        "args": {"EstimatedRows": 100},
+        "children": [
+            {
+                "operatorType": "CartesianProduct",
+                "dbHits": 200,
                 "rows": 100,
+                "args": {"EstimatedRows": 100},
                 "children": [
                     {
-                        "operatorType": "CartesianProduct",
-                        "dbHits": 200,
-                        "rows": 100,
-                        "children": [
-                            {
-                                "operatorType": "NodeByLabelScan",
-                                "dbHits": 100,
-                                "rows": 10,
-                                "arguments": {"label": "User"},
-                                "children": [],
-                            },
-                            {
-                                "operatorType": "NodeByLabelScan",
-                                "dbHits": 100,
-                                "rows": 10,
-                                "arguments": {"label": "Product"},
-                                "children": [],
-                            },
-                        ],
-                    }
+                        "operatorType": "NodeByLabelScan",
+                        "dbHits": 100,
+                        "rows": 10,
+                        "args": {"label": "User", "EstimatedRows": 100},
+                        "children": [],
+                    },
+                    {
+                        "operatorType": "NodeByLabelScan",
+                        "dbHits": 100,
+                        "rows": 10,
+                        "args": {"label": "Product", "EstimatedRows": 100},
+                        "children": [],
+                    },
                 ],
-            },
-            "stats": {"rows": 100, "time": 20},
+            }
+        ],
+    }
+    return {
+        "profile": {
+            "plan": root_operator,
+            "stats": {"rows": 100, "time": 20, "dbHits": 200},
         }
     }
 
@@ -197,7 +206,7 @@ class TestNeo4jParserNormalization:
             "operatorType": "NodeByLabelScan",
             "dbHits": 100,
             "rows": 5,
-            "arguments": {"label": "User", "EstimatedRows": 1000},
+            "args": {"label": "User", "EstimatedRows": 1000},
             "children": [],
         }
 
@@ -215,7 +224,7 @@ class TestNeo4jParserNormalization:
             "operatorType": "Expand(All)",
             "dbHits": 50,
             "rows": 10,
-            "arguments": {},
+            "args": {"EstimatedRows": 10},
             "children": [],
         }
 
@@ -231,7 +240,7 @@ class TestNeo4jParserNormalization:
             "operatorType": "NodeIndexSeek",
             "dbHits": 10,
             "rows": 1,
-            "arguments": {"index": "idx_email"},
+            "args": {"index": "idx_email", "EstimatedRows": 1},
             "children": [],
         }
 
@@ -388,13 +397,13 @@ class TestNeo4jParserEdgeCases:
             "operatorType": "Filter",
             "dbHits": 50,
             "rows": 10,
-            "arguments": {"Condition": "n.age > 18"},
+            "args": {"Condition": "n.age > 18", "EstimatedRows": 20},
             "children": [
                 {
                     "operatorType": "NodeByLabelScan",
                     "dbHits": 100,
                     "rows": 20,
-                    "arguments": {},
+                    "args": {"EstimatedRows": 100},
                     "children": [],
                 }
             ],

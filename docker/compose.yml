@@ -103,9 +103,14 @@ services:
     image: influxdb:2-alpine
     container_name: query-analyzer-influxdb
     environment:
-      INFLUXDB_DB: ${DB_INFLUXDB_NAME:-query_analyzer}
-      INFLUXDB_ADMIN_USER: ${DB_INFLUXDB_USER:-admin}
-      INFLUXDB_ADMIN_PASSWORD: ${DB_INFLUXDB_PASSWORD:-influxdb123}
+      # InfluxDB 2.x initialization
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${DB_INFLUXDB_USER:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${DB_INFLUXDB_PASSWORD:-influxdb123}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${DB_INFLUXDB_TOKEN:-mytoken}
+      DOCKER_INFLUXDB_INIT_ORG: ${DB_INFLUXDB_ORG:-myorg}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${DB_INFLUXDB_NAME:-query_analyzer}
+      DOCKER_INFLUXDB_INIT_RETENTION: ${DB_INFLUXDB_RETENTION:-720h}
     ports:
       - "${DB_INFLUXDB_PORT:-8086}:8086"
     healthcheck:
@@ -174,36 +179,15 @@ services:
       - "${DB_YUGABYTE_PORT:-5433}:5433"
       - "${DB_YUGABYTE_UI_PORT:-7000}:7000"
     command: >
-      bash -c "
-        bin/yugabyted start --daemon=false --advertise_address=0.0.0.0 &
-        YUGABYTE_PID=\$!;
-        for i in {1..60}; do
-          if [ -f /root/var/data/pg_data/ysql_pg.conf ]; then
-            echo 'Config file ready, adding listen_addresses...';
-            if ! grep -q \"^listen_addresses = '\\*'\" /root/var/data/pg_data/ysql_pg.conf; then
-              echo \"listen_addresses = '*'\" >> /root/var/data/pg_data/ysql_pg.conf;
-              echo 'Modified listen_addresses configuration';
-            fi;
-            break;
-          fi;
-          sleep 1;
-        done;
-        for i in {1..60}; do
-          if bin/ysqlsh -U yugabyte -d yugabyte -c '\\dt' >/dev/null 2>&1; then
-            echo 'YugabyteDB ready, creating query_analyzer database...';
-            bin/ysqlsh -U yugabyte -d yugabyte -c 'CREATE DATABASE query_analyzer;' 2>/dev/null || echo 'Database already exists';
-            break;
-          fi;
-          sleep 1;
-        done;
-        wait \$YUGABYTE_PID;
-      "
+      bin/yugabyted start --daemon=false
+    environment:
+      YSQL_PASSWORD: yugabyte
     healthcheck:
-      test: ["CMD", "bash", "-c", "ysqlsh -U yugabyte -d query_analyzer -c '\\dt' >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "bash", "-c", "bin/ysqlsh -U yugabyte -p yugabyte -d yugabyte -c 'SELECT 1' >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
       retries: 10
-      start_period: 60s
+      start_period: 120s
     deploy:
       resources:
         limits:

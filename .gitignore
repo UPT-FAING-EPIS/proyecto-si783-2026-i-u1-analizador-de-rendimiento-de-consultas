@@ -83,6 +83,7 @@ credentials/
 *.db
 *.sqlite
 *.sqlite3
+query_analyzer.db
 *.log
 logs/
 

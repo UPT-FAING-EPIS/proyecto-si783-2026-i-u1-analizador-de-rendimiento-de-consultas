@@ -164,6 +164,11 @@ class Neo4jAdapter(BaseAdapter):
                 start_time = time.time()
                 result = session.run(profile_query)
 
+                # Neo4j 5.26+ requires materializing results before PROFILE data is available
+                # Iterate through all results to ensure they're fetched
+                for _ in result:
+                    pass
+
                 summary = result.consume()
                 execution_time_ms = (time.time() - start_time) * 1000
 
@@ -261,9 +266,9 @@ class Neo4jAdapter(BaseAdapter):
     def _extract_profile_info(self, summary: Any) -> dict[str, Any]:
         """Extract profile information from result summary.
 
-        Extracts the PROFILE plan and stats directly from summary.profile,
-        which contains the nested plan tree (with children) and aggregated
-        metrics (rows, time, dbHits).
+        Extracts the PROFILE plan and stats from summary.profile.
+        In Neo4j 5.26, summary.profile IS the root operator (flat structure with
+        operatorType, rows, dbHits, children, args, etc.), not a wrapper dict.
 
         Args:
             summary: Result summary from Neo4j query
@@ -278,23 +283,35 @@ class Neo4jAdapter(BaseAdapter):
                     "notifications": []
                 }
         """
-        # Extract profile data from summary (contains plan tree and stats)
+        # Extract profile data from summary
+        # In Neo4j 5.26, summary.profile IS the root operator dict (not nested under "plan")
         profile_data = summary.profile if hasattr(summary, "profile") else {}
 
-        # Extract plan (nested tree structure)
-        plan = profile_data.get("plan", {}) if profile_data else {}
+        if not profile_data:
+            return {
+                "profile": {"plan": {}, "stats": {"rows": 0, "time": 0, "dbHits": 0}},
+                "notifications": [],
+            }
 
-        # Extract stats (aggregated metrics)
-        stats = profile_data.get("stats", {}) if profile_data else {}
+        # The root operator itself is the plan tree
+        # Extract top-level metrics from the root operator
+        plan = profile_data
+
+        # Extract stats: these are also at the root level in Neo4j 5.26
+        # Total execution time and row counts from root operator
+        total_rows = int(profile_data.get("rows", 0))
+        total_time = (
+            int(profile_data.get("args", {}).get("Time", 0)) if profile_data.get("args") else 0
+        )
 
         # Build standard structure matching parser expectations
         return {
             "profile": {
                 "plan": plan,
                 "stats": {
-                    "rows": int(stats.get("rows", 0)) if stats else 0,
-                    "time": int(stats.get("time", 0)) if stats else 0,
-                    "dbHits": int(stats.get("dbHits", 0)) if stats else 0,
+                    "rows": total_rows,
+                    "time": total_time,
+                    "dbHits": int(profile_data.get("dbHits", 0)),
                 },
             },
             "notifications": [],

@@ -1,11 +1,11 @@
-.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb logs-elasticsearch health clean ps wait-healthy test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-es test-verbose test-clean create-profiles profiles-force profiles-check profiles-reset profiles-list profiles-validate
+.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb logs-elasticsearch health clean ps wait-healthy init-sqlite test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-es test-verbose test-clean create-profiles profiles-force profiles-check profiles-reset profiles-list profiles-validate
 
 help:
 	@echo "🔍 Query Analyzer - Docker Management"
 	@echo "Services: postgres, mysql, mongodb, redis, influxdb, neo4j, cockroachdb, elasticsearch"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make up              - Start all database services (non-blocking)"
+	@echo "  make up              - Start all database services + initialize SQLite (non-blocking)"
 	@echo "  make down            - Stop all services (keep volumes)"
 	@echo "  make restart         - Restart all services"
 	@echo "  make reset           - Remove all containers and volumes (clean slate)"
@@ -16,6 +16,7 @@ help:
 	@echo "  make logs            - View logs from all services (follow)"
 	@echo "  make logs-[service]  - View logs for specific service"
 	@echo "  make clean           - Clean up Docker images (unused)"
+	@echo "  make init-sqlite     - Initialize SQLite database (called by make up)"
 	@echo ""
 	@echo "Profile Management:"
 	@echo "  make create-profiles - Create DB profiles from docker-compose.yml (skip if exist)"
@@ -37,9 +38,17 @@ help:
 	@echo "  make test-verbose    - Run all tests with verbose output"
 	@echo "  make test-clean      - Remove pytest cache and coverage artifacts"
 	@echo ""
-up:
+up: init-sqlite
 	@echo "🚀 Starting all services..."
 	docker compose -f docker/compose.yml up -d
+
+init-sqlite:
+	@echo "📁 Initializing SQLite database..."
+ifeq ($(OS),Windows_NT)
+	@powershell -ExecutionPolicy Bypass -File scripts/init-sqlite.ps1
+else
+	@bash scripts/init-sqlite.sh
+endif
 
 wait-healthy:
 	@bash scripts/wait-for-services.sh
