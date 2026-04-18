@@ -7,7 +7,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-MAX_WAIT=120
+MAX_WAIT=180
 INTERVAL=5
 ELAPSED=0
 

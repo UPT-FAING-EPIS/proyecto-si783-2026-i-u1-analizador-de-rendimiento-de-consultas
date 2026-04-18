@@ -19,6 +19,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/init/01-init-postgres-users.sql
+        target: /docker-entrypoint-initdb.d/01-init-users.sql
+        read_only: true
     deploy:
       resources:
         limits:
@@ -42,6 +47,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/init/01-init-mysql-users.sql
+        target: /docker-entrypoint-initdb.d/01-init-users.sql
+        read_only: true
     deploy:
       resources:
         limits:
