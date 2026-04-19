@@ -81,10 +81,7 @@ CREATE (u)-[:COMMENTED {comment: 'Nice product!', timestamp: datetime()}]->(p);
 
 // ===== CREATE INDEXES FOR BETTER QUERY PERFORMANCE =====
 CREATE INDEX idx_user_country IF NOT EXISTS FOR (u:User) ON (u.country);
-CREATE INDEX idx_user_id IF NOT EXISTS FOR (u:User) ON (u.id);
-CREATE INDEX idx_product_id IF NOT EXISTS FOR (p:Product) ON (p.id);
 CREATE INDEX idx_product_price IF NOT EXISTS FOR (p:Product) ON (p.price);
-CREATE INDEX idx_category_id IF NOT EXISTS FOR (c:Category) ON (c.id);
 
 // ===== CREATE CONSTRAINTS =====
 CREATE CONSTRAINT user_id_unique IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE;

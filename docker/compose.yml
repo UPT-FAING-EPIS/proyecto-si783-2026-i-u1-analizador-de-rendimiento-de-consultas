@@ -142,8 +142,9 @@ services:
     environment:
       NEO4J_AUTH: ${DB_NEO4J_USER:-neo4j}/${DB_NEO4J_PASSWORD:-neo4j123}
       NEO4J_server_memory_heap_initial__size: 128M
-      NEO4J_server_memory_heap_max__size: 128M
+      NEO4J_server_memory_heap_max__size: 256M
       NEO4J_server_memory_pagecache_size: 128M
+      NEO4J_dbms_memory_transaction_total_max: 256M
     ports:
       - "${DB_NEO4J_BOLT_PORT:-7687}:7687"
       - "${DB_NEO4J_HTTP_PORT:-7474}:7474"
@@ -193,7 +194,7 @@ services:
     environment:
       YSQL_PASSWORD: yugabyte
     healthcheck:
-      test: ["CMD", "bash", "-c", "bin/ysqlsh -U yugabyte -p yugabyte -d yugabyte -c 'SELECT 1' >/dev/null 2>&1 || exit 1"]
+      test: ["CMD", "bash", "-c", "PGPASSWORD=yugabyte bin/ysqlsh -h yugabytedb -p 5433 -U yugabyte -d yugabyte -c 'SELECT 1' >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10

@@ -56,12 +56,14 @@ echo "YugabyteDB..."
 # with retry mechanism
 echo "  Waiting for YSQL port to be ready..."
 for i in {1..12}; do
-    if docker compose -f docker/compose.yml exec -T yugabytedb ysqlsh -U yugabyte -d query_analyzer -c "\dt" 2>/dev/null | head -1 > /dev/null 2>&1; then
+    if docker compose -f docker/compose.yml exec -T yugabytedb bash -lc "PGPASSWORD=yugabyte bin/ysqlsh -h yugabytedb -p 5433 -U yugabyte -d yugabyte -c 'SELECT 1'" >/dev/null 2>&1; then
         echo "  YSQL port ready, seeding..."
         echo "  [$(date '+%H:%M:%S')] Executing seed script..."
 
+        docker compose -f docker/compose.yml exec -T yugabytedb bash -lc "PGPASSWORD=yugabyte bin/ysqlsh -h yugabytedb -p 5433 -U yugabyte -d yugabyte -c 'CREATE DATABASE query_analyzer'" >/dev/null 2>&1
+
         # Execute seed script without stderr redirection to properly capture exit code
-        cat docker/seed/init-yugabytedb.sql | docker compose -f docker/compose.yml exec -T yugabytedb ysqlsh -U yugabyte -d query_analyzer
+        cat docker/seed/init-yugabytedb.sql | docker compose -f docker/compose.yml exec -T yugabytedb bash -lc "PGPASSWORD=yugabyte bin/ysqlsh -h yugabytedb -p 5433 -U yugabyte -d query_analyzer"
         exitCode=$?
 
         if [ $exitCode -eq 0 ]; then
@@ -107,7 +109,8 @@ echo ""
 
 # Neo4j Seeding
 echo "Neo4j..."
-cat docker/seed/init-neo4j.cypher | docker compose -f docker/compose.yml exec -T neo4j cypher-shell -u neo4j -p neo4j123 -d system --non-interactive
+uv run python scripts/clear_neo4j.py >/dev/null 2>&1
+uv run python scripts/load_neo4j_seed.py
 
 if [ $? -eq 0 ]; then
     echo "Neo4j seeded!"
@@ -124,7 +127,7 @@ export INFLUXDB_TOKEN=influxdb123
 export INFLUXDB_ORG=""
 export INFLUXDB_BUCKET=query_analyzer
 
-python3 docker/seed/init-influxdb.py
+uv run python docker/seed/init-influxdb.py
 
 if [ $? -eq 0 ]; then
     echo "InfluxDB seeded!"
@@ -163,7 +166,7 @@ curl -s -X PUT "http://localhost:9200/test_products" \
 # Load documents from JSON file
 if [ -f "docker/seed/init-elasticsearch.json" ]; then
     # Read JSON file and insert documents using bulk API
-    python3 << 'EOF'
+    uv run python << 'EOF'
 import json
 import requests
 
@@ -210,7 +213,7 @@ echo ""
 
 # Redis Seeding
 echo "Redis..."
-python3 docker/seed/init-redis.py
+uv run python docker/seed/init-redis.py
 
 if [ $? -eq 0 ]; then
     echo "Redis seeded!"

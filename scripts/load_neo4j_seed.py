@@ -157,11 +157,8 @@ def load_seed_data() -> dict:
         # Create indexes
         print("Creating indexes...")
         session.run("CREATE INDEX idx_user_country IF NOT EXISTS FOR (u:User) ON (u.country)")
-        session.run("CREATE INDEX idx_user_id IF NOT EXISTS FOR (u:User) ON (u.id)")
-        session.run("CREATE INDEX idx_product_id IF NOT EXISTS FOR (p:Product) ON (p.id)")
         session.run("CREATE INDEX idx_product_price IF NOT EXISTS FOR (p:Product) ON (p.price)")
-        session.run("CREATE INDEX idx_category_id IF NOT EXISTS FOR (c:Category) ON (c.id)")
-        print("  [OK] 5 indexes created")
+        print("  [OK] 2 indexes created")
 
         # Create constraints
         print("Creating constraints...")

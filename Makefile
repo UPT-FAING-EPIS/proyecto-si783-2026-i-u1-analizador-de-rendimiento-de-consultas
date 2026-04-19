@@ -51,7 +51,11 @@ else
 endif
 
 wait-healthy:
+ifeq ($(OS),Windows_NT)
+	@powershell -ExecutionPolicy Bypass -Command "docker compose -f docker/compose.yml ps"
+else
 	@bash scripts/wait-for-services.sh
+endif
 
 down:
 	@echo "⏹️  Stopping all services..."
@@ -75,6 +79,9 @@ endif
 health:
 	@echo "🏥 Checking service health..."
 	@echo ""
+ifeq ($(OS),Windows_NT)
+	@powershell -ExecutionPolicy Bypass -Command "docker compose -f docker/compose.yml ps"
+else
 	@docker compose -f docker/compose.yml ps --services | while read service; do \
 		status=$$(docker compose -f docker/compose.yml ps $$service --format 'table {{.Status}}' | tail -1); \
 		if echo "$$status" | grep -q "healthy\|running"; then \
@@ -84,6 +91,7 @@ health:
 		fi; \
 	done
 	@echo ""
+endif
 
 ps:
 	@docker compose -f docker/compose.yml ps
