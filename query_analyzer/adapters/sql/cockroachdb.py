@@ -147,13 +147,19 @@ class CockroachDBAdapter(BaseAdapter):
 
         try:
             with self._connection.cursor() as cursor:
+                query_stripped = query.strip()
+                query_upper = query_stripped.upper()
+
                 explain_json = None
                 explain_text = None
                 original_error: str | None = None
 
                 # Try DISTSQL format first (CockroachDB v22.1+)
                 try:
-                    explain_query = f"EXPLAIN (DISTSQL, ANALYZE, FORMAT JSON) {query}"
+                    if query_upper.startswith("EXPLAIN "):
+                        explain_query = query_stripped
+                    else:
+                        explain_query = f"EXPLAIN (DISTSQL, ANALYZE, FORMAT JSON) {query_stripped}"
                     cursor.execute(explain_query)
                     result = cursor.fetchone()
 
@@ -170,11 +176,11 @@ class CockroachDBAdapter(BaseAdapter):
                     logger.debug(f"DISTSQL EXPLAIN failed (expected for older versions): {e}")
 
                 # Fallback: Try JSON format (standard PostgreSQL style)
-                if not explain_json:
+                if not explain_json and not query_upper.startswith("EXPLAIN "):
                     try:
                         # Rollback transaction to recover from previous error
                         self._connection.rollback()
-                        explain_query = f"EXPLAIN (ANALYZE, FORMAT JSON) {query}"
+                        explain_query = f"EXPLAIN (ANALYZE, FORMAT JSON) {query_stripped}"
                         cursor.execute(explain_query)
                         result = cursor.fetchone()
 
@@ -195,7 +201,10 @@ class CockroachDBAdapter(BaseAdapter):
                     try:
                         # Rollback transaction to recover from previous error
                         self._connection.rollback()
-                        explain_query = f"EXPLAIN ANALYZE {query}"
+                        if query_upper.startswith("EXPLAIN "):
+                            explain_query = query_stripped
+                        else:
+                            explain_query = f"EXPLAIN ANALYZE {query_stripped}"
                         cursor.execute(explain_query)
                         rows = cursor.fetchall()
                         explain_text = "\n".join([row[0] for row in rows])
@@ -280,6 +289,7 @@ class CockroachDBAdapter(BaseAdapter):
         except QueryAnalysisError:
             raise
         except Exception as e:
+            self._connection.rollback()
             raise QueryAnalysisError(f"Failed to analyze query with EXPLAIN: {e}") from e
 
     def _detect_crdb_specific_issues(self, plan_text: str, metrics: dict[str, Any]) -> list[str]:

@@ -36,16 +36,32 @@ def antipattern_to_warning(antipattern: AntiPattern) -> Warning:
         Literal["critical", "high", "medium", "low"], severity_str
     )
 
+    affected_object = _resolve_affected_object(antipattern)
+
     return Warning(
         severity=severity,
         message=antipattern.description,
         node_type=antipattern.name,
-        affected_object=antipattern.affected_table or "unknown",
+        affected_object=affected_object,
         metadata={
             "column": antipattern.affected_column,
             **antipattern.metadata,
         },
     )
+
+
+def _resolve_affected_object(antipattern: AntiPattern) -> str:
+    """Resolve affected object name with safe fallbacks."""
+    if antipattern.affected_table and antipattern.affected_table.lower() not in {"none", "unknown"}:
+        return antipattern.affected_table
+
+    metadata = antipattern.metadata or {}
+    for key in ("table_name", "outer_table", "inner_table"):
+        value = metadata.get(key)
+        if isinstance(value, str) and value and value.lower() not in {"none", "unknown"}:
+            return value
+
+    return "unknown"
 
 
 def detection_result_to_warnings_and_recommendations(

@@ -125,8 +125,16 @@ class PostgreSQLAdapter(BaseAdapter):
 
         try:
             with self._connection.cursor() as cursor:
-                # Execute EXPLAIN with ANALYZE, BUFFERS, VERBOSE, FORMAT JSON
-                explain_query = f"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT JSON) {query}"
+                query_stripped = query.strip()
+                query_upper = query_stripped.upper()
+
+                if query_upper.startswith("EXPLAIN "):
+                    explain_query = query_stripped
+                else:
+                    explain_query = (
+                        f"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT JSON) {query_stripped}"
+                    )
+
                 cursor.execute(explain_query)
                 result = cursor.fetchone()
 
@@ -180,6 +188,7 @@ class PostgreSQLAdapter(BaseAdapter):
         except QueryAnalysisError:
             raise
         except Exception as e:
+            self._connection.rollback()
             raise QueryAnalysisError(f"Failed to analyze query with EXPLAIN: {e}") from e
 
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:

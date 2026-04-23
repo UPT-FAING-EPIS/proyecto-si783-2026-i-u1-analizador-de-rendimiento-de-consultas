@@ -150,7 +150,14 @@ class SQLiteAdapter(BaseAdapter):
         try:
             cursor = self.get_connection().cursor()
 
-            explain_query = f"EXPLAIN QUERY PLAN {query}"
+            query_stripped = query.strip()
+            query_upper = query_stripped.upper()
+
+            if query_upper.startswith("EXPLAIN "):
+                explain_query = query_stripped
+            else:
+                explain_query = f"EXPLAIN QUERY PLAN {query_stripped}"
+
             cursor.execute(explain_query)
 
             rows = cursor.fetchall()
@@ -199,8 +206,12 @@ class SQLiteAdapter(BaseAdapter):
             return report
 
         except sqlite3.Error as e:
+            if self._connection:
+                self._connection.rollback()
             raise QueryAnalysisError(f"SQLite error during explain: {e}") from e
         except Exception as e:
+            if self._connection:
+                self._connection.rollback()
             raise QueryAnalysisError(f"Error analyzing query: {e}") from e
 
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:

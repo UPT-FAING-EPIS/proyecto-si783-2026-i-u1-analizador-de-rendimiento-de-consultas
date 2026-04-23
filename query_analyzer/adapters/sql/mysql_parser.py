@@ -272,8 +272,16 @@ class MySQLExplainParser:
         if not plan:
             return {}
 
-        # Extract table info
-        table_data = plan.get("table", {})
+        if "query_block" in plan and isinstance(plan["query_block"], dict):
+            return self.normalize_plan(plan["query_block"])
+
+        # Extract table info (node may already be a table payload)
+        if isinstance(plan.get("table"), dict):
+            table_data = plan["table"]
+        elif "table_name" in plan:
+            table_data = plan
+        else:
+            table_data = {}
         table_name = table_data.get("table_name")
 
         # Map MySQL access_type to standard node_type
@@ -288,31 +296,55 @@ class MySQLExplainParser:
             "index_merge": "Index Scan",
             "system": "Index Scan",
         }
-        node_type = node_type_map.get(access_type, f"Scan({access_type})")
+        has_filesort = bool(plan.get("using_filesort") or table_data.get("using_filesort"))
+        has_temporary = bool(
+            plan.get("using_temporary_table") or table_data.get("using_temporary_table")
+        )
 
-        # Extract row counts (MySQL uses "rows" for estimated, "rows_examined" for actual)
-        rows_examined = table_data.get("rows_examined")
-        estimated_rows = table_data.get("rows")
+        if has_filesort or has_temporary:
+            node_type = "Sort"
+        elif "nested_loop" in plan and not table_data:
+            node_type = "Nested Loop"
+        else:
+            node_type = node_type_map.get(access_type, f"Scan({access_type})")
+
+        # Extract row counts (MySQL JSON format)
+        rows_examined = table_data.get("rows_examined_per_scan") or table_data.get("rows_examined")
+        estimated_rows = table_data.get("rows_produced_per_join") or table_data.get("rows")
 
         # Extract index information
         index_used = table_data.get("key")
 
         # Extract extra information
-        extra_info = []
+        extra_info: list[str] = []
+        if has_filesort:
+            extra_info.append("Using filesort")
+        if has_temporary:
+            extra_info.append("Using temporary")
         extra_list = table_data.get("extra", [])
         if extra_list:
             for extra in extra_list:
                 if "extra_info" in extra:
                     extra_info.append(extra["extra_info"])
 
-        # Filter condition (MySQL doesn't provide this directly in the plan,
-        # but we can infer from the query structure if needed)
-        filter_condition = None
+        # Filter condition when available
+        filter_condition = table_data.get("attached_condition")
 
-        # Recursively normalize nested loops (MySQL sub-queries/joins)
-        children = []
+        # Recursively normalize child nodes
+        children: list[dict[str, Any]] = []
+
+        ordering_operation = plan.get("ordering_operation")
+        if isinstance(ordering_operation, dict):
+            children.append(self.normalize_plan(ordering_operation))
+
         for nested_loop in plan.get("nested_loop", []):
-            children.append(self.normalize_plan({"table": nested_loop}))
+            if isinstance(nested_loop, dict):
+                child = self.normalize_plan(nested_loop)
+                if child:
+                    children.append(child)
+
+        if not table_name:
+            table_name = self._first_table_name(children)
 
         return {
             "node_type": node_type,
@@ -327,3 +359,18 @@ class MySQLExplainParser:
             "buffers": None,  # Not available in MySQL
             "children": children,
         }
+
+    def _first_table_name(self, children: list[dict[str, Any]]) -> str | None:
+        """Get first available table name from descendant nodes."""
+        for child in children:
+            candidate = child.get("table_name")
+            if candidate:
+                return str(candidate)
+
+            nested_children = child.get("children", [])
+            if isinstance(nested_children, list):
+                descendant = self._first_table_name(nested_children)
+                if descendant:
+                    return descendant
+
+        return None

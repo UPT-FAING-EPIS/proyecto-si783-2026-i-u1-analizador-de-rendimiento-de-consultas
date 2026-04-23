@@ -72,6 +72,7 @@ ignore = ["E501"]  # Ignorar line-length (lo maneja ruff-format)
 "query_analyzer/cli/*" = ["B008"]  # B008: Typer options designed for use in defaults
 "query_analyzer/tui/*.py" = ["D"]
 "query_analyzer/tui/widgets/*.py" = ["D"]
+"query_analyzer/tui/screens/*.py" = ["D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

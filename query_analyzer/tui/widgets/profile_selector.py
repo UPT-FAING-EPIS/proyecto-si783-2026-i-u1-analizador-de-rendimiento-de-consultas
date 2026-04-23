@@ -67,6 +67,7 @@ class ProfileSelector(Container):
             yield Button("+ Agregar", variant="primary", id="btn-add")
             yield Button("✏ Editar", variant="default", id="btn-edit")
             yield Button("✕ Eliminar", variant="default", id="btn-delete")
+            yield Button("▶ Analizar", variant="success", id="btn-analyze")
 
     def on_mount(self) -> None:
         table = self.query_one("#profile-table", DataTable)
@@ -151,6 +152,9 @@ class ProfileSelector(Container):
         elif button_id == "btn-delete":
             if self._selected_profile:
                 self.post_message(ProfileAction("delete", self._selected_profile))
+        elif button_id == "btn-analyze":
+            if self._selected_profile:
+                self.post_message(ProfileAction("analyze", self._selected_profile))
 
     @property
     def selected_profile(self) -> str | None:

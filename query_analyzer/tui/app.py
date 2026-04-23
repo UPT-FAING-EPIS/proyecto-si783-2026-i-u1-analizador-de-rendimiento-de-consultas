@@ -12,6 +12,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Static
 
 from query_analyzer.tui.connection_state import ConnectionManager, ConnectionStatus
+from query_analyzer.tui.screens.analysis_screen import AnalysisScreen
 from query_analyzer.tui.widgets.connection_form import ConnectionForm
 from query_analyzer.tui.widgets.profile_selector import ProfileAction, ProfileSelector
 
@@ -122,6 +123,8 @@ class ConnectionScreen(Container):
             )
         elif action == "delete" and profile_name:
             self._delete_profile(profile_name)
+        elif action == "analyze" and profile_name:
+            self.app.push_screen(AnalysisScreen(profile_name))
 
     def _on_form_return(self, saved: bool | None) -> None:
         if saved:

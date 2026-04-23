@@ -158,9 +158,17 @@ class Neo4jAdapter(BaseAdapter):
         try:
             database = self._config.database or "neo4j"
 
-            with self._driver.session(database=database) as session:
-                profile_query = f"PROFILE {query}"
+            query_stripped = query.strip()
+            query_upper = query_stripped.upper()
 
+            if query_upper.startswith("PROFILE "):
+                profile_query = query_stripped
+            elif query_upper.startswith("EXPLAIN "):
+                profile_query = query_stripped
+            else:
+                profile_query = f"PROFILE {query_stripped}"
+
+            with self._driver.session(database=database) as session:
                 start_time = time.time()
                 result = session.run(profile_query)
 

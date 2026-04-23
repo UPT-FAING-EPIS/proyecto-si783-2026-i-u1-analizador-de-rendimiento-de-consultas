@@ -171,7 +171,14 @@ class MySQLAdapter(BaseAdapter):
 
             start_time = time.time()
 
-            explain_query = f"EXPLAIN FORMAT=JSON {query}"
+            query_stripped = query.strip()
+            query_upper = query_stripped.upper()
+
+            if query_upper.startswith("EXPLAIN "):
+                explain_query = query_stripped
+            else:
+                explain_query = f"EXPLAIN FORMAT=JSON {query_stripped}"
+
             cursor.execute(explain_query)
 
             result = cursor.fetchone()
@@ -217,8 +224,12 @@ class MySQLAdapter(BaseAdapter):
             return report
 
         except pymysql.Error as e:
+            if self.connection:
+                self.connection.rollback()
             raise QueryAnalysisError(f"MySQL error during explain: {e}") from e
         except Exception as e:
+            if self.connection:
+                self.connection.rollback()
             raise QueryAnalysisError(f"Error analyzing query: {e}") from e
 
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:

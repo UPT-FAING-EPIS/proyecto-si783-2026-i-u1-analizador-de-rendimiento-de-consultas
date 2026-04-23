@@ -145,8 +145,16 @@ class YugabyteDBAdapter(BaseAdapter):
 
         try:
             with self._connection.cursor() as cursor:
-                # Execute EXPLAIN with ANALYZE, BUFFERS, VERBOSE, FORMAT JSON
-                explain_query = f"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT JSON) {query}"
+                query_stripped = query.strip()
+                query_upper = query_stripped.upper()
+
+                if query_upper.startswith("EXPLAIN "):
+                    explain_query = query_stripped
+                else:
+                    explain_query = (
+                        f"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT JSON) {query_stripped}"
+                    )
+
                 cursor.execute(explain_query)
                 result = cursor.fetchone()
 
@@ -208,6 +216,7 @@ class YugabyteDBAdapter(BaseAdapter):
         except json.JSONDecodeError as e:
             raise QueryAnalysisError(f"Invalid EXPLAIN JSON format: {e}") from e
         except Exception as e:
+            self._connection.rollback()
             logger.error(f"Query analysis failed: {e}")
             raise QueryAnalysisError(f"Failed to analyze query: {e}") from e
 

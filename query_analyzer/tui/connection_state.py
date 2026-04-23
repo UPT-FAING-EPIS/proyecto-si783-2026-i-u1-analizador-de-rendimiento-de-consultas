@@ -244,6 +244,13 @@ class ConnectionManager:
 
                 raise UnsupportedEngineError(profile.engine, AdapterRegistry.list_engines())
 
+            if self._adapter is not None:
+                try:
+                    self._adapter.disconnect()
+                except Exception:
+                    pass
+                self._adapter = None
+
             self._adapter = AdapterRegistry.create(profile.engine, connection_config)
             self._adapter.connect()
 
