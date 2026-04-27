@@ -81,7 +81,6 @@ class ProfileSelector(Container):
         table = self.query_one("#profile-table", DataTable)
 
         if not self._columns_initialized:
-            table.add_column("Sel", width=3)
             table.add_column("Perfil", width=20)
             table.add_column("Engine", width=12)
             table.add_column("Host:Port", width=22)
@@ -100,11 +99,9 @@ class ProfileSelector(Container):
 
         for idx, (name, profile) in enumerate(profiles.items()):
             status = self._format_status(self._manager.status_for_profile(name))
-            mark = "●" if name == default_name else "○"
             endpoint = f"{profile.host or 'local'}:{profile.port or '-'}"
 
             table.add_row(
-                mark,
                 self._truncate(name, 20),
                 profile.engine.upper(),
                 self._truncate(endpoint, 22),
