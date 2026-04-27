@@ -73,14 +73,14 @@ class SQLiteAdapter(BaseAdapter):
             db_path = self._config.database
 
             if db_path == ":memory:":
-                self._connection = sqlite3.connect(":memory:")
+                self._connection = sqlite3.connect(":memory:", check_same_thread=False)
             else:
                 path = Path(db_path)
 
                 if path.parent != Path("."):
                     path.parent.mkdir(parents=True, exist_ok=True)
 
-                self._connection = sqlite3.connect(str(path))
+                self._connection = sqlite3.connect(str(path), check_same_thread=False)
 
             self._connection.execute("PRAGMA foreign_keys = ON")
 

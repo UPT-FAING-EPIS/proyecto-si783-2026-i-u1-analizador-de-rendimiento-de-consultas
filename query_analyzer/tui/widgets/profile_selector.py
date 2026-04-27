@@ -133,10 +133,16 @@ class ProfileSelector(Container):
             return text[:max_len]
         return f"{text[: max_len - 1]}…"
 
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.row_key is None:
+            return
+        self._selected_profile = str(event.row_key.value)
+
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.row_key is None:
             return
         self._selected_profile = str(event.row_key.value)
+        self.post_message(ProfileAction("analyze", self._selected_profile))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
