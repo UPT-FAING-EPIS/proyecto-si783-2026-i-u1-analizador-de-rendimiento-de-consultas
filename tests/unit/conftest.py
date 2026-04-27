@@ -24,6 +24,11 @@ def _ensure_all_adapters_registered() -> None:
         YugabyteDBAdapter,
     )
 
+    try:
+        from query_analyzer.adapters import MSSQLAdapter  # noqa: F401
+    except ImportError:
+        pass
+
 
 def pytest_runtest_setup(item) -> None:
     """Hook that runs BEFORE each test method is executed.
@@ -48,6 +53,7 @@ def pytest_runtest_setup(item) -> None:
             ("query_analyzer.adapters.nosql.mongodb", "MongoDBAdapter", "mongodb"),
             ("query_analyzer.adapters.graph.neo4j", "Neo4jAdapter", "neo4j"),
             ("query_analyzer.adapters.timeseries.influxdb", "InfluxDBAdapter", "influxdb"),
+            ("query_analyzer.adapters.sql.sqlserver", "MSSQLAdapter", "mssql"),
         ]
 
         for module_name, class_name, engine_name in adapter_classes_to_register:

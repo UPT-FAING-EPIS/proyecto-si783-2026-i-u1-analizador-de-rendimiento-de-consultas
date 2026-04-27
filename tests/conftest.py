@@ -24,6 +24,13 @@ def ensure_adapters_registered() -> None:
     )
 
     try:
+        from query_analyzer.adapters.sql import MSSQLAdapter  # noqa: F401
+
+        has_mssql = True
+    except ImportError:
+        has_mssql = False
+
+    try:
         from query_analyzer.adapters.elasticsearch import ElasticsearchAdapter  # noqa: F401
 
         has_elasticsearch = True
@@ -40,6 +47,9 @@ def ensure_adapters_registered() -> None:
         ("yugabytedb", YugabyteDBAdapter),
         ("neo4j", Neo4jAdapter),
     ]
+
+    if has_mssql:
+        adapters_to_check.append(("mssql", MSSQLAdapter))
 
     if has_elasticsearch:
         adapters_to_check.append(("elasticsearch", ElasticsearchAdapter))

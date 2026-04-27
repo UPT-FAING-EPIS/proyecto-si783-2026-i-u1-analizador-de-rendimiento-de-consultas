@@ -59,7 +59,7 @@ make create-profiles
 make profiles-check
 
 # Expected output:
-# 10 profiles configured:
+# 11 profiles configured:
 #   * postgresql (DEFAULT)
 #   * mysql
 #   * sqlite
@@ -70,6 +70,7 @@ make profiles-check
 #   * neo4j
 #   * influxdb
 #   * elasticsearch
+#   * mssql
 #
 # (Profile names match docker-compose services)
 ```
@@ -220,6 +221,31 @@ qa analyze '{"bool": {"should": [{"wildcard": {"name": {"value": "*laptop*"}}}, 
 qa analyze '{"match": {"name": "laptop"}}' --profile elasticsearch
 qa analyze '{"bool": {"filter": [{"range": {"price": {"gte": 50, "lte": 500}}}]}}' --profile elasticsearch
 ```
+
+---
+
+### SQL Server
+
+**Connection Details:**
+- Host: `localhost`
+- Port: `1433`
+- User: `sa`
+- Password: `YourPassword123!`
+- Database: `tempdb` (default system database for testing)
+
+**Test Commands:**
+
+```bash
+qa analyze "SELECT * FROM sys.objects WHERE type = 'U'" --profile mssql
+qa analyze "SELECT name, object_id FROM sys.tables" --profile mssql
+qa analyze "SELECT TOP 10 * FROM sys.dm_exec_connections" --profile mssql
+qa analyze "SELECT COUNT(*) FROM sys.columns" --profile mssql
+qa analyze "SELECT @@VERSION" --profile mssql
+qa analyze "SELECT name, value_in_use FROM sys.configurations WHERE name = 'max degree of parallelism'" --profile mssql
+qa analyze "SELECT counter_name, cntr_value FROM sys.dm_os_performance_counters WHERE counter_name = 'Batch Requests/sec'" --profile mssql
+```
+
+> **Note**: SQL Server in Docker requires at least 2GB RAM. Container startup takes 30+ seconds. The `SA_PASSWORD` must meet Windows complexity rules (uppercase + lowercase + digit + special character).
 
 ---
 

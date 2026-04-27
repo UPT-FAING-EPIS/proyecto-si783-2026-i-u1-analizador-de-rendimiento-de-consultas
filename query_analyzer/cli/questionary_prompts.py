@@ -95,6 +95,7 @@ def engine_selector_menu(engine: str | None = None) -> str:
         "sqlite",
         "cockroachdb",
         "yugabytedb",
+        "mssql",
     ]
 
     try:

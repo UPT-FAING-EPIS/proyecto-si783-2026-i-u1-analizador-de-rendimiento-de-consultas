@@ -11,6 +11,7 @@ requires-python = ">=3.14"
 dependencies = [
     "psycopg2-binary>=2.9.11",
     "pymysql>=1.1.0",
+    "pymssql>=2.3.2",
     "pymongo>=4.0.0",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
@@ -112,6 +113,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "cassandra.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pymssql.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

@@ -40,7 +40,7 @@ def _get_adapter(engine: str) -> type[BaseAdapter]:
     """
     # TODO: Implementar factory de adapters cuando existan
     # Por ahora retornamos None para indicar que no está implementado
-    if engine.lower() not in ("postgresql", "mysql"):
+    if engine.lower() not in ("postgresql", "mysql", "mssql"):
         raise ValueError(f"Engine {engine} no soportado")
     return None  # type: ignore
 
@@ -52,7 +52,7 @@ def add(
         None,
         "--engine",
         "-e",
-        help="postgresql | mysql | sqlite | redis | cockroachdb | yugabytedb | mongodb",
+        help="postgresql | mysql | sqlite | redis | cockroachdb | yugabytedb | mongodb | mssql",
     ),
     host: str | None = typer.Option(None, "--host", "-h", help="Host de la BD"),
     port: int | None = typer.Option(None, "--port", "-p", help="Puerto"),
@@ -100,20 +100,24 @@ def add(
 
         # Modo interactivo: pedir datos faltantes
         if engine is None:
-            engine = Prompt.ask("Engine", choices=["postgresql", "mysql"], default="postgresql")
+            engine = Prompt.ask("Engine", choices=["postgresql", "mysql", "mssql"], default="postgresql")
 
         if host is None:
             host = Prompt.ask("Host", default="localhost")
 
         if port is None:
-            port = int(Prompt.ask("Port", default="5432" if engine == "postgresql" else "3306"))
+            port = int(Prompt.ask("Port", default={
+                "postgresql": "5432", "mysql": "3306", "mssql": "1433"
+            }.get(engine, "1433")))
 
         if database is None:
             database = Prompt.ask("Database")
 
         if username is None:
             username = Prompt.ask(
-                "Username", default="postgres" if engine == "postgresql" else "root"
+                "Username", default={
+                    "postgresql": "postgres", "mysql": "root", "mssql": "sa"
+                }.get(engine, "sa")
             )
 
         if password is None:

@@ -46,7 +46,7 @@ def engine_selector(engine: str | None = None) -> str:
     if engine is not None:
         return engine
 
-    engines = ["postgresql", "mysql", "sqlite", "cockroachdb", "yugabytedb"]
+    engines = ["postgresql", "mysql", "sqlite", "cockroachdb", "yugabytedb", "mssql"]
     selected: str = Prompt.ask(
         "Engine",
         choices=engines,
@@ -120,6 +120,7 @@ def port_prompt_with_validation(
         "sqlite": 0,  # N/A for SQLite
         "cockroachdb": 26257,
         "yugabytedb": 5433,
+        "mssql": 1433,
     }
     default_port = default_ports.get(engine or "postgresql", 5432)
 
@@ -202,6 +203,7 @@ def username_prompt(
         "sqlite": "sqlite",
         "cockroachdb": "root",
         "yugabytedb": "postgres",
+        "mssql": "sa",
     }
     default_user = default_users.get(engine or "postgresql", "postgres")
 

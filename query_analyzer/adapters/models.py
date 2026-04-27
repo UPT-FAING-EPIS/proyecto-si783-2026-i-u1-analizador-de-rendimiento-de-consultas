@@ -65,6 +65,7 @@ class ConnectionConfig(BaseModel):
             "dynamodb",
             "cassandra",
             "elasticsearch",
+            "mssql",
         }
 
         if engine_lower not in valid_engines:
@@ -205,6 +206,8 @@ class ConnectionConfig(BaseModel):
             return 5432
         elif engine == "mysql":
             return 3306
+        elif engine == "mssql":
+            return 1433
         elif engine == "redis":
             return 6379
         elif engine == "neo4j":
@@ -530,6 +533,7 @@ class QueryAnalysisReport(BaseModel):
             "dynamodb",
             "cassandra",
             "elasticsearch",
+            "mssql",
         }
 
         if engine_lower not in valid_engines:

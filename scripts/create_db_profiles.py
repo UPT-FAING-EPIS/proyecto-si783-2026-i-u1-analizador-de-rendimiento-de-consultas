@@ -314,6 +314,28 @@ def create_elasticsearch_profile(env_vars: dict[str, str]) -> tuple[str, Profile
     )
 
 
+def create_mssql_profile(env_vars: dict[str, str]) -> tuple[str, ProfileConfig]:
+    """Crear perfil para SQL Server.
+
+    Args:
+        env_vars: Variables de entorno
+
+    Returns:
+        Tupla (nombre_perfil, ProfileConfig)
+    """
+    return (
+        "mssql",
+        ProfileConfig(
+            engine="mssql",
+            host=get_env_var(env_vars, "DB_MSSQL_HOST", "localhost"),
+            port=int(get_env_var(env_vars, "DB_MSSQL_PORT", "1433")),
+            database=get_env_var(env_vars, "DB_MSSQL_NAME", "tempdb"),
+            username=get_env_var(env_vars, "DB_MSSQL_USER", "sa"),
+            password=get_env_var(env_vars, "DB_MSSQL_PASSWORD", "YourPassword123!"),
+        ),
+    )
+
+
 def build_profiles(env_vars: dict[str, str]) -> dict[str, ProfileConfig]:
     """Construir todos los perfiles desde variables de entorno.
 
@@ -337,6 +359,7 @@ def build_profiles(env_vars: dict[str, str]) -> dict[str, ProfileConfig]:
         create_neo4j_profile,
         create_influxdb_profile,
         create_elasticsearch_profile,
+        create_mssql_profile,
     ]
 
     for creator in profile_creators:
@@ -416,6 +439,7 @@ def display_summary(profiles: dict[str, bool], force: bool = False) -> None:
         "neo4j": "Neo4j",
         "influxdb": "InfluxDB",
         "elasticsearch": "Elasticsearch",
+        "mssql": "SQL Server",
     }
 
     for profile_name, success in sorted(profiles.items()):
@@ -509,7 +533,7 @@ def main(
         _compose_data = load_compose_yml()
 
         # Construir perfiles
-        console.print("Found 10 database services")
+        console.print("Found 11 database services")
         console.print()
 
         profiles = build_profiles(env_vars)

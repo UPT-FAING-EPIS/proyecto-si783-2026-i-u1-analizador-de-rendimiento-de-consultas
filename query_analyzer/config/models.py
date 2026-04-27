@@ -43,6 +43,7 @@ class ProfileConfig(BaseModel):
             "neo4j",
             "influxdb",
             "elasticsearch",
+            "mssql",
         }
         engine_lower = v.lower()
         if engine_lower not in valid_engines:

@@ -34,6 +34,11 @@ try:
 except ImportError:
     InfluxDBAdapter = None  # type: ignore
 
+try:
+    from query_analyzer.adapters.sql import MSSQLAdapter
+except ImportError:
+    MSSQLAdapter = None  # type: ignore
+
 
 # ============================================================================
 # CONNECTION CONFIGS - Database credentials from environment or defaults
@@ -142,9 +147,47 @@ def docker_influxdb_config() -> ConnectionConfig:
     )
 
 
+@pytest.fixture(scope="session")
+def docker_mssql_config() -> ConnectionConfig:
+    """SQL Server connection config for Docker container."""
+    return ConnectionConfig(
+        engine="mssql",
+        host=os.getenv("DB_MSSQL_HOST", "localhost"),
+        port=int(os.getenv("DB_MSSQL_PORT", "1433")),
+        database=os.getenv("DB_MSSQL_NAME", "tempdb"),
+        username=os.getenv("DB_MSSQL_USER", "sa"),
+        password=os.getenv("DB_MSSQL_PASSWORD", "YourPassword123!"),
+        extra={"seq_scan_threshold": 10000, "connection_timeout": 30},
+    )
+
+
 # ============================================================================
 # ADAPTER FIXTURES - Per-database adapter instances
 # ============================================================================
+
+
+@pytest.fixture
+def mssql_adapter(docker_mssql_config: ConnectionConfig) -> Generator:
+    """SQL Server adapter with automatic connection management."""
+    if MSSQLAdapter is None:
+        pytest.skip("MSSQLAdapter not available")
+
+    adapter = MSSQLAdapter(docker_mssql_config)
+
+    max_retries = 30
+    for attempt in range(max_retries):
+        try:
+            adapter.connect()
+            if adapter.test_connection():
+                break
+        except Exception:
+            if attempt < max_retries - 1:
+                time.sleep(2)
+            else:
+                pytest.skip("Could not connect to SQL Server - is it running?")
+
+    yield adapter
+    adapter.disconnect()
 
 
 @pytest.fixture

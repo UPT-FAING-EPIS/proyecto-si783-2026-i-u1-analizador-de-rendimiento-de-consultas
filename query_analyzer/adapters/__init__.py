@@ -31,6 +31,14 @@ from .models import (
 from .nosql import CassandraAdapter, DynamoDBAdapter, MongoDBAdapter
 from .redis import RedisAdapter
 from .registry import AdapterRegistry
+
+try:
+    from .sql import MSSQLAdapter, MSSQLExplainParser, MSSQLMetricsHelper
+except ImportError:
+    MSSQLAdapter = None  # type: ignore[assignment,misc]
+    MSSQLExplainParser = None  # type: ignore[assignment,misc]
+    MSSQLMetricsHelper = None  # type: ignore[assignment,misc]
+
 from .sql import (
     CockroachDBAdapter,
     CockroachDBMetricsHelper,
@@ -71,6 +79,10 @@ __all__ = [
     "InfluxDBAdapter",
     # Cache Adapters
     "RedisAdapter",
+    # SQL Server Adapters
+    *(["MSSQLAdapter"] if MSSQLAdapter is not None else []),
+    *(["MSSQLExplainParser"] if MSSQLExplainParser is not None else []),
+    *(["MSSQLMetricsHelper"] if MSSQLMetricsHelper is not None else []),
     # Search Adapters
     *(["ElasticsearchAdapter"] if ElasticsearchAdapter is not None else []),
     # Graph Adapters

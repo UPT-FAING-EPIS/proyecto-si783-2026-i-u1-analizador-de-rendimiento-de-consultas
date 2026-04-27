@@ -1,8 +1,8 @@
-.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb logs-elasticsearch health clean ps wait-healthy init-sqlite test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-es test-verbose test-clean create-profiles profiles-force profiles-check profiles-reset profiles-list profiles-validate
+.PHONY: help up down restart reset seed logs logs-postgres logs-mysql logs-mongodb logs-redis logs-influxdb logs-neo4j logs-cockroachdb logs-elasticsearch logs-mssql health clean ps wait-healthy init-sqlite test test-unit test-fast test-coverage test-pg test-mysql test-sqlite test-crdb test-yugabyte test-es test-mssql test-verbose test-clean create-profiles profiles-force profiles-check profiles-reset profiles-list profiles-validate
 
 help:
 	@echo "🔍 Query Analyzer - Docker Management"
-	@echo "Services: postgres, mysql, mongodb, redis, influxdb, neo4j, cockroachdb, elasticsearch"
+	@echo "Services: postgres, mysql, mongodb, redis, influxdb, neo4j, cockroachdb, elasticsearch, mssql"
 	@echo ""
 	@echo "Available commands:"
 	@echo "  make up              - Start all database services + initialize SQLite (non-blocking)"
@@ -35,6 +35,7 @@ help:
 	@echo "  make test-sqlite     - Run SQLite integration tests only (20+ tests)"
 	@echo "  make test-crdb       - Run CockroachDB integration tests only (30+ tests)"
 	@echo "  make test-yugabyte   - Run YugabyteDB integration tests only (20+ tests)"
+	@echo "  make test-mssql      - Run SQL Server integration tests only"
 	@echo "  make test-verbose    - Run all tests with verbose output"
 	@echo "  make test-clean      - Remove pytest cache and coverage artifacts"
 	@echo ""
@@ -123,6 +124,9 @@ logs-cockroachdb:
 logs-elasticsearch:
 	docker compose -f docker/compose.yml logs -f elasticsearch
 
+logs-mssql:
+	docker compose -f docker/compose.yml logs -f mssql
+
 clean:
 	@echo "🧹 Cleaning up unused Docker images..."
 	docker image prune -f
@@ -181,6 +185,11 @@ test-es: wait-healthy seed
 	@echo "🔍 Running Elasticsearch integration tests..."
 	@uv run python -m pytest tests/integration/test_elasticsearch_integration.py -v
 	@echo "✅ Elasticsearch tests completed!"
+
+test-mssql: wait-healthy
+	@echo "🖥️  Running SQL Server integration tests..."
+	@uv run python -m pytest tests/integration/test_mssql_integration.py -v
+	@echo "✅ SQL Server tests completed!"
 
 test-verbose: wait-healthy seed
 	@echo "🗣️  Running all tests with verbose output..."
