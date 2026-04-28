@@ -57,6 +57,88 @@ def crdb_adapter(
     adapter.disconnect()
 
 
+@pytest.fixture
+def crdb_test_tables(crdb_adapter: CockroachDBAdapter) -> Generator[None]:
+    """Create test tables in CockroachDB for anti-pattern query analysis."""
+    conn = crdb_adapter._connection
+
+    # Drop old tables first for clean state
+    with conn.cursor() as cur:
+        for table in ["order_items", "orders", "customers", "large_table"]:
+            try:
+                cur.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+            except Exception:
+                conn.rollback()
+    conn.commit()
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "CREATE TABLE customers ("
+            "  id INT PRIMARY KEY, name STRING, email STRING,"
+            "  country STRING DEFAULT 'USA', created_at TIMESTAMPTZ DEFAULT now()"
+            ")"
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers (name)")
+        cur.execute(
+            "CREATE TABLE orders ("
+            "  id INT PRIMARY KEY, customer_id INT,"
+            "  order_date TIMESTAMPTZ DEFAULT now(), total DECIMAL(10,2)"
+            ")"
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders (customer_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders (order_date)")
+        cur.execute(
+            "CREATE TABLE order_items ("
+            "  id INT PRIMARY KEY, order_id INT, product_id INT,"
+            "  quantity INT, price DECIMAL(10,2)"
+            ")"
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)")
+        cur.execute(
+            "CREATE TABLE large_table ("
+            "  id INT PRIMARY KEY, data STRING, created_at TIMESTAMPTZ DEFAULT now()"
+            ")"
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_large_table_created_at ON large_table (created_at)")
+
+        cur.execute(
+            "INSERT INTO customers (id, name, email, country, created_at) "
+            "SELECT i, 'customer_' || i::STRING, 'user' || i::STRING || '@test.com', "
+            "CASE (i % 5) WHEN 0 THEN 'USA' WHEN 1 THEN 'UK' WHEN 2 THEN 'Canada' "
+            "WHEN 3 THEN 'Germany' ELSE 'France' END, "
+            "now() - (i || ' days')::INTERVAL "
+            "FROM generate_series(1, 100) AS i"
+        )
+        cur.execute(
+            "INSERT INTO orders (id, customer_id, order_date, total) "
+            "SELECT i, (i % 100) + 1, now() - (i || ' days')::INTERVAL, "
+            "(random() * 1000)::DECIMAL(10,2) "
+            "FROM generate_series(1, 500) AS i"
+        )
+        cur.execute(
+            "INSERT INTO order_items (id, order_id, product_id, quantity, price) "
+            "SELECT i, (i % 500) + 1, (i % 50) + 1, (i % 10) + 1, "
+            "(random() * 100)::DECIMAL(10,2) "
+            "FROM generate_series(1, 1000) AS i"
+        )
+        cur.execute(
+            "INSERT INTO large_table (id, data, created_at) "
+            "SELECT i, 'data_row_' || i::STRING, now() - (i || ' hours')::INTERVAL "
+            "FROM generate_series(1, 10000) AS i"
+        )
+
+    conn.commit()
+    yield
+    # Cleanup
+    with conn.cursor() as cur:
+        for table in ["order_items", "orders", "customers", "large_table"]:
+            try:
+                cur.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+            except Exception:
+                conn.rollback()
+    conn.commit()
+
+
 # ============================================================================
 # TESTS - Real Database Connection
 # ============================================================================
@@ -122,7 +204,7 @@ class TestCockroachDBIntegrationConnection:
 class TestCockroachDBIntegrationExplain:
     """Real EXPLAIN query execution tests."""
 
-    def test_explain_simple_select(self, crdb_adapter: CockroachDBAdapter) -> None:
+    def test_explain_simple_select(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
         """Execute EXPLAIN on simple SELECT query."""
         query = "SELECT 1"
 
@@ -140,6 +222,7 @@ class TestCockroachDBIntegrationExplain:
     def test_anti_pattern_query_analysis(
         self,
         crdb_adapter: CockroachDBAdapter,
+        crdb_test_tables: None,
         anti_pattern_query: dict,
     ) -> None:
         """Analyze anti-pattern queries and validate scoring/warnings."""
@@ -181,9 +264,9 @@ class TestCockroachDBIntegrationExplain:
         except Exception as e:
             pytest.skip(f"Anti-pattern analysis failed for {anti_pattern_query['name']}: {e}")
 
-    def test_explain_system_table_query(self, crdb_adapter: CockroachDBAdapter) -> None:
-        """Execute EXPLAIN on system table query."""
-        query = "SELECT * FROM system.nodes LIMIT 5"
+    def test_explain_system_table_query(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
+        """Execute EXPLAIN on query against seeded table."""
+        query = "SELECT * FROM orders LIMIT 5"
 
         try:
             report = crdb_adapter.execute_explain(query)
@@ -192,9 +275,9 @@ class TestCockroachDBIntegrationExplain:
             assert 0 <= report.score <= 100
             assert isinstance(report.recommendations, list)
         except Exception as e:
-            pytest.skip(f"System table query failed: {e}")
+            pytest.skip(f"Table query failed: {e}")
 
-    def test_explain_creates_report_with_all_fields(self, crdb_adapter: CockroachDBAdapter) -> None:
+    def test_explain_creates_report_with_all_fields(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
         """QueryAnalysisReport has all expected fields."""
         query = "SELECT 1"
 
@@ -213,7 +296,7 @@ class TestCockroachDBIntegrationExplain:
         except Exception as e:
             pytest.skip(f"Report fields check failed: {e}")
 
-    def test_explain_score_reproducible(self, crdb_adapter: CockroachDBAdapter) -> None:
+    def test_explain_score_reproducible(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
         """Same query produces same score (reproducibility test)."""
         query = "SELECT 1"
 
@@ -226,11 +309,11 @@ class TestCockroachDBIntegrationExplain:
             pytest.skip(f"Reproducibility test failed: {e}")
 
     def test_explain_different_queries_different_scores(
-        self, crdb_adapter: CockroachDBAdapter
+        self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None
     ) -> None:
         """Different queries can produce different scores."""
         query1 = "SELECT 1"
-        query2 = "SELECT * FROM system.nodes"
+        query2 = "SELECT * FROM customers"
 
         try:
             report1 = crdb_adapter.execute_explain(query1)

@@ -452,7 +452,7 @@ class SQLiteAdapter(BaseAdapter):
         # Build children from nodes with this node as parent
         children = []
         for node in nodes:
-            if node.get("parent") == root.get("id"):
+            if node is not root and node.get("parent") == root.get("id"):
                 child_normalized = self._build_normalized_plan_from_nodes([node])
                 if child_normalized:
                     children.append(child_normalized)

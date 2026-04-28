@@ -441,7 +441,7 @@ class AntiPatternDetector:
                 actual_rows = node.get("actual_rows") or 0
                 table_name = node.get("table_name", "unknown")
 
-                if actual_rows > self.config.seq_scan_row_threshold:
+                if actual_rows >= self.config.seq_scan_row_threshold:
                     pattern = AntiPattern(
                         name="full_table_scan",
                         severity=Severity.HIGH,

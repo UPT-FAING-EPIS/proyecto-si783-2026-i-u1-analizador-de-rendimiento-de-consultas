@@ -32,7 +32,7 @@ def docker_yugabyte_config() -> ConnectionConfig:
         engine="yugabytedb",
         host="localhost",
         port=5433,  # YugabyteDB YSQL port
-        database="yugabyte",
+        database="query_analyzer",
         username="yugabyte",
         password="yugabyte",
         extra={"seq_scan_threshold": 10000, "connection_timeout": 10},
@@ -199,7 +199,7 @@ class TestYugabyteDBIntegrationExplain:
             # Validate expected warnings
             if anti_pattern_query.get("expected_warnings"):
                 for expected_warning in anti_pattern_query["expected_warnings"]:
-                    assert any(expected_warning.lower() in w.lower() for w in report.warnings), (
+                    assert any(expected_warning.lower() in (w.message or "").lower() for w in report.warnings), (
                         f"Expected warning containing '{expected_warning}' not found "
                         f"in {report.warnings} for query: {anti_pattern_query['name']}"
                     )

@@ -80,6 +80,39 @@ def _create_test_tables(adapter: SQLiteAdapter) -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email)")
 
+        # Create large_table for anti-pattern tests (seq scan, select *, etc.)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS large_table (
+                id INTEGER PRIMARY KEY,
+                data TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_large_table_created_at ON large_table(created_at)
+        """)
+
+        # Create order_items for cartesian product anti-pattern test
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS order_items (
+                id INTEGER PRIMARY KEY,
+                order_id INTEGER NOT NULL,
+                product_id INTEGER,
+                quantity INTEGER,
+                price REAL,
+                FOREIGN KEY(order_id) REFERENCES orders(id)
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)
+        """)
+
+        # Add country column to customers if it doesn't exist (for nested_subquery test)
+        try:
+            cursor.execute("ALTER TABLE customers ADD COLUMN country TEXT DEFAULT 'USA'")
+        except Exception:
+            pass  # Column already exists
+
         # Insert test data
         cursor.execute(
             "INSERT OR IGNORE INTO customers (id, name, email) VALUES (1, 'John Doe', 'john@example.com')"
@@ -87,6 +120,8 @@ def _create_test_tables(adapter: SQLiteAdapter) -> None:
         cursor.execute(
             "INSERT OR IGNORE INTO customers (id, name, email) VALUES (2, 'Jane Smith', 'jane@example.com')"
         )
+        # Set country for existing rows (INSERT OR IGNORE won't update)
+        cursor.execute("UPDATE customers SET country = 'USA' WHERE country IS NULL")
         cursor.execute(
             "INSERT OR IGNORE INTO orders (id, customer_id, total) VALUES (1, 1, 100.00)"
         )
@@ -96,6 +131,24 @@ def _create_test_tables(adapter: SQLiteAdapter) -> None:
         cursor.execute(
             "INSERT OR IGNORE INTO orders (id, customer_id, total) VALUES (3, 2, 150.00)"
         )
+
+        # Insert data into large_table (10K rows for seq scan threshold)
+        cursor.execute("SELECT COUNT(*) FROM large_table")
+        if cursor.fetchone()[0] == 0:
+            for i in range(1, 10001):
+                cursor.execute(
+                    "INSERT INTO large_table (id, data, created_at) VALUES (?, ?, datetime('now', ?))",
+                    (i, f"data_row_{i}", f"-{i % 365} days"),
+                )
+
+        # Insert data into order_items
+        cursor.execute("SELECT COUNT(*) FROM order_items")
+        if cursor.fetchone()[0] == 0:
+            for i in range(1, 21):
+                cursor.execute(
+                    "INSERT INTO order_items (id, order_id, product_id, quantity, price) VALUES (?, ?, ?, ?, ?)",
+                    (i, (i % 3) + 1, i, i % 5 + 1, round(i * 10.5, 2)),
+                )
 
         adapter._connection.commit()
     finally:

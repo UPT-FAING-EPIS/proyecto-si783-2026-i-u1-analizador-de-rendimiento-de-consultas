@@ -82,7 +82,7 @@ def ensure_adapters_registered() -> None:
             {
                 "name": "seq_scan_large_table",
                 "table": "large_table",
-                "query": "SELECT * FROM large_table WHERE created_at > now() - interval '1 day'",
+                "query": "SELECT * FROM large_table WHERE created_at > now() - INTERVAL '1' DAY",
                 "expected_score_max": 75,
                 "expected_warnings": ["secuencial", "Búsqueda secuencial"],
                 "expected_recommendation_keywords": ["índice", "index"],

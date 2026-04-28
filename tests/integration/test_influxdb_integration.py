@@ -25,7 +25,7 @@ def docker_influxdb_config() -> ConnectionConfig:
         host="localhost",
         port=8086,
         database="query_analyzer",
-        password="influxdb123",  # API token
+        password="mytoken",  # API token
         extra={"org": "", "connection_timeout": 10},
     )
 
@@ -140,7 +140,7 @@ class TestInfluxDBIntegrationQueryAnalysis:
 
         # Should have warning about time filter
         assert any(
-            "time filter" in w.lower() or "unbounded" in w.lower() for w in report.warnings
+            "time filter" in (w.message or "").lower() or "unbounded" in (w.message or "").lower() for w in report.warnings
         ), f"Expected time filter warning, got: {report.warnings}"
 
         # Should recommend adding time filter
@@ -162,7 +162,7 @@ class TestInfluxDBIntegrationQueryAnalysis:
         assert report.score == 100, f"Expected score 100, got {report.score}"
 
         # Should NOT have unbounded warning
-        assert not any("unbounded" in w.lower() for w in report.warnings), (
+        assert not any("unbounded" in (w.message or "").lower() for w in report.warnings), (
             f"Should have no unbounded warning, got: {report.warnings}"
         )
 
@@ -182,7 +182,7 @@ class TestInfluxDBIntegrationQueryAnalysis:
         report = influxdb_adapter.execute_explain(flux_query)
 
         # Should have cardinality warning
-        assert any("cardinality" in w.lower() or "group" in w.lower() for w in report.warnings), (
+        assert any("cardinality" in (w.message or "").lower() or "group" in (w.message or "").lower() for w in report.warnings), (
             f"Expected cardinality warning, got: {report.warnings}"
         )
 

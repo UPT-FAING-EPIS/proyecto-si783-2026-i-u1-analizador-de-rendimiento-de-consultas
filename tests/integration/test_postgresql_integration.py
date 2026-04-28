@@ -169,7 +169,7 @@ class TestPostgreSQLIntegrationExplain:
             # Validate expected warnings
             if anti_pattern_query.get("expected_warnings"):
                 for expected_warning in anti_pattern_query["expected_warnings"]:
-                    assert any(expected_warning.lower() in w.lower() for w in report.warnings), (
+                    assert any(expected_warning.lower() in (w.message or "").lower() for w in report.warnings), (
                         f"Expected warning containing '{expected_warning}' not found "
                         f"in {report.warnings} for query: {anti_pattern_query['name']}"
                     )
@@ -197,7 +197,7 @@ class TestPostgreSQLIntegrationExplain:
 
             # Should detect sequential scan
             assert report.score < 85, "Score should be lower for Seq Scan on large table"
-            assert any("Búsqueda secuencial" in w for w in report.warnings), (
+            assert any("Búsqueda secuencial" in (w.message or "") for w in report.warnings), (
                 "Should warn about sequential scan"
             )
             assert any("índice" in (r.title or "").lower() for r in report.recommendations), (

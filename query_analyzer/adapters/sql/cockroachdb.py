@@ -150,128 +150,62 @@ class CockroachDBAdapter(BaseAdapter):
                 query_stripped = query.strip()
                 query_upper = query_stripped.upper()
 
-                explain_json = None
-                explain_text = None
-                original_error: str | None = None
-
-                # Try DISTSQL format first (CockroachDB v22.1+)
-                try:
-                    if query_upper.startswith("EXPLAIN "):
-                        explain_query = query_stripped
-                    else:
-                        explain_query = f"EXPLAIN (DISTSQL, ANALYZE, FORMAT JSON) {query_stripped}"
-                    cursor.execute(explain_query)
-                    result = cursor.fetchone()
-
-                    if result:
-                        # Parse JSON result
-                        if isinstance(result[0], str):
-                            explain_json = json.loads(result[0])[0]
-                        else:
-                            explain_json = result[0][0]
-                        logger.debug("EXPLAIN DISTSQL JSON format succeeded")
-
-                except Exception as e:
-                    original_error = str(e)
-                    logger.debug(f"DISTSQL EXPLAIN failed (expected for older versions): {e}")
-
-                # Fallback: Try JSON format (standard PostgreSQL style)
-                if not explain_json and not query_upper.startswith("EXPLAIN "):
-                    try:
-                        # Rollback transaction to recover from previous error
-                        self._connection.rollback()
-                        explain_query = f"EXPLAIN (ANALYZE, FORMAT JSON) {query_stripped}"
-                        cursor.execute(explain_query)
-                        result = cursor.fetchone()
-
-                        if result:
-                            if isinstance(result[0], str):
-                                explain_json = json.loads(result[0])[0]
-                            else:
-                                explain_json = result[0][0]
-                            logger.debug("EXPLAIN JSON format succeeded")
-
-                    except Exception as e:
-                        if not original_error:
-                            original_error = str(e)
-                        logger.warning(f"JSON EXPLAIN failed: {e}, trying text fallback")
-
-                # Fallback: Try text format
-                if not explain_json:
-                    try:
-                        # Rollback transaction to recover from previous error
-                        self._connection.rollback()
-                        if query_upper.startswith("EXPLAIN "):
-                            explain_query = query_stripped
-                        else:
-                            explain_query = f"EXPLAIN ANALYZE {query_stripped}"
-                        cursor.execute(explain_query)
-                        rows = cursor.fetchall()
-                        explain_text = "\n".join([row[0] for row in rows])
-                        logger.debug("EXPLAIN text fallback succeeded")
-                    except Exception as e_text:
-                        # Use original error if available, otherwise use final error
-                        error_msg = original_error if original_error else str(e_text)
-                        raise QueryAnalysisError(
-                            f"All EXPLAIN formats failed: {error_msg}"
-                        ) from e_text
-
-                # Parse plan
-                if explain_json:
-                    metrics = self.parser.parse(explain_json)
+                # CRDB v26.1+ removed FORMAT JSON and ANALYZE option from EXPLAIN.
+                # Use EXPLAIN ANALYZE (VERBOSE) for text output with full detail.
+                if query_upper.startswith("EXPLAIN "):
+                    explain_query = query_stripped
                 else:
-                    # Text parsing — create minimal metrics dict
-                    if explain_text is None:
-                        raise QueryAnalysisError(
-                            "No EXPLAIN output available (neither JSON nor text)"
-                        )
-                    metrics = self._parse_text_explain(explain_text)
+                    explain_query = f"EXPLAIN ANALYZE (VERBOSE) {query_stripped}"
 
-                # Normalize plan to engine-agnostic format for AntiPatternDetector
+                cursor.execute(explain_query)
+                rows = cursor.fetchall()
+                explain_text = "\n".join([row[0] for row in rows])
+
+                # Parse text output into JSON-like structure for existing pipeline
+                explain_json = self._parse_text_to_json_plan(explain_text)
+                metrics = self.parser.parse(explain_json) if explain_json else self._parse_text_explain(explain_text)
+
+                # Normalize plan for AntiPatternDetector
                 normalized_plan = {}
                 if explain_json:
                     root_plan = explain_json.get("Plan", {})
-                    normalized_plan = self.parser.normalize_plan(root_plan)
+                    if root_plan:
+                        normalized_plan = self.parser.normalize_plan(root_plan)
 
-                # Analyze with AntiPatternDetector for unified scoring
+                # Analyze with AntiPatternDetector
                 detector = AntiPatternDetector()
                 detection_result = detector.analyze(normalized_plan, query)
 
-                # Convert v1 data (strings) to v2 models (Warning, Recommendation)
+                # Convert to v2 models
                 warnings, recommendations = detection_result_to_warnings_and_recommendations(
                     detection_result
                 )
 
-                # If text fallback was used, extract CRDB-specific warnings from text
-                if explain_text and not explain_json:
-                    text_warnings = self._detect_crdb_specific_issues(explain_text, metrics)
-                    # Import Warning here to avoid circular imports
-                    from query_analyzer.adapters.models import Warning
+                # Extract CRDB-specific warnings from text
+                text_warnings = self._detect_crdb_specific_issues(explain_text, metrics)
+                from query_analyzer.adapters.models import Warning
 
-                    for warning_msg in text_warnings:
-                        # Parse severity from message (critical or high)
-                        severity_str = "critical" if "CRITICAL" in warning_msg else "high"
-                        severity: Literal["critical", "high", "medium", "low"] = cast(
-                            Literal["critical", "high", "medium", "low"], severity_str
+                for warning_msg in text_warnings:
+                    severity_str = "critical" if "CRITICAL" in warning_msg else "high"
+                    severity: Literal["critical", "high", "medium", "low"] = cast(
+                        Literal["critical", "high", "medium", "low"], severity_str
+                    )
+                    warnings.append(
+                        Warning(
+                            message=warning_msg,
+                            severity=severity,
+                            node_type="Seq Scan",
+                            affected_object=None,
+                            metadata={},
                         )
-                        warnings.append(
-                            Warning(
-                                message=warning_msg,
-                                severity=severity,
-                                node_type="Seq Scan",
-                                affected_object=None,
-                                metadata={},
-                            )
-                        )
+                    )
 
-                # Build plan tree from raw EXPLAIN output
+                # Build plan tree
                 plan_tree = None
                 if explain_json:
                     root_plan = explain_json.get("Plan", {})
-                    plan_tree = build_plan_tree(root_plan)
-
-                # Build report (ensure raw_plan is None if text-only)
-                raw_plan = explain_json if explain_json else None
+                    if root_plan:
+                        plan_tree = build_plan_tree(root_plan)
 
                 return QueryAnalysisReport(
                     engine="cockroachdb",
@@ -282,7 +216,7 @@ class CockroachDBAdapter(BaseAdapter):
                     recommendations=recommendations,
                     plan_tree=plan_tree,
                     analyzed_at=datetime.now(UTC),
-                    raw_plan=raw_plan,  # Only include JSON, not text fallback
+                    raw_plan=explain_json,
                     metrics=metrics,
                 )
 
@@ -320,30 +254,276 @@ class CockroachDBAdapter(BaseAdapter):
 
         return warnings
 
-    def _parse_text_explain(self, explain_text: str) -> dict[str, Any]:
-        """Parse text-format EXPLAIN output into minimal metrics dict.
+    def _parse_text_to_json_plan(self, explain_text: str) -> dict[str, Any]:
+        """Convert CRDB v26.1+ text EXPLAIN ANALYZE output to JSON-like dict.
 
-        For v1, returns basic structure to avoid breaking parser.
-        Real metrics extraction from text happens in v2 if needed.
+        CRDB v26.1 removed FORMAT JSON support. This parser converts the
+        structured text output back into a dict compatible with the existing
+        PostgreSQLExplainParser pipeline.
+
+        Args:
+            explain_text: Text output from EXPLAIN ANALYZE (VERBOSE)
+
+        Returns:
+            Dict mimicking old JSON EXPLAIN format with Plan, Planning Time, etc.
+        """
+        import re
+
+        lines = explain_text.split("\n")
+
+        # Parse header metrics
+        planning_time_ms = 0.0
+        execution_time_ms = 1.0
+        distribution = "local"
+        vectorized = True
+        header_done = False
+
+        # Parse tree structure
+        plan_nodes: list[dict[str, Any]] = []
+        node_stack: list[dict[str, Any]] = []  # parent chain by indent
+        current_node: dict[str, Any] | None = None
+        current_attrs: dict[str, str] = {}
+
+        # Regex patterns
+        indent_re = re.compile(r"^(\s*)([•└├│ ]*)\s*(\S.*)$")
+        kv_re = re.compile(r'"\s*([^:]+):\s*(.+)"$')
+
+        for line in lines:
+            # Parse header line (key: value without quotes)
+            if not header_done and ": " in line and not line.strip().startswith('"'):
+                if line.strip().startswith("•") or line.strip().startswith("└"):
+                    header_done = True
+                    # Fall through to tree parsing
+                else:
+                    parts = line.split(":", 1)
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        value = parts[1].strip()
+                        if key == "planning time":
+                            planning_time_ms = self._parse_time_to_ms(value)
+                        elif key == "execution time":
+                            execution_time_ms = self._parse_time_to_ms(value)
+                        continue
+
+            # Parse tree nodes
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Detect node header lines (start with • or tree char)
+            if stripped.startswith("•") or stripped.startswith("└") or stripped.startswith("├"):
+                # Save previous node
+                if current_node is not None:
+                    current_node.update(self._build_node_fields(current_attrs))
+                    plan_nodes.append(current_node)
+
+                # Determine indent level
+                leading_spaces = len(line) - len(line.lstrip())
+                indent_level = leading_spaces // 2 if leading_spaces > 0 else 0
+
+                # Pop stack to correct depth
+                while len(node_stack) > indent_level:
+                    node_stack.pop()
+
+                # Extract node type name
+                node_name = re.sub(r"^[•└├│\s]+", "", stripped).strip()
+                current_node = {
+                    "Node Type": node_name,
+                    "Plans": [],
+                }
+                current_attrs = {}
+
+                # Link to parent
+                if node_stack:
+                    parent = node_stack[-1]
+                    if "Plans" not in parent:
+                        parent["Plans"] = []
+                    parent["Plans"].append(current_node)
+
+                node_stack.append(current_node)
+
+            # Parse attribute lines (quoted key-value)
+            elif stripped.startswith('"'):
+                match = kv_re.match(stripped)
+                if match and current_node is not None:
+                    key = match.group(1).strip()
+                    value = match.group(2).strip()
+                    current_attrs[key] = value
+
+        # Save last node
+        if current_node is not None:
+            current_node.update(self._build_node_fields(current_attrs))
+            plan_nodes.append(current_node)
+
+        # Build result
+        root_plan = plan_nodes[0] if plan_nodes else {}
+
+        return {
+            "Plan": root_plan,
+            "Planning Time": planning_time_ms,
+            "Execution Time": execution_time_ms,
+            "distribution": distribution,
+            "vectorized": vectorized,
+        }
+
+    def _build_node_fields(self, attrs: dict[str, str]) -> dict[str, Any]:
+        """Convert parsed text attributes to JSON plan node fields.
+
+        Maps CRDB text attribute names to the field names expected by
+        PostgreSQLExplainParser (which expects JSON format keys).
+        """
+        import re
+
+        result: dict[str, Any] = {}
+
+        # Map common attributes
+        attr_map = {
+            "actual row count": "Actual Rows",
+            "estimated row count": "Plan Rows",
+            "execution time": "Actual Total Time",
+            "sql cpu time": "SQL CPU Time",
+            "kv time": "KV Time",
+            "kv rows decoded": "KV Rows Decoded",
+            "sql nodes": "SQL Nodes",
+            "kv nodes": "KV Nodes",
+            "size": "Output Size",
+            "spans": "Scan Span",
+        }
+
+        for text_key, json_key in attr_map.items():
+            if text_key in attrs:
+                value = attrs[text_key]
+                # Extract numeric values
+                if text_key in ("actual row count", "estimated row count", "kv rows decoded"):
+                    try:
+                        result[json_key] = int(re.sub(r"[,\s].*", "", value).replace(",", ""))
+                    except ValueError:
+                        result[json_key] = 0
+                elif text_key in ("execution time", "sql cpu time", "kv time"):
+                    result[json_key] = self._parse_time_to_ms(value)
+                else:
+                    result[json_key] = value
+
+        # Parse table info: "table_name@index_name"
+        if "table" in attrs:
+            table_info = attrs["table"]
+            if "@" in table_info:
+                parts = table_info.split("@", 1)
+                result["Relation Name"] = parts[0].strip()
+                result["Index Name"] = parts[1].strip()
+            else:
+                result["Relation Name"] = table_info.strip()
+
+        # Detect full scan
+        if "spans" in attrs and "FULL SCAN" in attrs["spans"].upper():
+            result["Node Type"] = "Seq Scan"
+
+        # Extract scan cost if present
+        if "estimated max memory allocated" in attrs:
+            mem_str = attrs["estimated max memory allocated"]
+            try:
+                mem_val = re.sub(r"[^0-9.]", "", mem_str.split()[0])
+                result["Estimated Cost"] = float(mem_val)
+            except (ValueError, IndexError):
+                pass
+
+        return result
+
+    @staticmethod
+    def _parse_time_to_ms(time_str: str) -> float:
+        """Parse CRDB time string like '57ms', '136µs', '1.5s' to milliseconds.
+
+        Args:
+            time_str: Time string from CRDB EXPLAIN output
+
+        Returns:
+            Time in milliseconds as float
+        """
+        import re
+
+        time_str = time_str.strip()
+        # Handle compound format like "57ms"
+        match = re.match(r"([\d.]+)\s*(ms|µs|s|us|m|h)", time_str)
+        if match:
+            value = float(match.group(1))
+            unit = match.group(2)
+            if unit in ("µs", "us"):
+                return value / 1000.0
+            elif unit == "ms":
+                return value
+            elif unit == "s":
+                return value * 1000.0
+            elif unit == "m":
+                return value * 60000.0
+            elif unit == "h":
+                return value * 3600000.0
+        # Plain number
+        try:
+            return float(re.sub(r"[^0-9.]", "", time_str))
+        except ValueError:
+            return 0.0
+
+    def _parse_text_explain(self, explain_text: str) -> dict[str, Any]:
+        """Parse text-format EXPLAIN output into metrics dict.
+
+        Extracts real metrics from CRDB v26.1 text output.
 
         Args:
             explain_text: Text-format EXPLAIN output
 
         Returns:
-            Dictionary with minimal metrics structure
+            Dictionary with metrics structure
         """
+        import re
+
+        lines = explain_text.split("\n")
+        planning_time_ms = 0.0
+        execution_time_ms = 1.0
+        distribution = "local"
+        node_count = 0
+        scan_nodes: list[dict[str, Any]] = []
+        join_nodes: list[dict[str, Any]] = []
+        all_nodes: list[dict[str, Any]] = []
+        actual_rows_total = 0
+        plan_rows_total = 0
+
+        for line in lines:
+            stripped = line.strip()
+            if ":" in stripped and not stripped.startswith('"'):
+                parts = stripped.split(":", 1)
+                key = parts[0].strip()
+                value = parts[1].strip()
+                if key == "planning time":
+                    planning_time_ms = self._parse_time_to_ms(value)
+                elif key == "execution time":
+                    execution_time_ms = self._parse_time_to_ms(value)
+                elif key == "distribution":
+                    distribution = value
+
+        # Count nodes and extract row info
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("•") or stripped.startswith("└") or stripped.startswith("├"):
+                node_count += 1
+            if '"  actual row count:' in stripped:
+                match = re.search(r"actual row count:\s*([\d,]+)", stripped)
+                if match:
+                    rows = int(match.group(1).replace(",", ""))
+                    actual_rows_total += rows
+
         return {
-            "planning_time_ms": 0.0,
-            "execution_time_ms": 1.0,
+            "planning_time_ms": planning_time_ms,
+            "execution_time_ms": execution_time_ms,
             "total_cost": 0.0,
-            "actual_rows_total": 0,
-            "plan_rows_total": 0,
-            "node_count": 0,
+            "actual_rows_total": actual_rows_total,
+            "plan_rows_total": plan_rows_total,
+            "node_count": node_count,
             "most_expensive_node": None,
             "buffer_stats": {},
-            "scan_nodes": [],
-            "join_nodes": [],
-            "all_nodes": [],
+            "scan_nodes": scan_nodes,
+            "join_nodes": join_nodes,
+            "all_nodes": all_nodes,
+            "distribution": distribution,
         }
 
     def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:

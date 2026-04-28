@@ -139,7 +139,7 @@ def docker_influxdb_config() -> ConnectionConfig:
         host=os.getenv("DB_INFLUXDB_HOST", "localhost"),
         port=int(os.getenv("DB_INFLUXDB_PORT", "8086")),
         database=os.getenv("DB_INFLUXDB_NAME", "query_analyzer"),
-        password=os.getenv("DB_INFLUXDB_TOKEN", "influxdb123"),  # API token
+        password=os.getenv("DB_INFLUXDB_TOKEN", "mytoken"),  # API token
         extra={
             "org": os.getenv("DB_INFLUXDB_ORG") or "myorg",
             "connection_timeout": 10,

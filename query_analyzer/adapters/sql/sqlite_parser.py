@@ -131,7 +131,7 @@ class SQLiteExplainParser:
             }
 
         search_match = re.match(
-            r"SEARCH\s+(?:TABLE\s+)?(\w+)\s+USING\s+(?:INDEX|PRIMARY KEY)\s+(\w+)(?:\s+(.*))?",
+            r"SEARCH\s+(?:TABLE\s+)?(\w+)\s+USING\s+(?:INDEX|INTEGER PRIMARY KEY|PRIMARY KEY)(?:\s+(\w+))?(?:\s+(.*))?",
             detail,
             re.IGNORECASE,
         )
