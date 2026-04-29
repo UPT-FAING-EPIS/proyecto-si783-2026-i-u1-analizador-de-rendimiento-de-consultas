@@ -72,11 +72,8 @@ jobs:
       - name: Sync dependencies
         run: uv sync
 
-      - name: Install PyInstaller
-        run: uv pip install --system pyinstaller
-
       - name: Build single-file executable
-        run: pyinstaller --onefile --name qa query_analyzer/__main__.py
+        run: uv run --with pyinstaller pyinstaller --onefile --name qa query_analyzer/__main__.py
 
       - name: Copy executable (Linux/macOS)
         if: runner.os != 'Windows'
