@@ -48,16 +48,19 @@ jobs:
         include:
           - os: ubuntu-latest
             target_name: linux-x64
-            output_name: qa-linux-x64
+            executable_name: qa
             output_path: dist/qa
+            zip_name: qa-linux-x64.zip
           - os: macos-latest
             target_name: macos-arm64
-            output_name: qa-macos-arm64
+            executable_name: qa
             output_path: dist/qa
+            zip_name: qa-macos-arm64.zip
           - os: windows-latest
             target_name: windows-x64
-            output_name: qa-windows-x64.exe
+            executable_name: qa.exe
             output_path: dist/qa.exe
+            zip_name: qa-windows-x64.zip
 
     steps:
       - name: Checkout code
@@ -75,22 +78,25 @@ jobs:
       - name: Build single-file executable
         run: uv run --with pyinstaller pyinstaller --onefile --name qa query_analyzer/__main__.py
 
-      - name: Copy executable (Linux/macOS)
+      - name: Package executable (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          cp "${{ matrix.output_path }}" "${{ matrix.output_name }}"
-          chmod +x "${{ matrix.output_name }}"
+          cp "${{ matrix.output_path }}" "${{ matrix.executable_name }}"
+          chmod +x "${{ matrix.executable_name }}"
+          zip "${{ matrix.zip_name }}" "${{ matrix.executable_name }}"
 
-      - name: Copy executable (Windows)
+      - name: Package executable (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Copy-Item "${{ matrix.output_path }}" "${{ matrix.output_name }}"
+        run: |
+          Copy-Item "${{ matrix.output_path }}" "${{ matrix.executable_name }}"
+          Compress-Archive -Path "${{ matrix.executable_name }}" -DestinationPath "${{ matrix.zip_name }}"
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
         with:
           name: executable-${{ matrix.target_name }}
-          path: ${{ matrix.output_name }}
+          path: ${{ matrix.zip_name }}
           if-no-files-found: error
 
   release:
@@ -109,12 +115,12 @@ jobs:
       - name: Prepare release assets folder
         run: |
           mkdir -p upload
-          find release-assets -type f -exec cp {} upload/ \;
+          find release-assets -type f -name "*.zip" -exec cp {} upload/ \;
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: upload/*
+          files: upload/*.zip
           generate_release_notes: true
           draft: false
           prerelease: false
