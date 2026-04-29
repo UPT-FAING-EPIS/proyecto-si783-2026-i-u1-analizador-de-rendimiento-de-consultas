@@ -336,6 +336,19 @@ DB_INFLUXDB_PORT=8086
    git push origin feature/nueva-funcionalidad
    ```
 
+## 🚀 Releases automáticos (GitHub)
+
+El repositorio publica una **GitHub Release** automáticamente cuando se hace push de un tag que inicia con `v`.
+
+Incluye:
+- Paquete Python (`.whl` y `.tar.gz`)
+- Ejecutables para Linux, macOS y Windows
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## 🤝 Contribuciones
 
 Las contribuciones son bienvenidas. Por favor:

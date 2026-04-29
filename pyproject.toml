@@ -26,8 +26,8 @@ dependencies = [
     "elasticsearch>=8.0.0,<9.0.0",
 ]
 
-[tool.setuptools]
-packages = ["query_analyzer"]
+[tool.setuptools.packages.find]
+include = ["query_analyzer*"]
 
 [project.scripts]
 qa = "query_analyzer.cli.main:main"
