@@ -83,10 +83,10 @@ Sistema *Query Performance Analyzer*
 
 [9. Otros requerimientos del producto](#_Toc52661354)
 
-9.1 Estándares legales
-9.2 Estándares de comunicación
-9.3 Estándares de cumplimiento de la plataforma
-9.4 Estándares de calidad y seguridad
+   9.1 Estándares legales
+   9.2 Estándares de comunicación
+   9.3 Estándares de cumplimiento de la plataforma
+   9.4 Estándares de calidad y seguridad
 
 [CONCLUSIONES](#_Toc52661355)
 

@@ -187,12 +187,12 @@ Describe las interacciones de los actores con el sistema.
 
 ```mermaid
 flowchart LR
-    U[Usuario técnico] --> UC1[Analizar proyecto / consulta]
-    U --> UC2[Gestionar perfiles]
-    U --> UC3[Validar conexión]
-    U --> UC4[Visualizar TUI]
-    U --> UC5[Exportar reporte JSON]
-    U --> UC6[Ejecutar dry-run de update]
+    U["Usuario técnico"] --> UC1["Analizar proyecto / consulta"]
+    U --> UC2["Gestionar perfiles"]
+    U --> UC3["Validar conexión"]
+    U --> UC4["Visualizar TUI"]
+    U --> UC5["Exportar reporte JSON"]
+    U --> UC6["Ejecutar dry-run de update"]
     CI[Pipeline CI/CD] --> UC1
     CI --> UC5
     CI --> UC6
@@ -206,14 +206,14 @@ Presenta la descomposición en subsistemas y las colaboraciones principales.
 
 ```mermaid
 flowchart TD
-    CLI[query_analyzer.cli]
-    ADP[query_analyzer.adapters]
-    CORE[query_analyzer.core]
-    PARSER[query_analyzer.adapters.parsers]
-    REPO[query_analyzer.repository]
-    REPORT[query_analyzer.report]
-    CONFIG[query_analyzer.config]
-    TUI[query_analyzer.tui]
+    CLI["query_analyzer.cli"]
+    ADP["query_analyzer.adapters"]
+    CORE["query_analyzer.core"]
+    PARSER["query_analyzer.adapters.parsers"]
+    REPO["query_analyzer.repository"]
+    REPORT["query_analyzer.report"]
+    CONFIG["query_analyzer.config"]
+    TUI["query_analyzer.tui"]
     CLI --> CORE
     CLI --> TUI
     CORE --> PARSER
@@ -337,11 +337,11 @@ classDiagram
 
 ```mermaid
 flowchart LR
-    A[Proyecto objetivo] --> B[pom.xml / build.gradle / query.sql]
+    A[Proyecto objetivo] --> B["pom.xml / build.gradle / query.sql"]
     B --> C[Parser/Analyzer]
-    C --> D[dependency-report.json]
-    C --> E[.bak (backup de build file)]
-    F[Perfil de conexión en ~/.qa/config] --> G[encrypted credentials]
+    C --> D[reporte JSON / Markdown]
+    C --> E[".bak (backup de build file)"]
+    F["Perfil de conexión en ~/.qa/config"] --> G["encrypted credentials"]
 ```
 
 <div style="page-break-after: always; visibility: hidden">\pagebreak</div>
@@ -387,17 +387,17 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    C0[query_analyzer/cli/main.py] --> C1[query_analyzer/cli/commands/analyze.py]
-    C0 --> C2[query_analyzer/cli/commands/profile.py]
-    C1 --> C3[query_analyzer/core/analyzer.py]
-    C3 --> C4[query_analyzer/adapters/registry.py]
-    C4 --> C5[query_analyzer/adapters/postgresql.py]
-    C3 --> C6[query_analyzer/adapters/parsers.py]
-    C3 --> C7[query_analyzer/core/anti_pattern_detector.py]
-    C3 --> C8[query_analyzer/report/serializer.py]
-    C2 --> C9[query_analyzer/config/manager.py]
-    C9 --> C10[query_analyzer/config/crypto.py]
-    TUI[query_analyzer/tui/app.py] --> C3
+    C0["query_analyzer/cli/main.py"] --> C1["query_analyzer/cli/commands/analyze.py"]
+    C0 --> C2["query_analyzer/cli/commands/profile.py"]
+    C1 --> C3["query_analyzer/core/analyzer.py"]
+    C3 --> C4["query_analyzer/adapters/registry.py"]
+    C4 --> C5["query_analyzer/adapters/postgresql.py"]
+    C3 --> C6["query_analyzer/adapters/parsers.py"]
+    C3 --> C7["query_analyzer/core/anti_pattern_detector.py"]
+    C3 --> C8["query_analyzer/report/serializer.py"]
+    C2 --> C9["query_analyzer/config/manager.py"]
+    C9 --> C10["query_analyzer/config/crypto.py"]
+    TUI["query_analyzer/tui/app.py"] --> C3
 ```
 
 <div style="page-break-after: always; visibility: hidden">\pagebreak</div>
@@ -436,87 +436,133 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph Local[Desarrollador / Usuario Local]
-      U[Usuario]
-      CLI[qa (ejecutable Python)]
-      PY[Python 3.14+ runtime]
-      PROJ[Proyecto objetivo]
-      OUT[dependency-report.json / .bak]
-    end
+        subgraph Local[Desarrollador / Usuario Local]
+            U[Usuario]
+            CLI[qa (ejecutable Python)]
+            PY[Python 3.14+ runtime]
+            PROJ[Proyecto objetivo]
+            OUT["reporte serializado / .bak"]
+        end
 
-    subgraph External[Servicios Externos]
-      OSS[OSS Index API]
-      REPO[Maven/Repositorios remotos]
-    end
+        subgraph External[Servicios Externos]
+            OSS[OSS Index API]
+            REPO[Maven/Repositorios remotos]
+        end
 
-    subgraph CI[GitHub Actions / Runner CI]
-      Runner[ubuntu-latest runner]
-      Workflow[Test & analyze]
-    end
+        subgraph CI[GitHub Actions / Runner CI]
+            Runner[ubuntu-latest runner]
+            Workflow[Test & analyze]
+        end
 
-    U --> CLI
-    CLI --> PY
-    CLI --> PROJ
-    CLI --> OUT
-    CLI --> OSS
-    CLI --> REPO
-    Runner --> CLI
-    Runner --> OUT
+        U --> CLI
+        CLI --> PY
+        CLI --> PROJ
+        CLI --> OUT
+        CLI --> OSS
+        CLI --> REPO
+        Runner --> CLI
+        Runner --> OUT
 ```
 
 <div style="page-break-after: always; visibility: hidden">\pagebreak</div>
 
 # 4. Atributos de calidad del software
 
+Esta sección alinea los escenarios de calidad con el comportamiento real del proyecto, sus salidas soportadas y los flujos de CI existentes.
+
 ## 4.1 Escenario de funcionalidad
 
 | Elemento            | Definición                                                               |
 |---------------------|--------------------------------------------------------------------------|
-| Fuente de estímulo  | Usuario técnico o pipeline CI                                            |
-| Estímulo            | Ejecutar `qa analyze --engine postgresql --query "SELECT ..."`           |
-| Entorno             | Terminal local o runner CI                                                |
-| Respuesta           | Detectar motor, ejecutar EXPLAIN, parsear, detectar anti-patrones, emitir reporte |
-| Medida de respuesta | Cobertura funcional de RF priorizados (FD03)                              |
+| Fuente de estímulo  | Usuario técnico o pipeline de integración                                |
+| Estímulo            | Ejecutar `qa analyze` sobre una consulta y seleccionar salida `rich`, `json` o `markdown` |
+| Entorno             | Terminal local o ejecución automatizada en CI                            |
+| Respuesta           | Crear el adapter con `AdapterRegistry`, ejecutar el análisis y serializar el reporte |
+| Medida de respuesta | El flujo completo termina en exit code 0 cuando el análisis es exitoso     |
+
+Criterios de verificación:
+- `qa analyze` acepta los formatos `rich`, `json` y `markdown`.
+- El reporte se serializa mediante `ReportSerializer.to_json()` o `ReportSerializer.to_markdown()` según el formato elegido.
+- El registro de adapters resuelve motores soportados como PostgreSQL, MySQL, SQLite, MongoDB, Redis, Elasticsearch, Cassandra, DynamoDB, InfluxDB, Neo4j, CockroachDB, SQL Server y YugabyteDB.
+
+Estrategia de pruebas:
+- Unit tests para `AdapterRegistry`, parsers y `ReportSerializer`.
+- Tests de integración por motor en `tests/integration/` usando Docker Compose para PostgreSQL, MySQL, MongoDB, Redis, SQLite, Neo4j, InfluxDB, Elasticsearch, Cassandra, DynamoDB, SQL Server, CockroachDB y YugabyteDB cuando aplique.
 
 ## 4.2 Escenario de usabilidad
 
 | Elemento            | Definición                                                                |
 |---------------------|---------------------------------------------------------------------------|
 | Fuente de estímulo  | Usuario técnico básico/intermedio                                         |
-| Estímulo            | Interpretar hallazgos y decidir remediación                               |
-| Entorno             | Terminal local (con/sin color), TUI                                       |
-| Respuesta           | Salida legible (--no-color), `--help`, TUI interactiva                     |
-| Medida de respuesta | Comprensión >= 80% en evaluación interna (FD02)                           |
+| Estímulo            | Consultar ayuda, elegir formato de salida e interpretar el informe        |
+| Entorno             | Terminal local y TUI                                                       |
+| Respuesta           | CLI clara con Typer, ayuda documentada y selección guiada de salida        |
+| Medida de respuesta | La salida es consistente, legible y utilizable sin revisar el código      |
+
+Criterios de verificación:
+- `qa --help` expone comandos y opciones principales.
+- La CLI ofrece formatos de salida documentados en `query_analyzer/cli/commands/analyze.py` y `query_analyzer/cli/main.py`.
+- La TUI apoya el flujo interactivo sin reemplazar la CLI.
+
+Estrategia de pruebas:
+- Pruebas de comandos Typer para validar ayuda, opciones y mensajes de error.
+- Revisión manual de la TUI y pruebas de humo sobre flujos básicos de conexión y análisis.
 
 ## 4.3 Escenario de confiabilidad
 
 | Elemento            | Definición                                                                          |
 |---------------------|-------------------------------------------------------------------------------------|
-| Fuente de estímulo  | Error de red o rate limit en APIs externas                                         |
-| Estímulo            | Error HTTP/timeout al consultar OSS Index o repos remotos                           |
-| Entorno             | Ejecución normal de análisis                                                        |
-| Respuesta           | Retry 3x; degradación controlada; emitir advertencia y continuar cuando sea posible  |
-| Medida de respuesta | No abortar proceso por fallo parcial; logs y warnings claros                        |
+| Fuente de estímulo  | Error de entrada, motor no soportado, perfil inválido o interrupción del usuario     |
+| Estímulo            | Ejecutar el análisis con configuración incorrecta o cancelar la ejecución           |
+| Entorno             | CLI local o CI                                                                        |
+| Respuesta           | Capturar `ValueError`, `ProfileNotFoundError`, `ConfigValidationError` y `KeyboardInterrupt` |
+| Medida de respuesta | El comando termina con exit code 1 en errores controlados y 130 en interrupción      |
+
+Criterios de verificación:
+- `analyze.py` devuelve exit code 0 en éxito, 1 en errores controlados y 130 cuando el usuario interrumpe con Ctrl+C.
+- Un motor no registrado produce el mensaje de error esperado desde `AdapterRegistry`.
+- Un formato de salida inválido se rechaza antes de intentar serializar el reporte.
+
+Estrategia de pruebas:
+- Pruebas unitarias sobre manejo de excepciones en `query_analyzer/cli/commands/analyze.py`.
+- Casos negativos para motores no soportados, perfiles ausentes y formatos no válidos.
 
 ## 4.4 Escenario de rendimiento
 
 | Elemento            | Definición                                                        |
 |---------------------|-------------------------------------------------------------------|
-| Fuente de estímulo  | Análisis en proyecto mediano                                       |
-| Estímulo            | Consulta de versiones y CVEs, parseo de plan                       |
-| Entorno             | Equipo local de referencia                                         |
-| Respuesta           | Completar análisis en tiempos operables para ciclo de desarrollo   |
-| Medida de respuesta | Simple <= 10s; compleja <= 30s (objetivo de FD02/FD03)             |
+| Fuente de estímulo  | Análisis de un proyecto de tamaño medio                             |
+| Estímulo            | Ejecutar un análisis completo con consulta y selección de formato   |
+| Entorno             | Equipo local o runner CI                                            |
+| Respuesta           | El análisis debe mantenerse operativo para uso interactivo y para CI |
+| Medida de respuesta | Sin umbrales fijos en código; el rendimiento se verifica con pruebas y observación |
+
+Criterios de verificación:
+- El análisis no bloquea la CLI más allá del tiempo esperado para la base de datos consultada.
+- La serialización JSON y Markdown se genera desde `ReportSerializer` sin pasos intermedios innecesarios.
+
+Estrategia de pruebas:
+- Ejecución repetida de `qa analyze` con proyectos de prueba para comparar tiempos relativos.
+- Observación de tiempos en integración sobre Docker Compose cuando existan servicios levantados.
 
 ## 4.5 Escenario de mantenibilidad
 
 | Elemento            | Definición                                                                    |
 |---------------------|-------------------------------------------------------------------------------|
-| Fuente de estímulo  | Necesidad de agregar nuevo motor o parser                                    |
-| Estímulo            | Implementar `NewDbAdapter` o `NewParser`                                     |
-| Entorno             | Código modular, test-driven                                                  |
-| Respuesta           | Cambios limitados al paquete `adapters/` o `adapters/parsers/`               |
-| Medida de respuesta | Bajo acoplamiento; pruebas unitarias que cubran nuevo adapter                |
+| Fuente de estímulo  | Necesidad de agregar un nuevo motor o ajustar un parser existente            |
+| Estímulo            | Implementar un nuevo adapter registrado en `AdapterRegistry`                 |
+| Entorno             | Código modular con paquetes separados por motor y tipo de salida             |
+| Respuesta           | Cambios localizados en `query_analyzer/adapters/`, `core/`, `cli/` o `tui/` |
+| Medida de respuesta | El nuevo motor puede agregarse sin romper los adaptadores existentes         |
+
+Criterios de verificación:
+- `AdapterRegistry.register()` y `AdapterRegistry.create()` siguen siendo el punto único de registro y creación.
+- Los motores nuevos tienen pruebas unitarias e integración dentro de `tests/integration/` cuando aplique.
+- El serializador mantiene compatibilidad con JSON y Markdown sin duplicar lógica por motor.
+
+Estrategia de pruebas:
+- Casos de prueba por motor para validar que la implementación nueva sigue la interfaz `BaseAdapter`.
+- Validación de lint y type check con `ruff` y `mypy` en CI.
 
 ## 4.6 Otros escenarios de calidad
 
@@ -524,21 +570,38 @@ flowchart TD
 
 | Elemento            | Definición                                                      |
 |---------------------|-----------------------------------------------------------------|
-| Fuente de estímulo  | Perfiles con repositorios privados y autenticación             |
-| Estímulo            | Envío de credenciales para consulta de repos                    |
-| Entorno             | Ejecución local con allowlist de hosts autorizados             |
-| Respuesta           | Encriptación local de credenciales; solo enviar a hosts HTTPS   |
-| Medida de respuesta | Cumplimiento de `DEPANALYZER_TRUSTED_CREDENTIAL_HOSTS`         |
+| Fuente de estímulo  | Perfiles con credenciales o parámetros sensibles                 |
+| Estímulo            | Guardar, cargar o reutilizar configuraciones de conexión        |
+| Entorno             | Archivo local de configuración y ejecución de CLI/TUI           |
+| Respuesta           | Cifrado local y manejo controlado desde `config/crypto.py` y `config/manager.py` |
+| Medida de respuesta | No exponer secretos en texto plano en la ruta normal de uso      |
+
+Criterios de verificación:
+- La configuración sensible se gestiona mediante los módulos de configuración del proyecto.
+- No se imprimen credenciales completas en la salida normal.
+
+Estrategia de pruebas:
+- Revisión manual de mensajes de error y logs ante credenciales inválidas.
+- Pruebas de configuración usando perfiles de ejemplo sin datos reales.
 
 ### 4.6.2 Interoperabilidad
 
 | Elemento            | Definición                                                          |
 |---------------------|----------------------------------------------------------------------|
-| Fuente de estímulo  | Pipeline CI consume reporte                                           |
-| Estímulo            | `qa analyze --output json`                                            |
-| Entorno             | GitHub Actions u otro CI                                              |
-| Respuesta           | JSON válido; `--fail-on-critical` para controlar exit code            |
-| Medida de respuesta | Integración estable y artefactos reproducibles                        |
+| Fuente de estímulo  | Pipeline de CI o usuario que consume la salida                       |
+| Estímulo            | Ejecutar `qa analyze --output json` o `qa analyze --output markdown` |
+| Entorno             | GitHub Actions o terminal local                                       |
+| Respuesta           | Generar una salida válida en JSON o Markdown según el formato elegido |
+| Medida de respuesta | La salida puede ser consumida por otros pasos sin adaptación especial |
+
+Criterios de verificación:
+- El CLI soporta explícitamente los formatos `rich`, `json` y `markdown`.
+- El workflow de integración ejecuta `uv run ruff check --fix`, `uv run ruff format --check`, `uv run mypy query_analyzer` y `uv run pytest tests/integration/`.
+- El workflow de release empaqueta wheel, sdist y binarios por plataforma.
+
+Estrategia de pruebas:
+- Verificación del formato JSON con la misma serialización usada por `ReportSerializer`.
+- Validación de los workflows existentes en `/.github/workflows/integration-tests.yml` y `/.github/workflows/release.yml`.
 
 <div style="page-break-after: always; visibility: hidden">\pagebreak</div>
 
