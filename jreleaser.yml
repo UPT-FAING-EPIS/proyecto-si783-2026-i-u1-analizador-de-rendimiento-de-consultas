@@ -1,8 +1,10 @@
 project:
   name: query-analyzer
+  version: '{{ env.JRELEASER_PROJECT_VERSION }}'
   description: Query Analyzer CLI
   longDescription: Query Analyzer command line interface for query performance analysis.
   license: MIT
+  copyright: 2026 Andre Carbajal
   links:
     homepage: https://github.com/UPT-FAING-EPIS/proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas
   authors:
@@ -34,9 +36,7 @@ distributions:
     artifacts:
       - path: dist/qa-linux-amd64.tar.gz
         platform: linux-x86_64
-      - path: dist/qa-linux-arm64.tar.gz
-        platform: linux-aarch_64
-      - path: dist/qa-macos-arm64.tar.gz
+      - path: dist/qa-macos-arm64.zip
         platform: osx-aarch_64
       - path: dist/qa-windows-amd64.zip
         platform: windows-x86_64

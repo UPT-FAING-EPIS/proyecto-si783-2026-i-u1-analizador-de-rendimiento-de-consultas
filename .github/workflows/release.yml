@@ -31,7 +31,7 @@ jobs:
             pyinstaller_arch: aarch64
           - id: macos-arm64
             os: macos-latest
-            artifact_name: qa-macos-arm64.tar.gz
+            artifact_name: qa-macos-arm64.zip
             executable_name: qa
             pyinstaller_arch: arm64
           - id: windows-amd64
@@ -59,12 +59,20 @@ jobs:
         run: uv run --with pyinstaller pyinstaller --onefile --name qa query_analyzer/__main__.py
 
       - name: Package executable (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         run: |
           mkdir -p dist
           cp dist/qa "qa"
           chmod +x qa
           tar -czf "dist/${{ matrix.artifact_name }}" qa
+
+      - name: Package executable (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          cp dist/qa "qa"
+          chmod +x qa
+          zip -j "dist/${{ matrix.artifact_name }}" qa
 
       - name: Package executable (Windows)
         if: runner.os == 'Windows'
@@ -105,7 +113,7 @@ jobs:
           files: |
             dist/qa-linux-amd64.tar.gz
             dist/qa-linux-arm64.tar.gz
-            dist/qa-macos-arm64.tar.gz
+            dist/qa-macos-arm64.zip
             dist/qa-windows-amd64.zip
             dist/checksums.txt
           generate_release_notes: true
@@ -140,11 +148,16 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Resolve project version from tag
+        run: |
+          echo "PROJECT_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       - name: Run JReleaser
         uses: jreleaser/release-action@v2
         with:
           arguments: full-release
         env:
+          JRELEASER_PROJECT_VERSION: ${{ env.PROJECT_VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.JRELEASER_GITHUB_TOKEN }}
           JRELEASER_HOMEBREW_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
