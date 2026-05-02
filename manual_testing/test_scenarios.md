@@ -10,8 +10,8 @@ Esta carpeta contiene los recursos necesarios para probar el **Query Performance
    - *Este script creará las tablas y generará automáticamente más de 10,000 registros para que las pruebas sean realistas.*
 
 ---
-**Nota:** Para ejecutar el analizador desde la consola, usa:
-`uv run qa tui`
+**Nota:** Para ejecutar en windows el analizador desde la consola, debemos estar en la carpeta en donde esta contenido el ejecutable, y usamos el comando:
+`qa tui`
 
 ## 2. Escenarios de Prueba (Copiar y Pegar)
 
