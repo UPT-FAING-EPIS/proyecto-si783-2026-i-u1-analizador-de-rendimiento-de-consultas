@@ -1,6 +1,5 @@
 project:
   name: query-analyzer
-  version: '{{ env.JRELEASER_PROJECT_VERSION }}'
   description: Query Analyzer CLI
   longDescription: Query Analyzer command line interface for query performance analysis.
   license: MIT
