@@ -100,24 +100,32 @@ def add(
 
         # Modo interactivo: pedir datos faltantes
         if engine is None:
-            engine = Prompt.ask("Engine", choices=["postgresql", "mysql", "mssql"], default="postgresql")
+            engine = Prompt.ask(
+                "Engine", choices=["postgresql", "mysql", "mssql"], default="postgresql"
+            )
 
         if host is None:
             host = Prompt.ask("Host", default="localhost")
 
         if port is None:
-            port = int(Prompt.ask("Port", default={
-                "postgresql": "5432", "mysql": "3306", "mssql": "1433"
-            }.get(engine, "1433")))
+            port = int(
+                Prompt.ask(
+                    "Port",
+                    default={"postgresql": "5432", "mysql": "3306", "mssql": "1433"}.get(
+                        engine, "1433"
+                    ),
+                )
+            )
 
         if database is None:
             database = Prompt.ask("Database")
 
         if username is None:
             username = Prompt.ask(
-                "Username", default={
-                    "postgresql": "postgres", "mysql": "root", "mssql": "sa"
-                }.get(engine, "sa")
+                "Username",
+                default={"postgresql": "postgres", "mysql": "root", "mssql": "sa"}.get(
+                    engine, "sa"
+                ),
             )
 
         if password is None:

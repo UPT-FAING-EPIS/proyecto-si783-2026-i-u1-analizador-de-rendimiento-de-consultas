@@ -163,7 +163,11 @@ class CockroachDBAdapter(BaseAdapter):
 
                 # Parse text output into JSON-like structure for existing pipeline
                 explain_json = self._parse_text_to_json_plan(explain_text)
-                metrics = self.parser.parse(explain_json) if explain_json else self._parse_text_explain(explain_text)
+                metrics = (
+                    self.parser.parse(explain_json)
+                    if explain_json
+                    else self._parse_text_explain(explain_text)
+                )
 
                 # Normalize plan for AntiPatternDetector
                 normalized_plan = {}
@@ -423,7 +427,7 @@ class CockroachDBAdapter(BaseAdapter):
             try:
                 mem_val = re.sub(r"[^0-9.]", "", mem_str.split()[0])
                 result["Estimated Cost"] = float(mem_val)
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 pass
 
         return result

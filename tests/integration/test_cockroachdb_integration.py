@@ -99,7 +99,9 @@ def crdb_test_tables(crdb_adapter: CockroachDBAdapter) -> Generator[None]:
             "  id INT PRIMARY KEY, data STRING, created_at TIMESTAMPTZ DEFAULT now()"
             ")"
         )
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_large_table_created_at ON large_table (created_at)")
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_large_table_created_at ON large_table (created_at)"
+        )
 
         cur.execute(
             "INSERT INTO customers (id, name, email, country, created_at) "
@@ -204,7 +206,9 @@ class TestCockroachDBIntegrationConnection:
 class TestCockroachDBIntegrationExplain:
     """Real EXPLAIN query execution tests."""
 
-    def test_explain_simple_select(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
+    def test_explain_simple_select(
+        self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None
+    ) -> None:
         """Execute EXPLAIN on simple SELECT query."""
         query = "SELECT 1"
 
@@ -264,7 +268,9 @@ class TestCockroachDBIntegrationExplain:
         except Exception as e:
             pytest.skip(f"Anti-pattern analysis failed for {anti_pattern_query['name']}: {e}")
 
-    def test_explain_system_table_query(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
+    def test_explain_system_table_query(
+        self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None
+    ) -> None:
         """Execute EXPLAIN on query against seeded table."""
         query = "SELECT * FROM orders LIMIT 5"
 
@@ -277,7 +283,9 @@ class TestCockroachDBIntegrationExplain:
         except Exception as e:
             pytest.skip(f"Table query failed: {e}")
 
-    def test_explain_creates_report_with_all_fields(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
+    def test_explain_creates_report_with_all_fields(
+        self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None
+    ) -> None:
         """QueryAnalysisReport has all expected fields."""
         query = "SELECT 1"
 
@@ -296,7 +304,9 @@ class TestCockroachDBIntegrationExplain:
         except Exception as e:
             pytest.skip(f"Report fields check failed: {e}")
 
-    def test_explain_score_reproducible(self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None) -> None:
+    def test_explain_score_reproducible(
+        self, crdb_adapter: CockroachDBAdapter, crdb_test_tables: None
+    ) -> None:
         """Same query produces same score (reproducibility test)."""
         query = "SELECT 1"
 

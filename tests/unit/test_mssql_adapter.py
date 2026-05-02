@@ -56,6 +56,7 @@ class TestMSSQLAdapterInstantiation:
         adapter = None
         try:
             from query_analyzer.adapters.sql.sqlserver import MSSQLAdapter
+
             adapter = MSSQLAdapter(mssql_config)
         except ImportError:
             pytest.skip("MSSQLAdapter not available (pymssql missing)")
@@ -262,8 +263,7 @@ class TestMSSQLAdapterExplain:
 
             # Must have called SET SHOWPLAN_XML OFF in error handler
             off_calls = [
-                c for c in mock_cursor.execute.call_args_list
-                if "SET SHOWPLAN_XML OFF" in str(c)
+                c for c in mock_cursor.execute.call_args_list if "SET SHOWPLAN_XML OFF" in str(c)
             ]
             assert len(off_calls) >= 1
             mock_connection.rollback.assert_called_once()

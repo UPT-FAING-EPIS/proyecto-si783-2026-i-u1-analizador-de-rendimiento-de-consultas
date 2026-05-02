@@ -44,9 +44,7 @@ class MSSQLExplainParser:
             if query_plan is not None:
                 root_relop = query_plan.find("sql:RelOp", ns)
                 if root_relop is not None:
-                    total_cost = float(
-                        root_relop.get("EstimatedTotalSubtreeCost", 0.0)
-                    )
+                    total_cost = float(root_relop.get("EstimatedTotalSubtreeCost", 0.0))
 
         relops = [root_relop] if root_relop is not None else []
         all_nodes = self._collect_nodes(relops, root, ns)
@@ -54,16 +52,16 @@ class MSSQLExplainParser:
         most_expensive = self._find_most_expensive(relops)
 
         scan_nodes = [
-            n for n in all_nodes
-            if n.get("node_type", "").lower() in (
-                "table scan", "clustered index scan", "index scan"
-            )
+            n
+            for n in all_nodes
+            if n.get("node_type", "").lower()
+            in ("table scan", "clustered index scan", "index scan")
         ]
         join_nodes = [
-            n for n in all_nodes
+            n
+            for n in all_nodes
             if "join" in n.get("node_type", "").lower()
-            or n.get("node_type", "").lower()
-            in ("hash match", "nested loops", "merge join")
+            or n.get("node_type", "").lower() in ("hash match", "nested loops", "merge join")
         ]
 
         return {
@@ -119,9 +117,7 @@ class MSSQLExplainParser:
                 table = col.get("Table", "")
                 column = col.get("Column", "")
                 if column:
-                    output_columns.append(
-                        f"{table}.{column}" if table else column
-                    )
+                    output_columns.append(f"{table}.{column}" if table else column)
             node["output_columns"] = output_columns
 
             children = relop.findall("sql:RelOp", ns)
@@ -134,9 +130,7 @@ class MSSQLExplainParser:
 
         return all_nodes
 
-    def _find_most_expensive(
-        self, relops: list[ET.Element]
-    ) -> dict[str, Any]:
+    def _find_most_expensive(self, relops: list[ET.Element]) -> dict[str, Any]:
         """Find the RelOp with highest EstimatedTotalSubtreeCost."""
         most_expensive: dict[str, Any] = {}
         max_cost = 0.0
@@ -221,9 +215,7 @@ class MSSQLExplainParser:
             "children": children,
         }
 
-    def _normalize_relop(
-        self, relop: ET.Element, ns: dict[str, str]
-    ) -> dict[str, Any]:
+    def _normalize_relop(self, relop: ET.Element, ns: dict[str, str]) -> dict[str, Any]:
         """Recursively normalize an XML RelOp element."""
         physical_op = relop.get("PhysicalOp", "Unknown")
         logical_op = relop.get("LogicalOp", "Unknown")

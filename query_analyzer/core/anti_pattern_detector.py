@@ -782,17 +782,23 @@ class AntiPatternDetector:
         patterns: list[AntiPattern] = []
 
         if query:
-            where_match = re.search(r"WHERE\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|$)", query, re.IGNORECASE | re.DOTALL)
+            where_match = re.search(
+                r"WHERE\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|$)", query, re.IGNORECASE | re.DOTALL
+            )
             if where_match:
                 where_clause = where_match.group(1)
-                or_matches = re.findall(r"([a-zA-Z0-9_.]+)\s*(?:=|>|<|>=|<=|LIKE|IN)[\s\S]+?\bOR\b\s+([a-zA-Z0-9_.]+)\s*(?:=|>|<|>=|<=|LIKE|IN)", where_clause, re.IGNORECASE)
-                
+                or_matches = re.findall(
+                    r"([a-zA-Z0-9_.]+)\s*(?:=|>|<|>=|<=|LIKE|IN)[\s\S]+?\bOR\b\s+([a-zA-Z0-9_.]+)\s*(?:=|>|<|>=|<=|LIKE|IN)",
+                    where_clause,
+                    re.IGNORECASE,
+                )
+
                 detected = False
                 for col1, col2 in or_matches:
                     if col1.strip().lower() != col2.strip().lower():
                         detected = True
                         break
-                
+
                 if detected:
                     pattern = AntiPattern(
                         name="or_multiple_columns",
@@ -869,10 +875,16 @@ class AntiPatternDetector:
         """
         patterns: list[AntiPattern] = []
         if query:
-            where_match = re.search(r"\bWHERE\b\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|$)", query, re.IGNORECASE | re.DOTALL)
+            where_match = re.search(
+                r"\bWHERE\b\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|$)",
+                query,
+                re.IGNORECASE | re.DOTALL,
+            )
             if where_match:
                 where_clause = where_match.group(1)
-                matches = re.findall(r"(!=|<>|\bNOT\s+IN\b|\bNOT\s+LIKE\b)", where_clause, re.IGNORECASE)
+                matches = re.findall(
+                    r"(!=|<>|\bNOT\s+IN\b|\bNOT\s+LIKE\b)", where_clause, re.IGNORECASE
+                )
                 if matches:
                     operator = matches[0].strip().upper()
                     # Normalizar múltiples espacios
@@ -926,18 +938,22 @@ class AntiPatternDetector:
         patterns: list[AntiPattern] = []
         if query:
             # Detectar si hay múltiples tablas separadas por coma en el FROM
-            from_match = re.search(r"\bFROM\b\s+([^;]+?)(?:\bWHERE\b|\bGROUP\b|\bORDER\b|\bLIMIT|;|$)", query, re.IGNORECASE | re.DOTALL)
+            from_match = re.search(
+                r"\bFROM\b\s+([^;]+?)(?:\bWHERE\b|\bGROUP\b|\bORDER\b|\bLIMIT|;|$)",
+                query,
+                re.IGNORECASE | re.DOTALL,
+            )
             if from_match:
                 tables_part = from_match.group(1)
                 tables = [t.strip() for t in tables_part.split(",") if t.strip()]
-                
+
                 # Si hay más de una tabla separada por coma...
                 if len(tables) > 1:
                     # Verificar si falta un JOIN explícito o condiciones en el WHERE
                     # (Aproximación estática: si no hay JOIN y no hay condiciones de igualdad en el WHERE)
                     has_join = bool(re.search(r"\bJOIN\b", query, re.IGNORECASE))
                     has_where = bool(re.search(r"\bWHERE\b", query, re.IGNORECASE))
-                    
+
                     if not has_join:
                         # Si no hay WHERE, es un producto cartesiano puro
                         # Si hay WHERE, verificamos si hay al menos una igualdad (muy simplificado)
@@ -950,7 +966,7 @@ class AntiPatternDetector:
                         if is_cartesian:
                             pattern = AntiPattern(
                                 name="cartesian_product",
-                                severity=Severity.HIGH, # Usamos HIGH porque ScoringEngine maneja HIGH como máx
+                                severity=Severity.HIGH,  # Usamos HIGH porque ScoringEngine maneja HIGH como máx
                                 description=(
                                     "Producto Cartesiano detectado. Consultar múltiples tablas sin "
                                     "condiciones de unión genera un volumen masivo de datos innecesarios."
@@ -961,7 +977,9 @@ class AntiPatternDetector:
                             )
                             patterns.append(pattern)
                             # Penalización doble (Severidad Alta x 1.5 aprox = 40 puntos si ScoringEngine lo permite)
-                            self.scoring_engine.deduct("cartesian_product", Severity.HIGH, amount=40)
+                            self.scoring_engine.deduct(
+                                "cartesian_product", Severity.HIGH, amount=40
+                            )
         return patterns
 
     def _detect_sort_without_index(self, plan: dict[str, Any]) -> list[AntiPattern]:
@@ -1111,7 +1129,9 @@ class AntiPatternDetector:
                 rec = RecommendationEngine.union_without_all()
 
             elif ap.name == "negative_condition":
-                rec = RecommendationEngine.negative_condition(ap.metadata.get("operator", "negativo"))
+                rec = RecommendationEngine.negative_condition(
+                    ap.metadata.get("operator", "negativo")
+                )
 
             elif ap.name == "subquery_in_select":
                 rec = RecommendationEngine.subquery_in_select()

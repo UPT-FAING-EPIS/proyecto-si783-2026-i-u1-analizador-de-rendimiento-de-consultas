@@ -65,9 +65,7 @@ class TestMSSQLAdapterExplain:
     """Test SHOWPLAN_XML analysis."""
 
     def test_simple_select(self, mssql_adapter) -> None:
-        report = mssql_adapter.execute_explain(
-            "SELECT * FROM sys.objects WHERE type = 'U'"
-        )
+        report = mssql_adapter.execute_explain("SELECT * FROM sys.objects WHERE type = 'U'")
         assert report.engine == "mssql"
         assert 0 <= report.score <= 100
         assert report.plan_tree is not None
@@ -77,9 +75,7 @@ class TestMSSQLAdapterExplain:
             mssql_adapter.execute_explain("CREATE TABLE #test (id INT)")
 
     def test_select_with_where(self, mssql_adapter) -> None:
-        report = mssql_adapter.execute_explain(
-            "SELECT * FROM sys.objects WHERE type = 'U'"
-        )
+        report = mssql_adapter.execute_explain("SELECT * FROM sys.objects WHERE type = 'U'")
         assert report.raw_plan is not None
         assert "xml" in report.raw_plan
 

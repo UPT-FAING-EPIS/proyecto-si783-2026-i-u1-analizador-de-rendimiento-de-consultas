@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import pymssql
+
     _PYMSSQL_AVAILABLE = True
 except ImportError:
     pymssql = None  # type: ignore
@@ -83,15 +84,11 @@ class MSSQLAdapter(BaseAdapter):
                 login_timeout=self._config.extra.get("login_timeout", 10),
             )
             self._is_connected = True
-            logger.info(
-                f"Connected to SQL Server {self._config.host}:{self._config.port}"
-            )
+            logger.info(f"Connected to SQL Server {self._config.host}:{self._config.port}")
         except pymssql.OperationalError as e:
             self._is_connected = False
             self._connection = None
-            raise AdapterConnectionError(
-                f"Failed to connect to SQL Server: {e}"
-            ) from e
+            raise AdapterConnectionError(f"Failed to connect to SQL Server: {e}") from e
 
     def disconnect(self) -> None:
         """Close SQL Server connection."""
@@ -140,13 +137,9 @@ class MSSQLAdapter(BaseAdapter):
             raise QueryAnalysisError("Not connected to database")
 
         query_upper = query.strip().upper()
-        if any(
-            query_upper.startswith(ddl)
-            for ddl in ["CREATE", "ALTER", "DROP", "TRUNCATE"]
-        ):
+        if any(query_upper.startswith(ddl) for ddl in ["CREATE", "ALTER", "DROP", "TRUNCATE"]):
             raise QueryAnalysisError(
-                "Cannot analyze DDL statements. "
-                "Only SELECT, INSERT, UPDATE, DELETE are supported."
+                "Cannot analyze DDL statements. Only SELECT, INSERT, UPDATE, DELETE are supported."
             )
 
         try:
@@ -159,9 +152,7 @@ class MSSQLAdapter(BaseAdapter):
                 cursor.execute("SET SHOWPLAN_XML OFF")
 
                 if not result or not result[0]:
-                    raise QueryAnalysisError(
-                        "SHOWPLAN_XML returned no results"
-                    )
+                    raise QueryAnalysisError("SHOWPLAN_XML returned no results")
 
                 raw_xml = result[0]
                 if isinstance(raw_xml, bytes):
@@ -173,10 +164,8 @@ class MSSQLAdapter(BaseAdapter):
                 detector = AntiPatternDetector()
                 detection_result = detector.analyze(normalized_plan, query)
 
-                warnings, recommendations = (
-                    detection_result_to_warnings_and_recommendations(
-                        detection_result
-                    )
+                warnings, recommendations = detection_result_to_warnings_and_recommendations(
+                    detection_result
                 )
 
                 plan_dict = self._xml_to_plan_dict(raw_xml)
@@ -204,9 +193,7 @@ class MSSQLAdapter(BaseAdapter):
             except Exception:
                 pass
             self._connection.rollback()
-            raise QueryAnalysisError(
-                f"Failed to analyze query: {e}"
-            ) from e
+            raise QueryAnalysisError(f"Failed to analyze query: {e}") from e
 
     def _xml_to_plan_dict(self, xml_string: str) -> dict[str, Any]:
         """Convert raw SHOWPLAN XML to a dict compatible with build_plan_tree().
@@ -237,9 +224,7 @@ class MSSQLAdapter(BaseAdapter):
             logger.debug(f"Failed to convert XML to plan dict: {e}")
             return {}
 
-    def _relop_to_dict(
-        self, relop: ET.Element, ns: dict[str, str]
-    ) -> dict[str, Any]:
+    def _relop_to_dict(self, relop: ET.Element, ns: dict[str, str]) -> dict[str, Any]:
         """Recursively convert RelOp element to dict for build_plan_tree."""
         physical_op = relop.get("PhysicalOp", "Unknown")
 
@@ -257,9 +242,7 @@ class MSSQLAdapter(BaseAdapter):
 
         result: dict[str, Any] = {
             "Node Type": node_type,
-            "Estimated Rows": (
-                int(float(estimate_rows)) if estimate_rows else 0
-            ),
+            "Estimated Rows": (int(float(estimate_rows)) if estimate_rows else 0),
             "Total Cost": float(total_cost) if total_cost else 0.0,
         }
 
@@ -276,9 +259,7 @@ class MSSQLAdapter(BaseAdapter):
 
         return result
 
-    def get_slow_queries(
-        self, threshold_ms: int = 1000
-    ) -> list[dict[str, Any]]:
+    def get_slow_queries(self, threshold_ms: int = 1000) -> list[dict[str, Any]]:
         """Get slow queries from sys.dm_exec_query_stats.
 
         Args:
@@ -330,9 +311,7 @@ class MSSQLAdapter(BaseAdapter):
 
         try:
             version = self.metrics_helper.get_version(self._connection)
-            product_version = self.metrics_helper.get_product_version(
-                self._connection
-            )
+            product_version = self.metrics_helper.get_product_version(self._connection)
             edition = self.metrics_helper.get_edition(self._connection)
 
             return {

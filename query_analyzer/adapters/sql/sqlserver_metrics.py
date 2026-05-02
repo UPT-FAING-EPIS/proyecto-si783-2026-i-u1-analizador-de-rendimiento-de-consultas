@@ -26,9 +26,7 @@ class MSSQLMetricsHelper:
         """Get product version via SERVERPROPERTY."""
         try:
             with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128))"
-                )
+                cursor.execute("SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128))")
                 row = cursor.fetchone()
                 return row[0] if row else "unknown"
         except Exception as e:
@@ -40,9 +38,7 @@ class MSSQLMetricsHelper:
         """Get edition via SERVERPROPERTY."""
         try:
             with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128))"
-                )
+                cursor.execute("SELECT CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128))")
                 row = cursor.fetchone()
                 return row[0] if row else "unknown"
         except Exception as e:
@@ -87,7 +83,8 @@ class MSSQLMetricsHelper:
         """Get slow queries from sys.dm_exec_query_stats."""
         try:
             with connection.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT TOP (%s)
                         SUBSTRING(st.text,
                             (qs.statement_start_offset/2)+1,
@@ -109,22 +106,26 @@ class MSSQLMetricsHelper:
                     CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
                     WHERE qs.last_elapsed_time / 1000.0 > %s
                     ORDER BY qs.last_elapsed_time DESC
-                """, (limit, threshold_ms))
+                """,
+                    (limit, threshold_ms),
+                )
 
                 results = []
                 for row in cursor.fetchall():
-                    results.append({
-                        "query": row[0],
-                        "execution_count": int(row[1]),
-                        "total_elapsed_time_ms": float(row[2]),
-                        "last_elapsed_time_ms": float(row[3]),
-                        "min_elapsed_time_ms": float(row[4]),
-                        "max_elapsed_time_ms": float(row[5]),
-                        "total_logical_reads": int(row[6]),
-                        "total_logical_writes": int(row[7]),
-                        "creation_time": str(row[8]) if row[8] else None,
-                        "last_execution_time": str(row[9]) if row[9] else None,
-                    })
+                    results.append(
+                        {
+                            "query": row[0],
+                            "execution_count": int(row[1]),
+                            "total_elapsed_time_ms": float(row[2]),
+                            "last_elapsed_time_ms": float(row[3]),
+                            "min_elapsed_time_ms": float(row[4]),
+                            "max_elapsed_time_ms": float(row[5]),
+                            "total_logical_reads": int(row[6]),
+                            "total_logical_writes": int(row[7]),
+                            "creation_time": str(row[8]) if row[8] else None,
+                            "last_execution_time": str(row[9]) if row[9] else None,
+                        }
+                    )
                 return results
         except Exception as e:
             logger.debug(f"Failed to get slow queries: {e}")

@@ -140,7 +140,8 @@ class TestInfluxDBIntegrationQueryAnalysis:
 
         # Should have warning about time filter
         assert any(
-            "time filter" in (w.message or "").lower() or "unbounded" in (w.message or "").lower() for w in report.warnings
+            "time filter" in (w.message or "").lower() or "unbounded" in (w.message or "").lower()
+            for w in report.warnings
         ), f"Expected time filter warning, got: {report.warnings}"
 
         # Should recommend adding time filter
@@ -182,9 +183,10 @@ class TestInfluxDBIntegrationQueryAnalysis:
         report = influxdb_adapter.execute_explain(flux_query)
 
         # Should have cardinality warning
-        assert any("cardinality" in (w.message or "").lower() or "group" in (w.message or "").lower() for w in report.warnings), (
-            f"Expected cardinality warning, got: {report.warnings}"
-        )
+        assert any(
+            "cardinality" in (w.message or "").lower() or "group" in (w.message or "").lower()
+            for w in report.warnings
+        ), f"Expected cardinality warning, got: {report.warnings}"
 
         # Score should be reduced
         assert report.score < 100
