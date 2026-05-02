@@ -15,6 +15,10 @@ release:
     owner: UPT-FAING-EPIS
     name: proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas
     overwrite: false
+    update:
+      enabled: true
+      sections:
+        - ASSETS
     draft: false
     prerelease:
       enabled: false
