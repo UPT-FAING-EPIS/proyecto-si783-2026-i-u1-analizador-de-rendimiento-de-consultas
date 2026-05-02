@@ -355,7 +355,7 @@ class ConfigManager:
             port=profile.port,
             database=profile.database,
             username=profile.username,
-            password=profile.password,
+            password=profile.password or None,
             extra=profile.extra,
         )
 

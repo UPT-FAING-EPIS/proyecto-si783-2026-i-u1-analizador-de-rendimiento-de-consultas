@@ -91,7 +91,7 @@ class ProfileSelector(Container):
 
         if not profiles:
             self._selected_profile = None
-            table.add_row("-", "No hay perfiles", "", "", "desconectado")
+            table.add_row("-", "No hay perfiles", "", "desconectado")
             return
 
         selected_name = self._selected_profile or default_name or next(iter(profiles))

@@ -372,6 +372,40 @@ def test_get_connection_config(
     assert conn_config.password == "testpass"
 
 
+def test_get_connection_config_normalizes_empty_password(config_manager: ConfigManager) -> None:
+    """Verifica que password vacio se normaliza a None."""
+    no_password_profile = ProfileConfig(
+        engine="postgresql",
+        host="localhost",
+        port=5432,
+        database="testdb",
+        username="testuser",
+        password="",
+    )
+    config_manager.add_profile("nopass", no_password_profile)
+
+    conn_config = config_manager.get_connection_config("nopass")
+
+    assert conn_config.password is None
+
+
+def test_get_connection_config_keeps_non_empty_password(config_manager: ConfigManager) -> None:
+    """Verifica que password no vacio se conserva."""
+    profile = ProfileConfig(
+        engine="postgresql",
+        host="localhost",
+        port=5432,
+        database="testdb",
+        username="testuser",
+        password="secret123",
+    )
+    config_manager.add_profile("withpass", profile)
+
+    conn_config = config_manager.get_connection_config("withpass")
+
+    assert conn_config.password == "secret123"
+
+
 def test_get_connection_config_nonexistent(config_manager: ConfigManager) -> None:
     """Verifica error al convertir perfil inexistente."""
     with pytest.raises(ProfileNotFoundError):
