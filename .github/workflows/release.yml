@@ -62,17 +62,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
-          cp dist/qa "qa"
-          chmod +x qa
-          tar -czf "dist/${{ matrix.artifact_name }}" qa
+          mkdir -p package/bin
+          cp dist/qa "package/bin/qa"
+          chmod +x package/bin/qa
+          tar -czf "dist/${{ matrix.artifact_name }}" -C package .
 
       - name: Package executable (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist
-          cp dist/qa "qa"
-          chmod +x qa
-          zip -j "dist/${{ matrix.artifact_name }}" qa
+          mkdir -p package/bin
+          cp dist/qa "package/bin/qa"
+          chmod +x package/bin/qa
+          (cd package && zip -r "../dist/${{ matrix.artifact_name }}" .)
 
       - name: Package executable (Windows)
         if: runner.os == 'Windows'
@@ -110,6 +112,10 @@ jobs:
         run: |
           mkdir -p dist
           find release-assets -type f -name "*" -exec cp {} dist/ \;
+
+      - name: Verify packaged artifacts layout
+        run: |
+          python -c "import zipfile, tarfile; t=tarfile.open('dist/qa-linux-amd64.tar.gz','r:gz'); n=t.getnames(); t.close(); assert 'bin/qa' in n, f'bin/qa missing in linux tar: {n}'; z=zipfile.ZipFile('dist/qa-macos-arm64.zip','r'); n=z.namelist(); z.close(); assert 'bin/qa' in n, f'bin/qa missing in mac zip: {n}'; z=zipfile.ZipFile('dist/qa-windows-amd64.zip','r'); n=z.namelist(); z.close(); assert 'qa.exe' in n, f'qa.exe missing in windows zip: {n}'"
 
       - name: Setup Java for JReleaser
         uses: actions/setup-java@v4
@@ -164,15 +170,19 @@ jobs:
       - name: Smoke test snap (Linux)
         if: matrix.manager == 'snap'
         run: |
-          sudo snap install qa
-          qa --version
+          if snap info qa >/dev/null 2>&1; then
+            sudo snap install qa
+            /snap/bin/qa --version
+          else
+            echo "Snap package qa is not yet available in store; skipping informational smoke test"
+          fi
 
       - name: Smoke test homebrew (macOS)
         if: matrix.manager == 'brew'
         run: |
           brew tap andre-carbajal/homebrew-tap
           brew install qa
-          qa --version
+          "$(brew --prefix)/bin/qa" --version
 
       - name: Smoke test scoop (Windows)
         if: matrix.manager == 'scoop'
@@ -184,4 +194,5 @@ jobs:
           }
           scoop bucket add andre https://github.com/andre-carbajal/scoop-bucket
           scoop install qa
+          $env:PATH = "$HOME\scoop\shims;$env:PATH"
           qa --version
