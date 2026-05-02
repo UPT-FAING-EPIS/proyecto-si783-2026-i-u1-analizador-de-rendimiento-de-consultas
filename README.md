@@ -354,7 +354,6 @@ git push origin v0.1.0
 
 - `qa-linux-amd64.tar.gz`
 - `qa-linux-arm64.tar.gz`
-- `qa-macos-amd64.tar.gz`
 - `qa-macos-arm64.tar.gz`
 - `qa-windows-amd64.zip`
 - `checksums.txt`

@@ -22,8 +22,9 @@ release:
 
 checksum:
   individual: true
-  nameTemplate: checksums.txt
-  algorithm: SHA_256
+  name: checksums.txt
+  algorithms:
+    - SHA-256
 
 distributions:
   qa:
@@ -35,8 +36,6 @@ distributions:
         platform: linux-x86_64
       - path: dist/qa-linux-arm64.tar.gz
         platform: linux-aarch_64
-      - path: dist/qa-macos-amd64.tar.gz
-        platform: osx-x86_64
       - path: dist/qa-macos-arm64.tar.gz
         platform: osx-aarch_64
       - path: dist/qa-windows-amd64.zip
