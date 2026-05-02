@@ -1,0 +1,81 @@
+project:
+  name: query-analyzer
+  description: Query Analyzer CLI
+  longDescription: Query Analyzer command line interface for query performance analysis.
+  license: MIT
+  links:
+    homepage: https://github.com/UPT-FAING-EPIS/proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas
+  authors:
+    - Andre Carbajal
+  stereotype: CLI
+
+release:
+  github:
+    owner: UPT-FAING-EPIS
+    name: proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas
+    overwrite: false
+    draft: false
+    prerelease:
+      enabled: false
+    changelog:
+      enabled: false
+
+checksum:
+  individual: true
+  nameTemplate: checksums.txt
+  algorithm: SHA_256
+
+distributions:
+  qa:
+    type: BINARY
+    executable:
+      name: qa
+    artifacts:
+      - path: dist/qa-linux-amd64.tar.gz
+        platform: linux-x86_64
+      - path: dist/qa-linux-arm64.tar.gz
+        platform: linux-aarch_64
+      - path: dist/qa-macos-amd64.tar.gz
+        platform: osx-x86_64
+      - path: dist/qa-macos-arm64.tar.gz
+        platform: osx-aarch_64
+      - path: dist/qa-windows-amd64.zip
+        platform: windows-x86_64
+
+packagers:
+  brew:
+    active: ALWAYS
+    continueOnError: false
+    formulaName: qa
+    multiPlatform: true
+    repository:
+      active: ALWAYS
+      owner: andre-carbajal
+      name: homebrew-tap
+      branch: main
+      username: andre-carbajal
+      token: '{{ env.HOMEBREW_TAP_TOKEN }}'
+  scoop:
+    active: ALWAYS
+    continueOnError: false
+    packageName: qa
+    repository:
+      active: ALWAYS
+      owner: andre-carbajal
+      name: scoop-bucket
+      branch: main
+      username: andre-carbajal
+      token: '{{ env.SCOOP_BUCKET_TOKEN }}'
+  snap:
+    active: ALWAYS
+    continueOnError: false
+    packageName: qa
+    remoteBuild: true
+    grade: stable
+    confinement: strict
+    base: core22
+    architectures:
+      - buildOn: [amd64]
+        runOn: [amd64]
+      - buildOn: [arm64]
+        runOn: [arm64]

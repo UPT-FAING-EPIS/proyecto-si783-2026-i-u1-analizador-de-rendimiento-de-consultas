@@ -341,13 +341,47 @@ DB_INFLUXDB_PORT=8086
 El repositorio publica una **GitHub Release** automáticamente cuando se hace push de un tag que inicia con `v`.
 
 Incluye:
-- Paquete Python (`.whl` y `.tar.gz`)
-- Ejecutables para Linux, macOS y Windows
+- Binarios `qa` por plataforma
+- Publicación automática a Homebrew, Scoop y Snapcraft vía JReleaser
+- Smoke tests informativos de instalación en Linux/macOS/Windows
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+### Artefactos publicados
+
+- `qa-linux-amd64.tar.gz`
+- `qa-linux-arm64.tar.gz`
+- `qa-macos-amd64.tar.gz`
+- `qa-macos-arm64.tar.gz`
+- `qa-windows-amd64.zip`
+- `checksums.txt`
+
+### Secretos requeridos en GitHub Actions
+
+Configura los siguientes secrets en el repositorio antes de hacer un release:
+
+- `JRELEASER_GITHUB_TOKEN`
+- `HOMEBREW_TAP_TOKEN`
+- `SCOOP_BUCKET_TOKEN`
+- `SNAPCRAFT_STORE_CREDENTIALS`
+
+### Distribución de paquetes (estable)
+
+- Homebrew Tap: `https://github.com/andre-carbajal/homebrew-tap`
+- Scoop Bucket: `https://github.com/andre-carbajal/scoop-bucket` (alias `andre`)
+- Snapcraft: paquete `qa` con confinement `strict`
+
+### Rollback de versión estable
+
+Existe un workflow manual `Rollback Stable Package Version` en `.github/workflows/rollback-release.yml`.
+Este workflow toma automáticamente la versión estable anterior inmediata y ejecuta rollback en:
+
+- Homebrew (actualiza fórmula en el tap)
+- Snapcraft (promueve revisión previa al canal `stable`)
+- Scoop (actualiza manifiesto `qa.json` en el bucket)
 
 ## 🤝 Contribuciones
 

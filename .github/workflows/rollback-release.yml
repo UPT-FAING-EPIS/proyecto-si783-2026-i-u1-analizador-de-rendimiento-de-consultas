@@ -1,0 +1,117 @@
+name: Rollback Stable Package Version
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rollback:
+    name: Rollback to previous stable
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve current and previous tag
+        id: versions
+        run: |
+          mapfile -t TAGS < <(git tag --list 'v*' --sort=-version:refname)
+          if [ "${#TAGS[@]}" -lt 2 ]; then
+            echo "Not enough tags to rollback" >&2
+            exit 1
+          fi
+          echo "current_tag=${TAGS[0]}" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=${TAGS[1]}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup GH CLI auth
+        env:
+          GH_TOKEN: ${{ secrets.JRELEASER_GITHUB_TOKEN }}
+        run: gh auth status
+
+      - name: Rollback Homebrew tap formula
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          rm -rf /tmp/homebrew-tap
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/andre-carbajal/homebrew-tap.git" /tmp/homebrew-tap
+          formula="/tmp/homebrew-tap/Formula/qa.rb"
+          if [ ! -f "$formula" ]; then
+            echo "Formula not found: $formula" >&2
+            exit 1
+          fi
+          release_url="https://github.com/UPT-FAING-EPIS/proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas/releases/download/${{ steps.versions.outputs.previous_tag }}"
+          sed -i "s|releases/download/v[0-9][^/]*/|releases/download/${{ steps.versions.outputs.previous_tag }}/|g" "$formula"
+          pushd /tmp/homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/qa.rb
+          if git diff --cached --quiet; then
+            echo "No formula changes to commit"
+          else
+            git commit -m "chore: rollback qa formula to ${{ steps.versions.outputs.previous_tag }}"
+            git push
+          fi
+          popd
+
+      - name: Rollback Snap stable channel
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          sudo snap install snapcraft --classic
+          snapcraft login --with <(printf "%s" "$SNAPCRAFT_STORE_CREDENTIALS")
+          latest_stable_revision=$(snapcraft revisions qa | awk '/stable/ {print $1; exit}')
+          previous_revision=$(snapcraft revisions qa | awk -v current="$latest_stable_revision" '$1 != current {print $1; exit}')
+          if [ -z "$previous_revision" ]; then
+            echo "Unable to resolve previous snap revision" >&2
+            exit 1
+          fi
+          snapcraft release qa "$previous_revision" stable
+
+      - name: Rollback Scoop manifest to previous stable
+        env:
+          GH_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+        run: |
+          rm -rf /tmp/scoop-bucket
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/andre-carbajal/scoop-bucket.git" /tmp/scoop-bucket
+          manifest="/tmp/scoop-bucket/bucket/qa.json"
+          if [ ! -f "$manifest" ]; then
+            echo "Scoop manifest not found: $manifest" >&2
+            exit 1
+          fi
+          prev="${{ steps.versions.outputs.previous_tag }}"
+          prev_nov="${prev#v}"
+          base_url="https://github.com/UPT-FAING-EPIS/proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas/releases/download/${prev}"
+          curl -fsSL "${base_url}/checksums.txt" -o /tmp/checksums.txt
+          win_sha=$(awk '/qa-windows-amd64.zip$/ {print $1}' /tmp/checksums.txt)
+          if [ -z "$win_sha" ]; then
+            echo "Could not resolve checksum for qa-windows-amd64.zip" >&2
+            exit 1
+          fi
+          python -c "import json, pathlib; p = pathlib.Path('/tmp/scoop-bucket/bucket/qa.json'); d = json.loads(p.read_text(encoding='utf-8')); d['version'] = '${prev_nov}'; d['url'] = '${base_url}/qa-windows-amd64.zip'; d['hash'] = '${win_sha}'; p.write_text(json.dumps(d, indent=2) + '\n', encoding='utf-8')"
+          pushd /tmp/scoop-bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bucket/qa.json
+          if git diff --cached --quiet; then
+            echo "No scoop manifest changes to commit"
+          else
+            git commit -m "chore: rollback qa scoop manifest to ${prev}"
+            git push
+          fi
+          popd
+
+      - name: Write rollback summary
+        run: |
+          {
+            echo "## Rollback Completed"
+            echo "- Current tag before rollback: ${{ steps.versions.outputs.current_tag }}"
+            echo "- Rolled back to previous tag: ${{ steps.versions.outputs.previous_tag }}"
+            echo "- Homebrew formula updated in andre-carbajal/homebrew-tap"
+            echo "- Snap stable channel promoted to previous revision"
+            echo "- Scoop manifest updated in andre-carbajal/scoop-bucket"
+          } >> "$GITHUB_STEP_SUMMARY"

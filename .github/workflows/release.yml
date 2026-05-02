@@ -12,59 +12,44 @@ env:
   PYTHONUNBUFFERED: 1
 
 jobs:
-  build-package:
-    name: Build Python package
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          python-version: "3.14"
-          enable-cache: true
-
-      - name: Sync dependencies
-        run: uv sync
-
-      - name: Build wheel and sdist
-        run: uv build
-
-      - name: Upload Python package artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-dist
-          path: dist/*
-          if-no-files-found: error
-
   build-binaries:
-    name: Build executable (${{ matrix.target_name }})
+    name: Build executable (${{ matrix.id }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target_name: linux-x64
+          - id: linux-amd64
+            os: ubuntu-latest
+            artifact_name: qa-linux-amd64.tar.gz
             executable_name: qa
-            output_path: dist/qa
-            zip_name: qa-linux-x64.zip
-          - os: macos-latest
-            target_name: macos-arm64
+            pyinstaller_arch: x86_64
+          - id: linux-arm64
+            os: ubuntu-24.04-arm
+            artifact_name: qa-linux-arm64.tar.gz
             executable_name: qa
-            output_path: dist/qa
-            zip_name: qa-macos-arm64.zip
-          - os: windows-latest
-            target_name: windows-x64
+            pyinstaller_arch: aarch64
+          - id: macos-amd64
+            os: macos-13
+            artifact_name: qa-macos-amd64.tar.gz
+            executable_name: qa
+            pyinstaller_arch: x86_64
+          - id: macos-arm64
+            os: macos-latest
+            artifact_name: qa-macos-arm64.tar.gz
+            executable_name: qa
+            pyinstaller_arch: arm64
+          - id: windows-amd64
+            os: windows-latest
+            artifact_name: qa-windows-amd64.zip
             executable_name: qa.exe
-            output_path: dist/qa.exe
-            zip_name: qa-windows-x64.zip
+            pyinstaller_arch: x86_64
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
@@ -81,46 +66,146 @@ jobs:
       - name: Package executable (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          cp "${{ matrix.output_path }}" "${{ matrix.executable_name }}"
-          chmod +x "${{ matrix.executable_name }}"
-          zip "${{ matrix.zip_name }}" "${{ matrix.executable_name }}"
+          mkdir -p dist
+          cp dist/qa "qa"
+          chmod +x qa
+          tar -czf "dist/${{ matrix.artifact_name }}" qa
 
       - name: Package executable (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Copy-Item "${{ matrix.output_path }}" "${{ matrix.executable_name }}"
-          Compress-Archive -Path "${{ matrix.executable_name }}" -DestinationPath "${{ matrix.zip_name }}"
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item "dist/qa.exe" "qa.exe"
+          Compress-Archive -Path "qa.exe" -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
 
-      - name: Upload executable artifact
+      - name: Upload packaged binary
         uses: actions/upload-artifact@v4
         with:
-          name: executable-${{ matrix.target_name }}
-          path: ${{ matrix.zip_name }}
+          name: ${{ matrix.id }}
+          path: dist/${{ matrix.artifact_name }}
           if-no-files-found: error
 
-  release:
-    name: Publish GitHub release
+  publish-github-release:
+    name: Publish GitHub release assets
     runs-on: ubuntu-latest
     needs:
-      - build-package
       - build-binaries
 
     steps:
-      - name: Download all artifacts
+      - name: Download binary artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-assets
 
-      - name: Prepare release assets folder
+      - name: Prepare dist and checksums
         run: |
-          mkdir -p upload
-          find release-assets -type f -name "*.zip" -exec cp {} upload/ \;
+          mkdir -p dist
+          find release-assets -type f -name "*" -exec cp {} dist/ \;
+          cd dist && sha256sum qa-* > checksums.txt
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: upload/*.zip
+          files: |
+            dist/qa-linux-amd64.tar.gz
+            dist/qa-linux-arm64.tar.gz
+            dist/qa-macos-amd64.tar.gz
+            dist/qa-macos-arm64.tar.gz
+            dist/qa-windows-amd64.zip
+            dist/checksums.txt
           generate_release_notes: true
           draft: false
           prerelease: false
+
+  publish-packagers:
+    name: Publish package managers via JReleaser
+    runs-on: ubuntu-latest
+    needs:
+      - publish-github-release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Prepare dist
+        run: |
+          mkdir -p dist
+          find release-assets -type f -name "*" -exec cp {} dist/ \;
+
+      - name: Setup Java for JReleaser
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Run JReleaser
+        uses: jreleaser/release-action@v2
+        with:
+          arguments: full-release
+        env:
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.JRELEASER_GITHUB_TOKEN }}
+          JRELEASER_HOMEBREW_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          JRELEASER_SCOOP_GITHUB_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          JRELEASER_SNAP_EXPORT_LOGIN: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+
+      - name: Upload JReleaser logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jreleaser-logs
+          path: |
+            out/jreleaser/trace.log
+            out/jreleaser/output.properties
+
+  smoke-tests:
+    name: Smoke test installs (informational)
+    runs-on: ${{ matrix.os }}
+    needs:
+      - publish-packagers
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            manager: snap
+          - os: macos-latest
+            manager: brew
+          - os: windows-latest
+            manager: scoop
+
+    steps:
+      - name: Smoke test snap (Linux)
+        if: matrix.manager == 'snap'
+        run: |
+          sudo snap install qa
+          qa --version
+
+      - name: Smoke test homebrew (macOS)
+        if: matrix.manager == 'brew'
+        run: |
+          brew tap andre-carbajal/homebrew-tap
+          brew install qa
+          qa --version
+
+      - name: Smoke test scoop (Windows)
+        if: matrix.manager == 'scoop'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+            Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+            irm get.scoop.sh | iex
+          }
+          scoop bucket add andre https://github.com/andre-carbajal/scoop-bucket
+          scoop install qa
+          qa --version
