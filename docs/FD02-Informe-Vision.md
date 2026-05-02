@@ -44,34 +44,30 @@ Sistema *Query Performance Analyzer*
 **ÍNDICE GENERAL**
 
 [1. Introducción](#_Toc52661346)
-
-1.1 Propósito
-1.2 Alcance
-1.3 Definiciones, Siglas y Abreviaturas
-1.4 Referencias
-1.5 Visión General
+   - [1.1 Propósito](#_Toc52661346)
+   - [1.2 Alcance](#_Toc52661346)
+   - [1.3 Definiciones, Siglas y Abreviaturas](#_Toc52661346)
+   - [1.4 Referencias](#_Toc52661346)
+   - [1.5 Visión General](#_Toc52661346)
 
 [2. Posicionamiento](#_Toc52661347)
-
-2.1 Oportunidad de negocio
-2.2 Definición del problema
+   - [2.1 Oportunidad de negocio](#_Toc52661347)
+   - [2.2 Definición del problema](#_Toc52661347)
 
 [3. Descripción de los interesados y usuarios](#_Toc52661348)
-
-3.1 Resumen de los interesados
-3.2 Resumen de los usuarios
-3.3 Entorno de usuario
-3.4 Perfiles de los interesados
-3.5 Perfiles de los usuarios
-3.6 Necesidades de los interesados y usuarios
+   - [3.1 Resumen de los interesados](#_Toc52661348)
+   - [3.2 Resumen de los usuarios](#_Toc52661348)
+   - [3.3 Entorno de usuario](#_Toc52661348)
+   - [3.4 Perfiles de los interesados](#_Toc52661348)
+   - [3.5 Perfiles de los usuarios](#_Toc52661348)
+   - [3.6 Necesidades de los interesados y usuarios](#_Toc52661348)
 
 [4. Vista General del Producto](#_Toc52661349)
-
-4.1 Perspectiva del producto
-4.2 Resumen de capacidades
-4.3 Suposiciones y dependencias
-4.4 Costos y precios
-4.5 Licenciamiento e instalación
+   - [4.1 Perspectiva del producto](#_Toc52661349)
+   - [4.2 Resumen de capacidades](#_Toc52661349)
+   - [4.3 Suposiciones y dependencias](#_Toc52661349)
+   - [4.4 Costos y precios](#_Toc52661349)
+   - [4.5 Licenciamiento e instalación](#_Toc52661349)
 
 [5. Características del producto](#_Toc52661350)
 
@@ -82,11 +78,10 @@ Sistema *Query Performance Analyzer*
 [8. Precedencia y Prioridad](#_Toc52661353)
 
 [9. Otros requerimientos del producto](#_Toc52661354)
-
-   9.1 Estándares legales
-   9.2 Estándares de comunicación
-   9.3 Estándares de cumplimiento de la plataforma
-   9.4 Estándares de calidad y seguridad
+   - [9.1 Estándares legales](#_Toc52661354)
+   - [9.2 Estándares de comunicación](#_Toc52661354)
+   - [9.3 Estándares de cumplimiento de la plataforma](#_Toc52661354)
+   - [9.4 Estándares de calidad y seguridad](#_Toc52661354)
 
 [CONCLUSIONES](#_Toc52661355)
 

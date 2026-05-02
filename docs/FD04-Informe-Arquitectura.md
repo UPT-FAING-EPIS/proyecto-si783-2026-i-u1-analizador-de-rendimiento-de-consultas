@@ -353,8 +353,8 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph Presentation
-      CLI[cli (typer)]
-      TUI[app (Textual)]
+      CLI["cli (typer)"]
+      TUI["app (Textual)"]
     end
     subgraph Application
       Analyzer[ProjectAnalyzer]
@@ -438,7 +438,7 @@ flowchart TD
 flowchart TD
         subgraph Local[Desarrollador / Usuario Local]
             U[Usuario]
-            CLI[qa (ejecutable Python)]
+            CLI["qa (ejecutable Python)"]
             PY[Python 3.14+ runtime]
             PROJ[Proyecto objetivo]
             OUT["reporte serializado / .bak"]
