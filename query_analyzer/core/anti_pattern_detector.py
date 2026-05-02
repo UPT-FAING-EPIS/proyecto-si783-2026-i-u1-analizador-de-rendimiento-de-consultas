@@ -271,6 +271,77 @@ class RecommendationEngine:
         )
 
     @staticmethod
+    def order_by_rand() -> str:
+        """Recomendación para ORDER BY RAND()."""
+        return (
+            "Evitar usar ORDER BY RAND() o similar. Esta operación fuerza a "
+            "la base de datos a asignar un valor aleatorio a cada fila y ordenar toda "
+            "la tabla, lo cual es extremadamente ineficiente."
+        )
+
+    @staticmethod
+    def leading_wildcard(pattern: str) -> str:
+        """Recomendación para comodín inicial en LIKE."""
+        return (
+            f"El patrón '{pattern}' comienza con un comodín (%). "
+            "Esto desactiva los índices B-Tree y fuerza un escaneo completo de la tabla. "
+            "Considerar usar índices Full-Text o rediseñar la búsqueda."
+        )
+
+    @staticmethod
+    def or_multiple_columns() -> str:
+        """Recomendación para OR en múltiples columnas."""
+        return (
+            "Dividir la consulta en dos partes utilizando UNION o UNION ALL "
+            "(si no hay duplicados) para que cada subconsulta aproveche los índices correspondientes."
+        )
+
+    @staticmethod
+    def unfiltered_aggregation() -> str:
+        """Recomendación para GROUP BY sin WHERE o LIMIT."""
+        return (
+            "Agregar filtros de fecha o paginación (LIMIT / OFFSET) si el "
+            "objetivo es obtener análisis recientes o por lotes."
+        )
+
+    @staticmethod
+    def union_without_all() -> str:
+        """Recomendación para UNION sin ALL."""
+        return (
+            "Reemplazar UNION por UNION ALL si no es estrictamente necesario eliminar "
+            "duplicados. UNION requiere que la base de datos ordene y desduplique todo "
+            "el conjunto de resultados, lo cual consume mucha memoria y CPU."
+        )
+
+    @staticmethod
+    def negative_condition(operator: str) -> str:
+        """Recomendación para condiciones negativas en WHERE."""
+        return (
+            f"Se detectó el operador negativo '{operator}' en la cláusula WHERE. "
+            "Las condiciones negativas generalmente impiden el uso de índices B-Tree "
+            "y fuerzan un escaneo completo de tabla. Considerar usar lógica positiva "
+            "(ej. IN) si es posible."
+        )
+
+    @staticmethod
+    def subquery_in_select() -> str:
+        """Recomendación para subconsultas en SELECT."""
+        return (
+            "Mover la subconsulta del SELECT a un LEFT JOIN con GROUP BY. "
+            "Una subconsulta en la cláusula SELECT obliga al motor a ejecutarla "
+            "por cada fila retornada (Problema N+1), degradando el rendimiento."
+        )
+
+    @staticmethod
+    def cartesian_product() -> str:
+        """Recomendación para Producto Cartesiano."""
+        return (
+            "Se detectó un Producto Cartesiano (Cross Join implícito). "
+            "Esto ocurre al listar múltiples tablas sin una condición de unión. "
+            "Usar la sintaxis explícita INNER JOIN ... ON para evitar resultados duplicados masivos."
+        )
+
+    @staticmethod
     def sort_without_index(table_name: str, sort_column: str | None = None) -> str:
         """Recomendación para ORDER BY sin índice (filesort).
 
@@ -381,6 +452,14 @@ class AntiPatternDetector:
     5. Función en WHERE (sobre columna indexada)
     6. SELECT * (columnas innecesarias)
     7. Sort sin índice (filesort/Using filesort)
+    8. ORDER BY RAND() (ordenamiento aleatorio costoso)
+    9. Comodín inicial en LIKE (desactiva índices B-Tree)
+    10. Uso de OR con múltiples columnas (descarte de índices combinados)
+    11. Agregación sin filtrado (GROUP BY masivo sin WHERE)
+    12. Uso de UNION sin ALL (ordenamiento y desduplicación costosa)
+    13. Condiciones negativas en WHERE (desactiva índices)
+    14. Subconsultas en SELECT (Problema de N+1)
+    15. Producto Cartesiano (Consulta sin condiciones de unión)
     """
 
     def __init__(self, config: DetectorConfig | None = None):
@@ -414,6 +493,14 @@ class AntiPatternDetector:
         anti_patterns.extend(self._detect_result_without_limit(plan, query))
         anti_patterns.extend(self._detect_function_in_where(plan))
         anti_patterns.extend(self._detect_select_star(query))
+        anti_patterns.extend(self._detect_order_by_rand(query))
+        anti_patterns.extend(self._detect_leading_wildcard(query))
+        anti_patterns.extend(self._detect_or_multiple_columns(query))
+        anti_patterns.extend(self._detect_unfiltered_aggregation(query))
+        anti_patterns.extend(self._detect_union_without_all(query))
+        anti_patterns.extend(self._detect_negative_condition(query))
+        anti_patterns.extend(self._detect_subquery_in_select(query))
+        anti_patterns.extend(self._detect_cartesian_product(query))
         anti_patterns.extend(self._detect_sort_without_index(plan))
 
         # Genera recomendaciones específicas
@@ -637,6 +724,246 @@ class AntiPatternDetector:
 
         return patterns
 
+    def _detect_order_by_rand(self, query: str) -> list[AntiPattern]:
+        """Detecta ORDER BY RAND() o similares en la query.
+        
+        Severidad: ALTA
+        """
+        patterns: list[AntiPattern] = []
+
+        if query and re.search(r"ORDER\s+BY\s+(RAND|RANDOM)\s*\(", query, re.IGNORECASE):
+            pattern = AntiPattern(
+                name="order_by_rand",
+                severity=Severity.HIGH,
+                description=(
+                    "Se detectó ORDER BY RAND(). Esto requiere escanear toda la tabla "
+                    "y crear una tabla temporal para ordenamiento, destruyendo el rendimiento."
+                ),
+                affected_table=None,
+                affected_column=None,
+                metadata={},
+            )
+            patterns.append(pattern)
+            self.scoring_engine.deduct("order_by_rand", Severity.HIGH)
+
+        return patterns
+
+    def _detect_leading_wildcard(self, query: str) -> list[AntiPattern]:
+        """Detecta LIKE '%...' en la query.
+        
+        Severidad: ALTA
+        """
+        patterns: list[AntiPattern] = []
+
+        if query:
+            matches = re.findall(r"LIKE\s+['\"](%[^'\"]+)['\"]", query, re.IGNORECASE)
+            for match in matches:
+                pattern = AntiPattern(
+                    name="leading_wildcard",
+                    severity=Severity.HIGH,
+                    description=(
+                        f"Se detectó un comodín inicial en LIKE '{match}'. "
+                        "Esto impide el uso de índices y fuerza un escaneo completo."
+                    ),
+                    affected_table=None,
+                    affected_column=None,
+                    metadata={"pattern": match},
+                )
+                patterns.append(pattern)
+                self.scoring_engine.deduct("leading_wildcard", Severity.HIGH)
+
+        return patterns
+
+    def _detect_or_multiple_columns(self, query: str) -> list[AntiPattern]:
+        """Detecta el uso de OR con columnas diferentes en el WHERE.
+        
+        Severidad: MEDIA
+        """
+        patterns: list[AntiPattern] = []
+
+        if query:
+            where_match = re.search(r"WHERE\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|$)", query, re.IGNORECASE | re.DOTALL)
+            if where_match:
+                where_clause = where_match.group(1)
+                or_matches = re.findall(r"([a-zA-Z0-9_.]+)\s*(?:=|>|<|>=|<=|LIKE|IN)[\s\S]+?\bOR\b\s+([a-zA-Z0-9_.]+)\s*(?:=|>|<|>=|<=|LIKE|IN)", where_clause, re.IGNORECASE)
+                
+                detected = False
+                for col1, col2 in or_matches:
+                    if col1.strip().lower() != col2.strip().lower():
+                        detected = True
+                        break
+                
+                if detected:
+                    pattern = AntiPattern(
+                        name="or_multiple_columns",
+                        severity=Severity.MEDIUM,
+                        description=(
+                            "El uso del operador OR sobre columnas diferentes puede provocar que "
+                            "el optimizador de consultas descarte el índice y opte por escanear toda la tabla."
+                        ),
+                        affected_table=None,
+                        affected_column=None,
+                        metadata={},
+                    )
+                    patterns.append(pattern)
+                    self.scoring_engine.deduct("or_multiple_columns", Severity.MEDIUM)
+
+        return patterns
+
+    def _detect_unfiltered_aggregation(self, query: str) -> list[AntiPattern]:
+        """Detecta el uso de GROUP BY sin WHERE ni LIMIT en tablas grandes.
+        
+        Severidad: MEDIA
+        """
+        patterns: list[AntiPattern] = []
+
+        if query:
+            has_group_by = bool(re.search(r"\bGROUP\s+BY\b", query, re.IGNORECASE))
+            has_where = bool(re.search(r"\bWHERE\b", query, re.IGNORECASE))
+            has_limit = bool(re.search(r"\bLIMIT\b", query, re.IGNORECASE))
+
+            if has_group_by and not has_where and not has_limit:
+                pattern = AntiPattern(
+                    name="unfiltered_aggregation",
+                    severity=Severity.MEDIUM,
+                    description=(
+                        "La consulta realiza un escaneo y agrupamiento de todos los registros. "
+                        "Si la base de datos crece exponencialmente, esta consulta consumirá una gran "
+                        "cantidad de memoria temporal para realizar el GROUP BY."
+                    ),
+                    affected_table=None,
+                    affected_column=None,
+                    metadata={},
+                )
+                patterns.append(pattern)
+                self.scoring_engine.deduct("unfiltered_aggregation", Severity.MEDIUM)
+
+        return patterns
+
+    def _detect_union_without_all(self, query: str) -> list[AntiPattern]:
+        """Detecta el uso de UNION sin ALL.
+        
+        Severidad: MEDIA
+        """
+        patterns: list[AntiPattern] = []
+        if query and re.search(r"\bUNION\b(?!\s+ALL)", query, re.IGNORECASE):
+            pattern = AntiPattern(
+                name="union_without_all",
+                severity=Severity.MEDIUM,
+                description=(
+                    "Se detectó UNION en lugar de UNION ALL. Esto introduce "
+                    "un paso oculto y costoso de desduplicación de registros."
+                ),
+                affected_table=None,
+                affected_column=None,
+                metadata={},
+            )
+            patterns.append(pattern)
+            self.scoring_engine.deduct("union_without_all", Severity.MEDIUM)
+        return patterns
+
+    def _detect_negative_condition(self, query: str) -> list[AntiPattern]:
+        """Detecta operadores negativos en WHERE (!=, <>, NOT IN, NOT LIKE).
+        
+        Severidad: MEDIA
+        """
+        patterns: list[AntiPattern] = []
+        if query:
+            where_match = re.search(r"\bWHERE\b\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|$)", query, re.IGNORECASE | re.DOTALL)
+            if where_match:
+                where_clause = where_match.group(1)
+                matches = re.findall(r"(!=|<>|\bNOT\s+IN\b|\bNOT\s+LIKE\b)", where_clause, re.IGNORECASE)
+                if matches:
+                    operator = matches[0].strip().upper()
+                    # Normalizar múltiples espacios
+                    operator = re.sub(r"\s+", " ", operator)
+                    pattern = AntiPattern(
+                        name="negative_condition",
+                        severity=Severity.MEDIUM,
+                        description=(
+                            f"Uso de condición negativa ('{operator}') en el WHERE. "
+                            "Esto fuerza escaneos completos de tabla e ignora índices."
+                        ),
+                        affected_table=None,
+                        affected_column=None,
+                        metadata={"operator": operator},
+                    )
+                    patterns.append(pattern)
+                    self.scoring_engine.deduct("negative_condition", Severity.MEDIUM)
+        return patterns
+
+    def _detect_subquery_in_select(self, query: str) -> list[AntiPattern]:
+        """Detecta subconsultas dentro de la cláusula SELECT.
+        
+        Severidad: ALTA
+        """
+        patterns: list[AntiPattern] = []
+        if query:
+            select_match = re.search(r"\bSELECT\b(.*?)\bFROM\b", query, re.IGNORECASE | re.DOTALL)
+            if select_match:
+                select_clause = select_match.group(1)
+                if re.search(r"\(\s*SELECT\b", select_clause, re.IGNORECASE):
+                    pattern = AntiPattern(
+                        name="subquery_in_select",
+                        severity=Severity.HIGH,
+                        description=(
+                            "Subconsulta detectada en la cláusula SELECT. "
+                            "Se ejecutará por cada fila (Problema N+1) impactando severamente el rendimiento."
+                        ),
+                        affected_table=None,
+                        affected_column=None,
+                        metadata={},
+                    )
+                    patterns.append(pattern)
+                    self.scoring_engine.deduct("subquery_in_select", Severity.HIGH)
+        return patterns
+
+    def _detect_cartesian_product(self, query: str) -> list[AntiPattern]:
+        """Detecta productos cartesianos (múltiples tablas sin JOIN explícito ni WHERE relacional).
+        
+        Severidad: CRÍTICA
+        """
+        patterns: list[AntiPattern] = []
+        if query:
+            # Detectar si hay múltiples tablas separadas por coma en el FROM
+            from_match = re.search(r"\bFROM\b\s+([^;]+?)(?:\bWHERE\b|\bGROUP\b|\bORDER\b|\bLIMIT|;|$)", query, re.IGNORECASE | re.DOTALL)
+            if from_match:
+                tables_part = from_match.group(1)
+                tables = [t.strip() for t in tables_part.split(",") if t.strip()]
+                
+                # Si hay más de una tabla separada por coma...
+                if len(tables) > 1:
+                    # Verificar si falta un JOIN explícito o condiciones en el WHERE
+                    # (Aproximación estática: si no hay JOIN y no hay condiciones de igualdad en el WHERE)
+                    has_join = bool(re.search(r"\bJOIN\b", query, re.IGNORECASE))
+                    has_where = bool(re.search(r"\bWHERE\b", query, re.IGNORECASE))
+                    
+                    if not has_join:
+                        # Si no hay WHERE, es un producto cartesiano puro
+                        # Si hay WHERE, verificamos si hay al menos una igualdad (muy simplificado)
+                        is_cartesian = not has_where
+                        if has_where:
+                            where_part = query.lower().split("where")[1]
+                            # Buscamos algo como tabla1.id = tabla2.id
+                            is_cartesian = "=" not in where_part
+
+                        if is_cartesian:
+                            pattern = AntiPattern(
+                                name="cartesian_product",
+                                severity=Severity.HIGH, # Usamos HIGH porque ScoringEngine maneja HIGH como máx
+                                description=(
+                                    "Producto Cartesiano detectado. Consultar múltiples tablas sin "
+                                    "condiciones de unión genera un volumen masivo de datos innecesarios."
+                                ),
+                                affected_table=None,
+                                affected_column=None,
+                                metadata={},
+                            )
+                            patterns.append(pattern)
+                            # Penalización doble (Severidad Alta x 1.5 aprox = 40 puntos si ScoringEngine lo permite)
+                            self.scoring_engine.deduct("cartesian_product", Severity.HIGH, amount=40)
+        return patterns
+
     def _detect_sort_without_index(self, plan: dict[str, Any]) -> list[AntiPattern]:
         """Detecta ORDER BY sin índice (filesort/Sort node).
 
@@ -767,6 +1094,30 @@ class AntiPatternDetector:
 
             elif ap.name == "sort_without_index":
                 rec = RecommendationEngine.sort_without_index(ap.affected_table or "unknown")
+
+            elif ap.name == "order_by_rand":
+                rec = RecommendationEngine.order_by_rand()
+
+            elif ap.name == "leading_wildcard":
+                rec = RecommendationEngine.leading_wildcard(ap.metadata.get("pattern", "%"))
+
+            elif ap.name == "or_multiple_columns":
+                rec = RecommendationEngine.or_multiple_columns()
+
+            elif ap.name == "unfiltered_aggregation":
+                rec = RecommendationEngine.unfiltered_aggregation()
+
+            elif ap.name == "union_without_all":
+                rec = RecommendationEngine.union_without_all()
+
+            elif ap.name == "negative_condition":
+                rec = RecommendationEngine.negative_condition(ap.metadata.get("operator", "negativo"))
+
+            elif ap.name == "subquery_in_select":
+                rec = RecommendationEngine.subquery_in_select()
+
+            elif ap.name == "cartesian_product":
+                rec = RecommendationEngine.cartesian_product()
 
             if rec and rec not in recommendations:
                 recommendations.append(rec)
