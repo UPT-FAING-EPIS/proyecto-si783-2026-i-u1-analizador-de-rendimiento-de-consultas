@@ -726,7 +726,7 @@ class AntiPatternDetector:
 
     def _detect_order_by_rand(self, query: str) -> list[AntiPattern]:
         """Detecta ORDER BY RAND() o similares en la query.
-        
+
         Severidad: ALTA
         """
         patterns: list[AntiPattern] = []
@@ -750,7 +750,7 @@ class AntiPatternDetector:
 
     def _detect_leading_wildcard(self, query: str) -> list[AntiPattern]:
         """Detecta LIKE '%...' en la query.
-        
+
         Severidad: ALTA
         """
         patterns: list[AntiPattern] = []
@@ -776,7 +776,7 @@ class AntiPatternDetector:
 
     def _detect_or_multiple_columns(self, query: str) -> list[AntiPattern]:
         """Detecta el uso de OR con columnas diferentes en el WHERE.
-        
+
         Severidad: MEDIA
         """
         patterns: list[AntiPattern] = []
@@ -812,7 +812,7 @@ class AntiPatternDetector:
 
     def _detect_unfiltered_aggregation(self, query: str) -> list[AntiPattern]:
         """Detecta el uso de GROUP BY sin WHERE ni LIMIT en tablas grandes.
-        
+
         Severidad: MEDIA
         """
         patterns: list[AntiPattern] = []
@@ -842,7 +842,7 @@ class AntiPatternDetector:
 
     def _detect_union_without_all(self, query: str) -> list[AntiPattern]:
         """Detecta el uso de UNION sin ALL.
-        
+
         Severidad: MEDIA
         """
         patterns: list[AntiPattern] = []
@@ -864,7 +864,7 @@ class AntiPatternDetector:
 
     def _detect_negative_condition(self, query: str) -> list[AntiPattern]:
         """Detecta operadores negativos en WHERE (!=, <>, NOT IN, NOT LIKE).
-        
+
         Severidad: MEDIA
         """
         patterns: list[AntiPattern] = []
@@ -894,7 +894,7 @@ class AntiPatternDetector:
 
     def _detect_subquery_in_select(self, query: str) -> list[AntiPattern]:
         """Detecta subconsultas dentro de la cláusula SELECT.
-        
+
         Severidad: ALTA
         """
         patterns: list[AntiPattern] = []
@@ -920,7 +920,7 @@ class AntiPatternDetector:
 
     def _detect_cartesian_product(self, query: str) -> list[AntiPattern]:
         """Detecta productos cartesianos (múltiples tablas sin JOIN explícito ni WHERE relacional).
-        
+
         Severidad: CRÍTICA
         """
         patterns: list[AntiPattern] = []

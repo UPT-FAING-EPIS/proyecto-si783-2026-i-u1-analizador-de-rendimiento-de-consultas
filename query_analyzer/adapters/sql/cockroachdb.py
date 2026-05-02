@@ -285,7 +285,6 @@ class CockroachDBAdapter(BaseAdapter):
         current_attrs: dict[str, str] = {}
 
         # Regex patterns
-        indent_re = re.compile(r"^(\s*)([•└├│ ]*)\s*(\S.*)$")
         kv_re = re.compile(r'"\s*([^:]+):\s*(.+)"$')
 
         for line in lines:
