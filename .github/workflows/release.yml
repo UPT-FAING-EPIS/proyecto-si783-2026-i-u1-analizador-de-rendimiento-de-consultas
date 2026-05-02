@@ -127,7 +127,7 @@ jobs:
           arguments: full-release
         env:
           JRELEASER_PROJECT_VERSION: ${{ env.PROJECT_VERSION }}
-          JRELEASER_GITHUB_TOKEN: ${{ secrets.JRELEASER_GITHUB_TOKEN }}
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JRELEASER_HOMEBREW_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           JRELEASER_SCOOP_GITHUB_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
