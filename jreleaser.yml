@@ -35,8 +35,6 @@ distributions:
         platform: linux-x86_64
       - path: dist/qa-linux-arm64.tar.gz
         platform: linux-aarch_64
-      - path: dist/qa-macos-amd64.tar.gz
-        platform: osx-x86_64
       - path: dist/qa-macos-arm64.tar.gz
         platform: osx-aarch_64
       - path: dist/qa-windows-amd64.zip

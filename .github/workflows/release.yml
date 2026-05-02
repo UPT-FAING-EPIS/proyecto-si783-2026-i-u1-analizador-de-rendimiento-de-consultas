@@ -29,11 +29,6 @@ jobs:
             artifact_name: qa-linux-arm64.tar.gz
             executable_name: qa
             pyinstaller_arch: aarch64
-          - id: macos-amd64
-            os: macos-13
-            artifact_name: qa-macos-amd64.tar.gz
-            executable_name: qa
-            pyinstaller_arch: x86_64
           - id: macos-arm64
             os: macos-latest
             artifact_name: qa-macos-arm64.tar.gz
@@ -110,7 +105,6 @@ jobs:
           files: |
             dist/qa-linux-amd64.tar.gz
             dist/qa-linux-arm64.tar.gz
-            dist/qa-macos-amd64.tar.gz
             dist/qa-macos-arm64.tar.gz
             dist/qa-windows-amd64.zip
             dist/checksums.txt
