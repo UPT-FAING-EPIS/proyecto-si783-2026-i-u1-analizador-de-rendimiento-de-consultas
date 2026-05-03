@@ -80,11 +80,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $version = $env:GITHUB_REF_NAME.TrimStart('v')
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          New-Item -ItemType Directory -Path "package/qa-$version/bin" -Force | Out-Null
-          Copy-Item "dist/qa.exe" "package/qa-$version/bin/qa.exe"
-          Compress-Archive -Path "package/qa-$version" -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
+          New-Item -ItemType Directory -Path "package/qa-windows-amd64/bin" -Force | Out-Null
+          Copy-Item "dist/qa.exe" "package/qa-windows-amd64/bin/qa.exe"
+          Compress-Archive -Path "package/qa-windows-amd64" -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
 
       - name: Upload packaged binary
         uses: actions/upload-artifact@v4

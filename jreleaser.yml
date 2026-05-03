@@ -65,7 +65,7 @@ packagers:
       active: ALWAYS
       owner: andre-carbajal
       name: scoop-bucket
-      branch: main
+      branch: master
       username: andre-carbajal
       token: '{{ env.SCOOP_BUCKET_TOKEN }}'
   snap:
