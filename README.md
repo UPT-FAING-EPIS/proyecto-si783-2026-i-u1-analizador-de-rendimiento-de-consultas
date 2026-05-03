@@ -78,8 +78,8 @@ En cada tag `v*` se publican estos artefactos:
 
 ```bash
 tar -xzf qa-linux-amd64.tar.gz
-chmod +x bin/qa
-sudo mv bin/qa /usr/local/bin/qa
+chmod +x qa
+sudo mv qa /usr/local/bin/qa
 qa --help
 ```
 
@@ -89,8 +89,8 @@ Para ARM64, reemplaza el archivo por `qa-linux-arm64.tar.gz`.
 
 ```bash
 unzip qa-macos-arm64.zip
-chmod +x bin/qa
-sudo mv bin/qa /usr/local/bin/qa
+chmod +x qa
+sudo mv qa /usr/local/bin/qa
 qa --help
 ```
 
