@@ -184,7 +184,20 @@ jobs:
         run: |
           brew tap andre-carbajal/homebrew-tap
           brew install qa
-          "$(brew --prefix)/bin/qa" --version
+          qa_prefix="$(brew --prefix qa)"
+          ls -la "$qa_prefix" || true
+          ls -la "$qa_prefix/libexec" || true
+          ls -la "$qa_prefix/libexec/bin" || true
+          if [ -x "$qa_prefix/libexec/bin/qa" ]; then
+            "$qa_prefix/libexec/bin/qa" --version
+          elif command -v qa >/dev/null 2>&1; then
+            qa --version
+          elif [ -x "$(brew --prefix)/bin/qa" ]; then
+            "$(brew --prefix)/bin/qa" --version
+          else
+            echo "qa binary not found after brew install" >&2
+            exit 1
+          fi
 
       - name: Smoke test scoop (Windows)
         if: matrix.manager == 'scoop'
@@ -197,4 +210,5 @@ jobs:
           scoop bucket add andre https://github.com/andre-carbajal/scoop-bucket
           scoop install qa
           $env:PATH = "$HOME\scoop\shims;$env:PATH"
+          scoop which qa
           qa --version
