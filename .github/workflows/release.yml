@@ -80,9 +80,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          Copy-Item "dist/qa.exe" "qa.exe"
-          Compress-Archive -Path "qa.exe" -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
+          New-Item -ItemType Directory -Path "package/qa-$version/bin" -Force | Out-Null
+          Copy-Item "dist/qa.exe" "package/qa-$version/bin/qa.exe"
+          Compress-Archive -Path "package/qa-$version" -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
 
       - name: Upload packaged binary
         uses: actions/upload-artifact@v4
@@ -115,7 +117,7 @@ jobs:
 
       - name: Verify packaged artifacts layout
         run: |
-          python -c "import zipfile, tarfile; norm=lambda s:s.lstrip('./'); t=tarfile.open('dist/qa-linux-amd64.tar.gz','r:gz'); n=[norm(x) for x in t.getnames()]; t.close(); assert 'bin/qa' in n, f'bin/qa missing in linux tar: {n}'; z=zipfile.ZipFile('dist/qa-macos-arm64.zip','r'); n=[norm(x) for x in z.namelist()]; z.close(); assert 'bin/qa' in n, f'bin/qa missing in mac zip: {n}'; z=zipfile.ZipFile('dist/qa-windows-amd64.zip','r'); n=[norm(x) for x in z.namelist()]; z.close(); assert 'qa.exe' in n, f'qa.exe missing in windows zip: {n}'"
+          python -c "import zipfile, tarfile; norm=lambda s:s.lstrip('./'); t=tarfile.open('dist/qa-linux-amd64.tar.gz','r:gz'); n=[norm(x) for x in t.getnames()]; t.close(); assert 'bin/qa' in n, f'bin/qa missing in linux tar: {n}'; z=zipfile.ZipFile('dist/qa-macos-arm64.zip','r'); n=[norm(x) for x in z.namelist()]; z.close(); assert 'bin/qa' in n, f'bin/qa missing in mac zip: {n}'; z=zipfile.ZipFile('dist/qa-windows-amd64.zip','r'); n=[norm(x) for x in z.namelist()]; z.close(); assert any(x.endswith('bin/qa.exe') for x in n), f'bin/qa.exe missing in windows zip: {n}'"
 
       - name: Setup Java for JReleaser
         uses: actions/setup-java@v4
