@@ -54,7 +54,7 @@ packagers:
       active: ALWAYS
       owner: andre-carbajal
       name: homebrew-tap
-      branch: main
+      branch: master
       username: andre-carbajal
       token: '{{ env.HOMEBREW_TAP_TOKEN }}'
   scoop:
