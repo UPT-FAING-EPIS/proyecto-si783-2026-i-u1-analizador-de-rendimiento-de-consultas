@@ -69,7 +69,6 @@ jobs:
           uv run mypy query_analyzer
 
       - name: Run integration tests with coverage
-        if: always()
         run: |
           uv run pytest tests/integration/ -v --tb=short --color=yes --cov=query_analyzer --cov-report=xml --cov-report=term
 
