@@ -105,7 +105,7 @@ qa --help
 PowerShell (ejecucion directa):
 
 ```powershell
-.\qa-2.1.0\bin\qa.exe --help
+.\qa-2.2.0\bin\qa.exe --help
 ```
 
 ### Opcion C: Ejecutar desde codigo fuente
@@ -150,7 +150,7 @@ uv run query_analyzer --help
 
 ## API REST
 
-La versión `2.1.0` incluye una API FastAPI para exponer los mismos adaptadores y
+La versión `2.2.0` incluye una API FastAPI para exponer los mismos adaptadores y
 reportes factuales usados por la CLI y la TUI.
 
 ```bash
@@ -203,7 +203,7 @@ Configuración ejemplo para clientes MCP por stdio:
 La tool disponible es `analyze_query(query, profile)`. Si `profile` se omite,
 se usa el perfil por defecto configurado en Query Analyzer.
 
-## AI Integration (v2.1.0+)
+## AI Integration (v2.2.0+)
 
 Query Analyzer now supports **optional AI-powered analysis** via pluggable LLM providers.
 

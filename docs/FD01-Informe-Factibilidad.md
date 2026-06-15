@@ -3,7 +3,7 @@
 ## Identificación
 
 - Proyecto: Query Analyzer
-- Versión documentada: 2.1.0
+- Versión documentada: 2.2.0
 - Plataforma: Python 3.14+
 - Interfaces: CLI, TUI y API REST local
 

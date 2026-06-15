@@ -1,6 +1,6 @@
 # API REST
 
-Query Analyzer `2.1.0` expone una API FastAPI sobre los adaptadores existentes.
+Query Analyzer `2.2.0` expone una API FastAPI sobre los adaptadores existentes.
 La API devuelve planes, métricas y datos observados por el motor. No calcula
 scores ni clasifica automáticamente la calidad de una consulta.
 
