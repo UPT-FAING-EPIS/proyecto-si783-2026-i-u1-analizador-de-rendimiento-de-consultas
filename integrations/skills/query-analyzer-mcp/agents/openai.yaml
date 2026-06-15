@@ -1,0 +1,4 @@
+interface:
+  display_name: "Query Analyzer MCP"
+  short_description: "Use Query Analyzer through MCP"
+  default_prompt: "Use $query-analyzer-mcp to configure and call the Query Analyzer MCP server for a selected SQL query."
