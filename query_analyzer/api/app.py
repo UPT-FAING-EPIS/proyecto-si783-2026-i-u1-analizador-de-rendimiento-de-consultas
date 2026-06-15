@@ -1,5 +1,7 @@
 """FastAPI application for Query Analyzer."""
 
+import os
+
 import uvicorn
 from fastapi import FastAPI
 
@@ -16,7 +18,9 @@ app.include_router(router, prefix="/api/v1")
 
 def main() -> None:
     """Run the API server on the local development address."""
-    uvicorn.run("query_analyzer.api.app:app", host="127.0.0.1", port=8001)
+    host = os.environ.get("QA_API_HOST", "127.0.0.1")
+    port = int(os.environ.get("QA_API_PORT", "8000"))
+    uvicorn.run("query_analyzer.api.app:app", host=host, port=port)
 
 
 if __name__ == "__main__":

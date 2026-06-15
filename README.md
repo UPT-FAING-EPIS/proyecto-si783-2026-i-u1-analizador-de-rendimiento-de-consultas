@@ -158,21 +158,50 @@ uv sync
 uv run qa-api
 ```
 
-El servidor escucha por defecto en `http://127.0.0.1:8001`.
+El servidor escucha por defecto en `http://127.0.0.1:8000`. Puedes cambiar host
+y puerto con `QA_API_HOST` y `QA_API_PORT`; por ejemplo,
+`$env:QA_API_PORT="8001"; uv run qa-api`.
 
-- Swagger UI: `http://127.0.0.1:8001/docs`
-- OpenAPI: `http://127.0.0.1:8001/openapi.json`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- OpenAPI: `http://127.0.0.1:8000/openapi.json`
 - Base de endpoints: `/api/v1/analyzer`
 
 Ejemplo con SQLite:
 
 ```bash
-curl -X POST http://127.0.0.1:8001/api/v1/analyzer/explain \
+curl -X POST http://127.0.0.1:8000/api/v1/analyzer/explain \
   -H "Content-Type: application/json" \
   -d '{"connection":{"engine":"sqlite","database":":memory:"},"query":"SELECT 1"}'
 ```
 
 Consulta [docs/API.md](docs/API.md) para los contratos y endpoints disponibles.
+
+## Servidor MCP
+
+Query Analyzer expone una herramienta MCP para agentes de programación. El
+servidor usa los perfiles locales de `qa profile` y ejecuta el análisis contra
+el core del proyecto, sin requerir que la API FastAPI esté encendida.
+
+```bash
+uv sync
+uv run python -m query_analyzer.mcp_server
+```
+
+Configuración ejemplo para clientes MCP por stdio:
+
+```json
+{
+  "mcpServers": {
+    "query_analyzer": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "query_analyzer.mcp_server"]
+    }
+  }
+}
+```
+
+La tool disponible es `analyze_query(query, profile)`. Si `profile` se omite,
+se usa el perfil por defecto configurado en Query Analyzer.
 
 ## AI Integration (v2.1.0+)
 

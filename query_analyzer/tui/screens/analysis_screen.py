@@ -11,7 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Static, TabbedContent, TabPane
 
 from query_analyzer.adapters import QueryAnalysisError
-from query_analyzer.adapters.models import QueryAnalysisReport
+from query_analyzer.adapters.models import AIAnalysisResult, QueryAnalysisReport
 from query_analyzer.cli.commands.analyze import validate_query
 from query_analyzer.tui.connection_state import ConnectionManager
 from query_analyzer.tui.history_manager import AnalysisRecord, get_history_manager
@@ -447,34 +447,7 @@ class AnalysisScreen(Screen[None]):
 
             report = adapter.execute_explain(query_text)
 
-            # AI Analysis integration
-            ai_error = None
-            try:
-                from query_analyzer.core.ai_analyzer import AIAnalyzer
-
-                ai_analyzer = AIAnalyzer()
-                if ai_analyzer.available:
-                    ai_result = ai_analyzer.analyze(
-                        plan_json=report.raw_plan or report.plan_summary or "No plan available",
-                        query=report.query,
-                        engine=report.engine,
-                    )
-                    if ai_result:
-                        from query_analyzer.adapters.models import (
-                            AIAnalysisResult as ModelAIAnalysisResult,
-                        )
-
-                        report.ai_analysis = ModelAIAnalysisResult(
-                            summary=ai_result.summary,
-                            observations=ai_result.observations,
-                            recommendations=ai_result.recommendations,
-                            suggested_query=ai_result.suggested_query,
-                            raw_response=ai_result.raw_response,
-                        )
-            except Exception as e:
-                ai_error = str(e)
-
-            self.app.call_from_thread(self._on_analysis_success, query_text, report, ai_error)
+            self.app.call_from_thread(self._on_analysis_success, query_text, report, None)
         except Exception as error:
             self.app.call_from_thread(self._on_analysis_error, str(error))
 
@@ -505,6 +478,66 @@ class AnalysisScreen(Screen[None]):
         self.query_one(QueryEditor).set_busy(False)
         self.query_one("#btn-analyze", Button).disabled = False
         self._set_status(f"[green]✓ Análisis completado ({report.execution_time_ms:.2f}ms)[/green]")
+        self._start_ai_analysis(report)
+
+    def _start_ai_analysis(self, report: QueryAnalysisReport) -> None:
+        """Start AI analysis after factual results are already visible."""
+        try:
+            from query_analyzer.core.ai_analyzer import AIAnalyzer
+
+            if not AIAnalyzer().available:
+                self.query_one(AIInsightsPanel).render_ai_analysis(None, None)
+                return
+        except Exception:
+            self.query_one(AIInsightsPanel).render_ai_analysis(None, None)
+            return
+
+        self.query_one(AIInsightsPanel).set_loading_state()
+        try:
+            self.run_ai_analysis_worker(report)
+        except Exception:
+            self.query_one(AIInsightsPanel).render_ai_analysis(None, None)
+
+    @work(thread=True)
+    def run_ai_analysis_worker(self, report: QueryAnalysisReport) -> None:
+        """Run optional AI analysis without blocking factual EXPLAIN results."""
+        try:
+            from query_analyzer.core.ai_analyzer import AIAnalyzer
+
+            ai_result = AIAnalyzer().analyze(
+                plan_json=report.raw_plan or report.plan_summary or "No plan available",
+                query=report.query,
+                engine=report.engine,
+            )
+
+            if ai_result is None:
+                self.app.call_from_thread(self._on_ai_analysis_complete, report, None, None)
+                return
+
+            model_result = AIAnalysisResult(
+                summary=ai_result.summary,
+                observations=ai_result.observations,
+                recommendations=ai_result.recommendations,
+                suggested_query=ai_result.suggested_query,
+                raw_response=ai_result.raw_response,
+            )
+            self.app.call_from_thread(self._on_ai_analysis_complete, report, model_result, None)
+        except Exception as error:
+            self.app.call_from_thread(self._on_ai_analysis_complete, report, None, str(error))
+
+    def _on_ai_analysis_complete(
+        self,
+        report: QueryAnalysisReport,
+        ai_analysis: AIAnalysisResult | None,
+        ai_error: str | None,
+    ) -> None:
+        """Render AI results only if they belong to the active report."""
+        if self._current_report is not report:
+            return
+
+        report.ai_analysis = ai_analysis
+        self._current_ai_error = ai_error
+        self.query_one(AIInsightsPanel).render_ai_analysis(ai_analysis, ai_error)
 
     def _on_analysis_error(self, error_message: str) -> None:
         """Handle analysis error.

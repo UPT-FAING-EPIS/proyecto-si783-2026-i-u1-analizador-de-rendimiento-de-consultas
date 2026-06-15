@@ -301,9 +301,7 @@ def test_socket_timeout_is_classified_as_timeout() -> None:
 def test_adapter_disconnects_when_connect_raises(mock_registry: MagicMock) -> None:
     """Verifica que se llame a disconnect cuando connect lanza una excepción."""
     config = ConnectionConfig(
-        engine="postgresql",
-        host="localhost",
-        port=5432,
+        engine="sqlite",
         database="mydb",
     )
 

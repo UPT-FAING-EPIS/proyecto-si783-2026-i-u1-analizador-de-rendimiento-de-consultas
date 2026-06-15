@@ -26,6 +26,10 @@ class AnalyzeRequest(BaseModel):
 
     connection: ConnectionRequest
     query: str = Field(..., description="Consulta SQL/NoSQL a analizar")
+    include_ai: bool = Field(
+        default=False,
+        description="Ejecutar análisis de IA en la misma respuesta. Por defecto es falso para no bloquear el EXPLAIN factual.",
+    )
 
 
 class AIConfigRequest(BaseModel):
@@ -42,7 +46,7 @@ class AIAnalyzeRequest(BaseModel):
     plan_json: Any = Field(..., description="Plan de ejecución (dict o string)")
     query: str = Field(..., description="Consulta original")
     engine: str = Field(..., description="Motor de BD")
-    ai_config: AIConfigRequest
+    ai_config: AIConfigRequest | None = None
 
 
 class MetricsRequest(BaseModel):

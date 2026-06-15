@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from query_analyzer.adapters import AdapterRegistry
-from query_analyzer.adapters.models import ConnectionConfig
+from query_analyzer.adapters.models import AIAnalysisResult, ConnectionConfig, QueryAnalysisReport
 from query_analyzer.core import AIAnalyzer
 from query_analyzer.core.connection_diagnostics import ConnectionDiagnosticsService
 
@@ -61,6 +61,34 @@ def _log_api_error(
     logger.error("API operation %s failed: %s", operation, detail)
 
 
+def _run_optional_ai_analysis(report: QueryAnalysisReport) -> AIAnalysisResult | None:
+    """Run configured AI analysis without making factual EXPLAIN depend on it."""
+    try:
+        analyzer = AIAnalyzer()
+        if not analyzer.available:
+            return None
+
+        result = analyzer.analyze(
+            plan_json=report.raw_plan or report.plan_summary or "No plan available",
+            query=report.query,
+            engine=report.engine,
+        )
+
+        if result is None:
+            return None
+
+        return AIAnalysisResult(
+            summary=result.summary,
+            observations=result.observations,
+            recommendations=result.recommendations,
+            suggested_query=result.suggested_query,
+            raw_response=result.raw_response,
+        )
+    except Exception as error:
+        _log_api_error("explain-ai", error)
+        return None
+
+
 @router.get("/engines")
 def list_engines() -> dict[str, list[str]]:
     """Lista todos los motores de BD soportados."""
@@ -77,6 +105,9 @@ def analyze_query(req: AnalyzeRequest) -> AnalyzeResponse:
 
         with adapter:
             report = adapter.execute_explain(req.query)
+
+        if req.include_ai:
+            report.ai_analysis = _run_optional_ai_analysis(report)
 
         return AnalyzeResponse(
             success=True,
@@ -104,10 +135,15 @@ def analyze_query(req: AnalyzeRequest) -> AnalyzeResponse:
 def ai_analyze(req: AIAnalyzeRequest) -> AIAnalyzeResponse:
     """Analiza un plan EXPLAIN usando IA."""
     try:
-        analyzer = AIAnalyzer(
-            base_url=req.ai_config.base_url,
-            api_key=req.ai_config.api_key.get_secret_value(),
-            model=req.ai_config.model,
+        api_key = req.ai_config.api_key.get_secret_value() if req.ai_config else ""
+        analyzer = (
+            AIAnalyzer(
+                base_url=req.ai_config.base_url,
+                api_key=api_key,
+                model=req.ai_config.model,
+            )
+            if req.ai_config
+            else AIAnalyzer()
         )
 
         if not analyzer.available:
@@ -126,7 +162,8 @@ def ai_analyze(req: AIAnalyzeRequest) -> AIAnalyzeResponse:
             suggested_query=result.suggested_query,
         )
     except Exception as error:
-        _log_api_error("ai", error, secrets=(req.ai_config.api_key.get_secret_value(),))
+        secrets = (req.ai_config.api_key.get_secret_value(),) if req.ai_config else ()
+        _log_api_error("ai", error, secrets=secrets)
         return AIAnalyzeResponse(success=False, error="No se pudo completar el análisis con IA.")
 
 

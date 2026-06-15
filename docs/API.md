@@ -13,9 +13,13 @@ uv run qa-api
 
 Direcciones locales:
 
-- API: `http://127.0.0.1:8001/api/v1`
-- Swagger UI: `http://127.0.0.1:8001/docs`
-- OpenAPI: `http://127.0.0.1:8001/openapi.json`
+- API: `http://127.0.0.1:8000/api/v1`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- OpenAPI: `http://127.0.0.1:8000/openapi.json`
+
+El host y puerto se pueden configurar con `QA_API_HOST` y `QA_API_PORT`. Por
+compatibilidad local, `QA_API_PORT=8001` conserva la dirección usada en versiones
+anteriores.
 
 ## Endpoints
 
@@ -50,7 +54,7 @@ no devuelven excepciones de drivers ni valores de conexión.
 ## EXPLAIN
 
 ```bash
-curl -X POST http://127.0.0.1:8001/api/v1/analyzer/explain \
+curl -X POST http://127.0.0.1:8000/api/v1/analyzer/explain \
   -H "Content-Type: application/json" \
   -d '{"connection":{"engine":"sqlite","database":":memory:"},"query":"SELECT 1"}'
 ```
