@@ -29,6 +29,8 @@ MANIFEST
 # UV - Modern Python Package Manager
 # ==========================================
 .venv/
+node_modules/
+integrations/vscode-query-analyzer/out/
 .env
 .env.local
 .env.*.local
@@ -37,6 +39,8 @@ MANIFEST
 # IDE & Editors
 # ==========================================
 .vscode/
+!integrations/vscode-query-analyzer/.vscode/
+!integrations/vscode-query-analyzer/.vscode/launch.json
 .idea/
 *.swp
 *.swo

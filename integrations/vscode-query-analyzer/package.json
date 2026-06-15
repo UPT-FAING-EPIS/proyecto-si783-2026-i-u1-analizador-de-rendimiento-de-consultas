@@ -1,0 +1,72 @@
+{
+  "name": "vscode-query-analyzer",
+  "displayName": "Query Analyzer",
+  "description": "Analyze selected SQL with the local Query Analyzer API.",
+  "version": "0.1.0",
+  "publisher": "query-analyzer",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:query-analyzer.analyze"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "query-analyzer.analyze",
+        "title": "Analizar Rendimiento",
+        "category": "Query Analyzer"
+      }
+    ],
+    "configuration": {
+      "title": "Query Analyzer",
+      "properties": {
+        "queryAnalyzer.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Base URL for the local Query Analyzer API."
+        },
+        "queryAnalyzer.connection": {
+          "type": "object",
+          "default": {
+            "engine": "sqlite",
+            "database": ":memory:"
+          },
+          "description": "Legacy fallback connection payload. Prefer queryAnalyzer.profiles for new setups."
+        },
+        "queryAnalyzer.profiles": {
+          "type": "object",
+          "default": {},
+          "description": "Named connection profiles sent to /api/v1/analyzer/explain. Passwords created through the extension are stored in VS Code SecretStorage."
+        },
+        "queryAnalyzer.defaultProfile": {
+          "type": "string",
+          "default": "",
+          "description": "Default Query Analyzer profile name."
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "query-analyzer.analyze",
+          "when": "editorHasSelection",
+          "group": "navigation@20"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "test": "npm run compile && node --test out/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.7.2"
+  }
+}
