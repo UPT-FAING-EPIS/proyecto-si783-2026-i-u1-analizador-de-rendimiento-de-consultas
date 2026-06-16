@@ -26,3 +26,11 @@ def test_main_uses_api_host_and_port_from_environment(monkeypatch) -> None:
         api_app.main()
 
     run.assert_called_once_with("query_analyzer.api.app:app", host="0.0.0.0", port=8001)
+
+
+def test_run_server_uses_explicit_host_and_port() -> None:
+    """Shared API runner accepts the address provided by CLI callers."""
+    with patch("query_analyzer.api.app.uvicorn.run") as run:
+        api_app.run_server(host="127.0.0.1", port=8765)
+
+    run.assert_called_once_with("query_analyzer.api.app:app", host="127.0.0.1", port=8765)

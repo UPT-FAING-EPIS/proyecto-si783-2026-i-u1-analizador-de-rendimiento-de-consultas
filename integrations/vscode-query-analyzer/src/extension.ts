@@ -16,10 +16,15 @@ import {
   profilesFromConfig,
   upsertProfile
 } from "./profiles";
+import { resolveApiUrl, ServerManager } from "./serverManager";
 
 const PASSWORD_PREFIX = "queryAnalyzer.profilePassword.";
+let serverManager: ServerManager | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
+  const output = vscode.window.createOutputChannel("Query Analyzer");
+  serverManager = new ServerManager(context.extensionPath, output);
+
   const disposable = vscode.commands.registerCommand("query-analyzer.analyze", async () => {
     const editor = vscode.window.activeTextEditor;
     const selectedText = editor?.document.getText(editor.selection).trim();
@@ -30,7 +35,6 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     const config = vscode.workspace.getConfiguration("queryAnalyzer");
-    const apiUrl = config.get<string>("apiUrl", "http://localhost:8000");
     const profile = await selectProfile(config, context);
 
     if (!profile) {
@@ -50,6 +54,7 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     try {
+      const apiUrl = await resolveApiUrl(config, serverManager!);
       const result = await postAnalyze(
         apiUrl,
         buildAnalyzePayload(selectedText, profile.connection)
@@ -63,15 +68,18 @@ export function activate(context: vscode.ExtensionContext): void {
       const message = error instanceof Error ? error.message : String(error);
       panel.webview.html = renderAnalysisHtml({
         success: false,
-        error: `Could not reach Query Analyzer API at ${apiUrl}: ${message}`
+        error: `Could not start or reach Query Analyzer API: ${message}`
       });
+      output.show(true);
     }
   });
 
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(disposable, output, { dispose: () => serverManager?.dispose() });
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  serverManager?.dispose();
+}
 
 async function renderAiAnalysisWhenReady(
   panel: vscode.WebviewPanel,

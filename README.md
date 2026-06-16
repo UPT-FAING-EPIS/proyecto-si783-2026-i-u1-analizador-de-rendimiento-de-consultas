@@ -135,6 +135,8 @@ El pipeline de release publica automaticamente en estos canales:
 - Homebrew Tap: `andre-carbajal/tap`
 - Scoop Bucket: `andre` (`https://github.com/andre-carbajal/scoop-bucket`)
 - Snapcraft: paquete `qa`
+- Visual Studio Marketplace: extension `Query Analyzer`
+- GitHub Releases: VSIX por plataforma para instalacion manual
 
 ## Uso rapido
 
@@ -156,6 +158,12 @@ reportes factuales usados por la CLI y la TUI.
 ```bash
 uv sync
 uv run qa-api
+```
+
+Tambien puedes levantar la API desde el binario distribuido:
+
+```bash
+qa api
 ```
 
 El servidor escucha por defecto en `http://127.0.0.1:8000`. Puedes cambiar host
@@ -328,8 +336,10 @@ make down
 El workflow `.github/workflows/release.yml` se ejecuta automaticamente cuando haces push de un tag `v*`.
 
 - Construye binarios por plataforma con PyInstaller.
+- Construye VSIX por plataforma con el binario `qa` embebido.
 - Publica artefactos de release.
 - Publica y actualiza package managers via JReleaser.
+- Publica la extension en Visual Studio Marketplace si el secret `VSCE_PAT` esta configurado.
 
 Comandos de instalacion por canal:
 
@@ -349,6 +359,16 @@ sudo snap install qa
 scoop bucket add andre https://github.com/andre-carbajal/scoop-bucket.git
 scoop install qa
 ```
+
+Instalacion manual de la extension VS Code desde GitHub Releases:
+
+```bash
+code --install-extension query-analyzer-linux-x64.vsix
+```
+
+Descarga el VSIX que corresponde a tu plataforma: `linux-x64`, `darwin-arm64`
+o `win32-x64`. Al instalarlo, la extension arranca el backend local incluido en
+segundo plano; no necesitas ejecutar `uv run qa-api`.
 
 ## Para desarrolladores
 

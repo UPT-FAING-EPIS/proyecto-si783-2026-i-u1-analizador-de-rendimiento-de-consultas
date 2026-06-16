@@ -52,6 +52,17 @@ def analyze_command(
     analyze.analyze(query, profile, Path(file) if file else None, output, timeout, verbose)
 
 
+@app.command(name="api", help="Levantar la API REST local")
+def api_command(
+    host: str = typer.Option("127.0.0.1", "--host", help="Host where the API will listen"),
+    port: int = typer.Option(8000, "--port", help="Port where the API will listen"),
+) -> None:
+    """Run the Query Analyzer REST API from the bundled CLI executable."""
+    from query_analyzer.api.app import run_server
+
+    run_server(host=host, port=port)
+
+
 def main() -> None:
     r"""Punto de entrada principal para el CLI de Query Analyzer.
 

@@ -11,6 +11,12 @@ uv sync
 uv run qa-api
 ```
 
+Con el binario distribuido tambien puedes usar:
+
+```bash
+qa api
+```
+
 Direcciones locales:
 
 - API: `http://127.0.0.1:8000/api/v1`

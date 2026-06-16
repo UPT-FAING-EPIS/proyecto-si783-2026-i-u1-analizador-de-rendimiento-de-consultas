@@ -1,9 +1,15 @@
 {
   "name": "vscode-query-analyzer",
   "displayName": "Query Analyzer",
-  "description": "Analyze selected SQL with the local Query Analyzer API.",
+  "description": "Analyze selected SQL with a bundled Query Analyzer API.",
   "version": "0.1.0",
-  "publisher": "query-analyzer",
+  "publisher": "andre-carbajal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UPT-FAING-EPIS/proyecto-si783-2026-i-u1-analizador-de-rendimiento-de-consultas.git",
+    "directory": "integrations/vscode-query-analyzer"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -25,10 +31,19 @@
     "configuration": {
       "title": "Query Analyzer",
       "properties": {
+        "queryAnalyzer.apiMode": {
+          "type": "string",
+          "enum": [
+            "managed",
+            "external"
+          ],
+          "default": "managed",
+          "description": "Use the bundled Query Analyzer API process, or connect to an external API URL."
+        },
         "queryAnalyzer.apiUrl": {
           "type": "string",
           "default": "http://localhost:8000",
-          "description": "Base URL for the local Query Analyzer API."
+          "description": "Base URL for an external Query Analyzer API. Used only when queryAnalyzer.apiMode is external."
         },
         "queryAnalyzer.connection": {
           "type": "object",
@@ -62,11 +77,13 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "test": "npm run compile && node --test out/test/*.test.js"
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.7.0",
     "typescript": "^5.7.2"
   }
 }

@@ -56,6 +56,8 @@ jobs:
           --onefile
           --name qa
           --collect-submodules textual.widgets
+          --collect-submodules query_analyzer.api
+          --collect-submodules uvicorn
           query_analyzer/__main__.py
 
       - name: Package executable (Linux/macOS)
@@ -150,3 +152,106 @@ jobs:
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
+
+  build-vscode-extension:
+    name: Build VS Code extension (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    needs:
+      - build-binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            binary_artifact: linux-amd64
+            archive_name: qa-linux-amd64.tar.gz
+            package_dir: qa-linux-amd64
+            executable_name: qa
+          - target: darwin-arm64
+            binary_artifact: macos-arm64
+            archive_name: qa-macos-arm64.zip
+            package_dir: qa-macos-arm64
+            executable_name: qa
+          - target: win32-x64
+            binary_artifact: windows-amd64
+            archive_name: qa-windows-amd64.zip
+            package_dir: qa-windows-amd64
+            executable_name: qa.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download executable artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.binary_artifact }}
+          path: release-binary
+
+      - name: Prepare bundled executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p integrations/vscode-query-analyzer/bin extracted
+          if [[ "${{ matrix.archive_name }}" == *.tar.gz ]]; then
+            tar -xzf "release-binary/${{ matrix.archive_name }}" -C extracted
+          else
+            unzip -q "release-binary/${{ matrix.archive_name }}" -d extracted
+          fi
+          cp "extracted/${{ matrix.package_dir }}/bin/${{ matrix.executable_name }}" \
+            "integrations/vscode-query-analyzer/bin/${{ matrix.executable_name }}"
+          chmod +x "integrations/vscode-query-analyzer/bin/${{ matrix.executable_name }}" || true
+
+      - name: Build VSIX
+        working-directory: integrations/vscode-query-analyzer
+        run: |
+          npm ci
+          npm test
+          npx @vscode/vsce package \
+            --target ${{ matrix.target }} \
+            --out ../../dist/query-analyzer-${{ matrix.target }}.vsix
+
+      - name: Generate VSIX checksum
+        run: |
+          cd dist
+          sha256sum query-analyzer-${{ matrix.target }}.vsix > query-analyzer-${{ matrix.target }}.vsix.sha256
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension-${{ matrix.target }}
+          path: |
+            dist/query-analyzer-${{ matrix.target }}.vsix
+            dist/query-analyzer-${{ matrix.target }}.vsix.sha256
+          if-no-files-found: error
+
+  publish-vscode-extension:
+    name: Publish VS Code extension
+    runs-on: ubuntu-latest
+    needs:
+      - publish-packagers
+      - build-vscode-extension
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download VSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vscode-extension-*
+          path: vscode-assets
+          merge-multiple: true
+
+      - name: Upload VSIX files to GitHub Release
+        run: gh release upload "$GITHUB_REF_NAME" vscode-assets/* --clobber
+
+      - name: Publish VSIX files to Visual Studio Marketplace
+        if: env.VSCE_PAT != ''
+        run: |
+          for package in vscode-assets/*.vsix; do
+            npx @vscode/vsce publish --packagePath "$package" -p "$VSCE_PAT"
+          done
