@@ -105,7 +105,7 @@ qa --help
 PowerShell (ejecucion directa):
 
 ```powershell
-.\qa-2.2.0\bin\qa.exe --help
+.\qa-2.3.0\bin\qa.exe --help
 ```
 
 ### Opcion C: Ejecutar desde codigo fuente
@@ -152,7 +152,7 @@ uv run query_analyzer --help
 
 ## API REST
 
-La versión `2.2.0` incluye una API FastAPI para exponer los mismos adaptadores y
+La versión `2.3.0` incluye una API FastAPI para exponer los mismos adaptadores y
 reportes factuales usados por la CLI y la TUI.
 
 ```bash
